@@ -1,7 +1,8 @@
-import NextAuth from 'next-auth';
-import type { NextAuthOptions } from 'next-auth';
+import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import FacebookProvider from 'next-auth/providers/facebook';
+import { JWT } from 'next-auth/jwt';
+import { Session } from 'next-auth';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,7 +16,7 @@ export const authOptions: NextAuthOptions = {
     // }),
   ],
   callbacks: {
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }: { token: JWT; user?: any }) {
       // Add role to token
       if (user) {
         // Check if user email is in admin list (you can replace with DB check)
@@ -24,7 +25,7 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    async session({ session, token }: any) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       // Add role to session
       session.user.role = token.role as string;
       return session;
