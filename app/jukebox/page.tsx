@@ -32,12 +32,15 @@ export default function JukeboxPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [popularSequences, setPopularSequences] = useState<PopularSequence[]>([]);
   const [currentlyPlaying, setCurrentlyPlaying] = useState<CurrentlyPlaying | null>(null);
+  const [availableSequences, setAvailableSequences] = useState<string[]>([]);
   const [newRequest, setNewRequest] = useState('');
   const [requesterName, setRequesterName] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [loadingSequences, setLoadingSequences] = useState(true);
 
   useEffect(() => {
+    fetchAvailableSequences();
     fetchData();
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
@@ -67,6 +70,60 @@ export default function JukeboxPage() {
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+    }
+  };
+
+  const fetchAvailableSequences = async () => {
+    try {
+      setLoadingSequences(true);
+      
+      // First, get scheduled playlists
+      const scheduleResponse = await fetch('/api/web/schedule');
+      if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
+      const schedule = await scheduleResponse.json();
+      
+      const playlistNames = new Set<string>();
+      schedule.forEach((entry: any) => {
+        if (entry.playlist) {
+          playlistNames.add(entry.playlist);
+        }
+      });
+
+      // Then, get sequences from each scheduled playlist
+      const sequenceSet = new Set<string>();
+      for (const playlistName of playlistNames) {
+        try {
+          const playlistResponse = await fetch(`/api/web/playlist/${encodeURIComponent(playlistName)}`);
+          if (playlistResponse.ok) {
+            const playlist = await playlistResponse.json();
+            // Extract from leadIn
+            if (playlist.leadIn) {
+              playlist.leadIn.forEach((item: any) => {
+                if (item.sequenceName) {
+                  sequenceSet.add(item.sequenceName);
+                }
+              });
+            }
+            // Extract from mainPlaylist
+            if (playlist.mainPlaylist) {
+              playlist.mainPlaylist.forEach((item: any) => {
+                if (item.sequenceName) {
+                  sequenceSet.add(item.sequenceName);
+                }
+              });
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch playlist ${playlistName}:`, err);
+        }
+      }
+
+      setAvailableSequences(Array.from(sequenceSet).sort());
+    } catch (error) {
+      console.error('Error fetching available sequences:', error);
+      setMessage('❌ Failed to load available sequences');
+    } finally {
+      setLoadingSequences(false);
     }
   };
 
@@ -197,7 +254,16 @@ export default function JukeboxPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Request Form */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4">🎯 Request a Sequence</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-semibold">🎯 Request a Sequence</h2>
+              <button
+                onClick={fetchAvailableSequences}
+                disabled={loadingSequences}
+                className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+              >
+                {loadingSequences ? 'Loading...' : '🔄 Refresh'}
+              </button>
+            </div>
             <form onSubmit={handleRequest} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -215,14 +281,30 @@ export default function JukeboxPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Sequence Name *
                 </label>
-                <input
-                  type="text"
-                  value={newRequest}
-                  onChange={(e) => setNewRequest(e.target.value)}
-                  placeholder="Enter sequence name"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                {loadingSequences ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                    <span className="text-gray-500">Loading sequences...</span>
+                  </div>
+                ) : (
+                  <select
+                    value={newRequest}
+                    onChange={(e) => setNewRequest(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select a sequence...</option>
+                    {availableSequences.map((sequence) => (
+                      <option key={sequence} value={sequence}>
+                        {sequence}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {availableSequences.length === 0 && !loadingSequences && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    No sequences available. Make sure playlists are scheduled.
+                  </p>
+                )}
               </div>
               <button
                 type="submit"
@@ -243,7 +325,9 @@ export default function JukeboxPage() {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-2xl font-semibold mb-4">🔥 Popular Sequences</h2>
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {popularSequences.map((seq) => (
+              {popularSequences
+                .filter(seq => availableSequences.includes(seq.sequence_name))
+                .map((seq) => (
                 <div key={seq.sequence_name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <h3 className="font-medium">{seq.sequence_name}</h3>
@@ -262,6 +346,11 @@ export default function JukeboxPage() {
                   </button>
                 </div>
               ))}
+              {popularSequences.filter(seq => availableSequences.includes(seq.sequence_name)).length === 0 && (
+                <p className="text-gray-500 text-center py-4">
+                  No popular sequences available from current schedule.
+                </p>
+              )}
             </div>
           </div>
         </div>
