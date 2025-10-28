@@ -1,6 +1,8 @@
-import NextAuth from 'next-auth';
+import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import FacebookProvider from 'next-auth/providers/facebook';
+import { JWT } from 'next-auth/jwt';
+import { Session } from 'next-auth';
 
 const handler = NextAuth({
   providers: [
@@ -14,7 +16,7 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: any }) {
       // Add role to token
       if (user) {
         // Check if user email is in admin list (you can replace with DB check)
@@ -23,7 +25,7 @@ const handler = NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       // Add role to session
       session.user.role = token.role as string;
       return session;
@@ -34,7 +36,7 @@ const handler = NextAuth({
   },
 });
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -46,7 +48,7 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: any }) {
       // Add role to token
       if (user) {
         // Check if user email is in admin list (you can replace with DB check)
@@ -55,7 +57,7 @@ export const authOptions = {
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       // Add role to session
       session.user.role = token.role as string;
       return session;
