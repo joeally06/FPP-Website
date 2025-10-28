@@ -154,6 +154,7 @@ export default function Home() {
       <nav className="mt-8">
         <a href="/playlists" className="bg-blue-500 text-white px-4 py-2 rounded mr-4">Playlists</a>
         <a href="/sequences" className="bg-blue-500 text-white px-4 py-2 rounded mr-4">Sequences</a>
+        <a href="/jukebox" className="bg-green-500 text-white px-4 py-2 rounded mr-4">🎵 Jukebox</a>
         {isAdmin && (
           <a href="/admin" className="bg-purple-500 text-white px-4 py-2 rounded">Admin Analytics</a>
         )}

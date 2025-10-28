@@ -17,7 +17,31 @@ db.exec(`
   );
 `);
 
-// Prepared statements
+// Create jukebox queue table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS jukebox_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_name TEXT NOT NULL,
+    requester_name TEXT,
+    requester_ip TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'playing', 'completed', 'skipped')),
+    priority INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    played_at DATETIME
+  );
+`);
+
+// Create sequence requests tracking table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sequence_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_name TEXT NOT NULL UNIQUE,
+    total_requests INTEGER DEFAULT 0,
+    last_requested DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Voting prepared statements
 export const insertVote = db.prepare(`
   INSERT OR REPLACE INTO votes (sequence_name, vote_type, user_ip)
   VALUES (?, ?, ?)
@@ -34,6 +58,73 @@ export const getVoteCounts = db.prepare(`
 
 export const getUserVote = db.prepare(`
   SELECT vote_type FROM votes WHERE sequence_name = ? AND user_ip = ?
+`);
+
+// Jukebox prepared statements
+export const addToQueue = db.prepare(`
+  INSERT INTO jukebox_queue (sequence_name, requester_name, requester_ip)
+  VALUES (?, ?, ?)
+`);
+
+export const getQueue = db.prepare(`
+  SELECT * FROM jukebox_queue 
+  WHERE status = 'pending' 
+  ORDER BY priority DESC, created_at ASC
+`);
+
+export const getCurrentlyPlaying = db.prepare(`
+  SELECT * FROM jukebox_queue 
+  WHERE status = 'playing' 
+  ORDER BY played_at DESC 
+  LIMIT 1
+`);
+
+export const updateQueueStatus = db.prepare(`
+  UPDATE jukebox_queue 
+  SET status = ?, played_at = CURRENT_TIMESTAMP 
+  WHERE id = ?
+`);
+
+export const removeFromQueue = db.prepare(`
+  DELETE FROM jukebox_queue WHERE id = ?
+`);
+
+export const getQueuePosition = db.prepare(`
+  SELECT COUNT(*) + 1 as position
+  FROM jukebox_queue 
+  WHERE status = 'pending' 
+  AND (priority > (SELECT priority FROM jukebox_queue WHERE id = ?) 
+       OR (priority = (SELECT priority FROM jukebox_queue WHERE id = ?) 
+           AND created_at < (SELECT created_at FROM jukebox_queue WHERE id = ?)))
+`);
+
+// Sequence requests prepared statements
+export const incrementSequenceRequests = db.prepare(`
+  INSERT INTO sequence_requests (sequence_name, total_requests, last_requested)
+  VALUES (?, 1, CURRENT_TIMESTAMP)
+  ON CONFLICT(sequence_name) DO UPDATE SET
+    total_requests = total_requests + 1,
+    last_requested = CURRENT_TIMESTAMP
+`);
+
+export const getPopularSequences = db.prepare(`
+  SELECT 
+    sr.sequence_name,
+    sr.total_requests,
+    COALESCE(v.upvotes, 0) as upvotes,
+    COALESCE(v.downvotes, 0) as downvotes,
+    (COALESCE(v.upvotes, 0) + sr.total_requests) as popularity_score
+  FROM sequence_requests sr
+  LEFT JOIN (
+    SELECT 
+      sequence_name,
+      SUM(CASE WHEN vote_type = 'up' THEN 1 ELSE 0 END) as upvotes,
+      SUM(CASE WHEN vote_type = 'down' THEN 1 ELSE 0 END) as downvotes
+    FROM votes 
+    GROUP BY sequence_name
+  ) v ON sr.sequence_name = v.sequence_name
+  ORDER BY popularity_score DESC
+  LIMIT ?
 `);
 
 export default db;
