@@ -33,13 +33,15 @@ export default function SignIn() {
           Sign in with your preferred provider to access admin controls.
         </p>
         {providers && Object.values(providers).map((provider: any) => (
-          <button
-            key={provider.name}
-            onClick={() => signIn(provider.id)}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded mb-3 hover:bg-blue-600"
-          >
-            Sign in with {provider.name}
-          </button>
+          provider.id !== 'facebook' && (
+            <button
+              key={provider.name}
+              onClick={() => signIn(provider.id)}
+              className="w-full bg-blue-500 text-white py-2 px-4 rounded mb-3 hover:bg-blue-600"
+            >
+              Sign in with {provider.name}
+            </button>
+          )
         ))}
         <button
           onClick={() => router.push('/')}
