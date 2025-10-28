@@ -27,11 +27,23 @@ interface CurrentlyPlaying {
   played_at: string;
 }
 
+interface SequenceMetadata {
+  sequence_name: string;
+  song_title: string;
+  artist: string;
+  album: string;
+  release_year: number | null;
+  album_cover_url: string | null;
+  spotify_id: string | null;
+  cached: boolean;
+}
+
 export default function JukeboxPage() {
   const { data: session } = useSession();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [popularSequences, setPopularSequences] = useState<PopularSequence[]>([]);
   const [currentlyPlaying, setCurrentlyPlaying] = useState<CurrentlyPlaying | null>(null);
+  const [currentMetadata, setCurrentMetadata] = useState<SequenceMetadata | null>(null);
   const [availableSequences, setAvailableSequences] = useState<string[]>([]);
   const [newRequest, setNewRequest] = useState('');
   const [requesterName, setRequesterName] = useState('');
@@ -221,6 +233,27 @@ export default function JukeboxPage() {
     }
   };
 
+  const fetchMetadata = async (sequenceName: string) => {
+    try {
+      const response = await fetch(`/api/jukebox/metadata?sequence=${encodeURIComponent(sequenceName)}`);
+      if (response.ok) {
+        const metadata = await response.json();
+        setCurrentMetadata(metadata);
+      }
+    } catch (error) {
+      console.error('Error fetching metadata:', error);
+      setCurrentMetadata(null);
+    }
+  };
+
+  useEffect(() => {
+    if (currentlyPlaying?.sequence_name) {
+      fetchMetadata(currentlyPlaying.sequence_name);
+    } else {
+      setCurrentMetadata(null);
+    }
+  }, [currentlyPlaying?.sequence_name]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-6xl mx-auto">
@@ -236,11 +269,41 @@ export default function JukeboxPage() {
           </h2>
           {currentlyPlaying ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="text-xl font-semibold text-green-800">{currentlyPlaying.sequence_name}</h3>
-              <p className="text-green-600">Requested by: {currentlyPlaying.requester_name}</p>
-              <p className="text-sm text-green-500">Started: {new Date(currentlyPlaying.played_at).toLocaleTimeString()}</p>
+              <div className="flex items-start space-x-4">
+                {currentMetadata?.album_cover_url ? (
+                  <img
+                    src={currentMetadata.album_cover_url}
+                    alt={`${currentMetadata.album} cover`}
+                    className="w-24 h-24 rounded-lg object-cover shadow-md"
+                  />
+                ) : (
+                  <div className="w-24 h-24 bg-gray-300 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-500 text-2xl">🎵</span>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-green-800 mb-1">
+                    {currentMetadata?.song_title || currentlyPlaying.sequence_name}
+                  </h3>
+                  {currentMetadata && (
+                    <div className="text-green-700 space-y-1">
+                      <p><strong>Artist:</strong> {currentMetadata.artist}</p>
+                      <p><strong>Album:</strong> {currentMetadata.album}</p>
+                      {currentMetadata.release_year && (
+                        <p><strong>Year:</strong> {currentMetadata.release_year}</p>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-green-600 mt-2">
+                    Requested by: {currentlyPlaying.requester_name}
+                  </p>
+                  <p className="text-sm text-green-500">
+                    Started: {new Date(currentlyPlaying.played_at).toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
               {session?.user?.role === 'admin' && (
-                <div className="mt-2 space-x-2">
+                <div className="mt-4 space-x-2">
                   <button
                     onClick={() => updateStatus(currentlyPlaying.id, 'completed')}
                     className="bg-green-500 text-white px-3 py-1 rounded text-sm"

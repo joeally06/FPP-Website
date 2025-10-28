@@ -50,6 +50,20 @@ db.exec(`
   );
 `);
 
+// Create sequence metadata table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sequence_metadata (
+    sequence_name TEXT PRIMARY KEY,
+    song_title TEXT,
+    artist TEXT,
+    album TEXT,
+    release_year INTEGER,
+    album_cover_url TEXT,
+    spotify_id TEXT,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 // Voting prepared statements
 export const insertVote = db.prepare(`
   INSERT OR REPLACE INTO votes (sequence_name, vote_type, user_ip)
@@ -153,6 +167,28 @@ export const getCachedSequences = db.prepare(`
 
 export const getCacheAge = db.prepare(`
   SELECT MAX(last_updated) as last_updated FROM cached_sequences
+`);
+
+// Sequence metadata prepared statements
+export const getSequenceMetadata = db.prepare(`
+  SELECT * FROM sequence_metadata WHERE sequence_name = ?
+`);
+
+export const upsertSequenceMetadata = db.prepare(`
+  INSERT INTO sequence_metadata (sequence_name, song_title, artist, album, release_year, album_cover_url, spotify_id, last_updated)
+  VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  ON CONFLICT(sequence_name) DO UPDATE SET
+    song_title = excluded.song_title,
+    artist = excluded.artist,
+    album = excluded.album,
+    release_year = excluded.release_year,
+    album_cover_url = excluded.album_cover_url,
+    spotify_id = excluded.spotify_id,
+    last_updated = CURRENT_TIMESTAMP
+`);
+
+export const getAllSequenceMetadata = db.prepare(`
+  SELECT * FROM sequence_metadata ORDER BY last_updated DESC
 `);
 
 export default db;
