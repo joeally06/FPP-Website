@@ -43,7 +43,20 @@ export default function JukeboxPage() {
     fetchAvailableSequences();
     fetchData();
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
+    
+    // Background cache refresh every 10 minutes
+    const cacheRefreshInterval = setInterval(async () => {
+      try {
+        await fetch('/api/jukebox/refresh-cache', { method: 'POST' });
+      } catch (error) {
+        console.error('Background cache refresh failed:', error);
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    return () => {
+      clearInterval(interval);
+      clearInterval(cacheRefreshInterval);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -77,51 +90,50 @@ export default function JukeboxPage() {
     try {
       setLoadingSequences(true);
       
-      // First, get scheduled playlists
-      const scheduleResponse = await fetch('/api/web/schedule');
-      if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
-      const schedule = await scheduleResponse.json();
-      
-      const playlistNames = new Set<string>();
-      schedule.forEach((entry: any) => {
-        if (entry.playlist) {
-          playlistNames.add(entry.playlist);
-        }
-      });
-
-      // Then, get sequences from each scheduled playlist
-      const sequenceSet = new Set<string>();
-      for (const playlistName of playlistNames) {
-        try {
-          const playlistResponse = await fetch(`/api/web/playlist/${encodeURIComponent(playlistName)}`);
-          if (playlistResponse.ok) {
-            const playlist = await playlistResponse.json();
-            // Extract from leadIn
-            if (playlist.leadIn) {
-              playlist.leadIn.forEach((item: any) => {
-                if (item.sequenceName) {
-                  sequenceSet.add(item.sequenceName);
-                }
-              });
-            }
-            // Extract from mainPlaylist
-            if (playlist.mainPlaylist) {
-              playlist.mainPlaylist.forEach((item: any) => {
-                if (item.sequenceName) {
-                  sequenceSet.add(item.sequenceName);
-                }
-              });
-            }
+      // Try to get cached sequences first
+      const cacheResponse = await fetch('/api/jukebox/sequences');
+      if (cacheResponse.ok) {
+        const cacheData = await cacheResponse.json();
+        
+        // Check if cache is recent (within 10 minutes)
+        if (cacheData.lastUpdated) {
+          const cacheAge = Date.now() - new Date(cacheData.lastUpdated).getTime();
+          const tenMinutes = 10 * 60 * 1000;
+          
+          if (cacheAge < tenMinutes && cacheData.sequences.length > 0) {
+            setAvailableSequences(cacheData.sequences);
+            setLoadingSequences(false);
+            return;
           }
-        } catch (err) {
-          console.error(`Failed to fetch playlist ${playlistName}:`, err);
         }
       }
-
-      setAvailableSequences(Array.from(sequenceSet).sort());
+      
+      // If no cache or cache is stale, refresh it
+      await refreshSequenceCache();
     } catch (error) {
       console.error('Error fetching available sequences:', error);
       setMessage('❌ Failed to load available sequences');
+      setLoadingSequences(false);
+    }
+  };
+
+  const refreshSequenceCache = async () => {
+    try {
+      const refreshResponse = await fetch('/api/jukebox/refresh-cache', {
+        method: 'POST'
+      });
+      
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        setAvailableSequences(refreshData.sequences);
+        setMessage(`✅ Cache refreshed with ${refreshData.sequencesCached} sequences`);
+        setTimeout(() => setMessage(''), 3000); // Clear message after 3 seconds
+      } else {
+        throw new Error('Failed to refresh cache');
+      }
+    } catch (error) {
+      console.error('Error refreshing sequence cache:', error);
+      setMessage('❌ Failed to refresh sequence cache');
     } finally {
       setLoadingSequences(false);
     }
@@ -257,7 +269,7 @@ export default function JukeboxPage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold">🎯 Request a Sequence</h2>
               <button
-                onClick={fetchAvailableSequences}
+                onClick={refreshSequenceCache}
                 disabled={loadingSequences}
                 className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 disabled:opacity-50"
               >

@@ -41,6 +41,15 @@ db.exec(`
   );
 `);
 
+// Create cached sequences table for performance
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cached_sequences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_name TEXT NOT NULL UNIQUE,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 // Voting prepared statements
 export const insertVote = db.prepare(`
   INSERT OR REPLACE INTO votes (sequence_name, vote_type, user_ip)
@@ -125,6 +134,25 @@ export const getPopularSequences = db.prepare(`
   ) v ON sr.sequence_name = v.sequence_name
   ORDER BY popularity_score DESC
   LIMIT ?
+`);
+
+// Cached sequences prepared statements
+export const clearCachedSequences = db.prepare(`
+  DELETE FROM cached_sequences
+`);
+
+export const insertCachedSequence = db.prepare(`
+  INSERT INTO cached_sequences (sequence_name, last_updated)
+  VALUES (?, CURRENT_TIMESTAMP)
+`);
+
+export const getCachedSequences = db.prepare(`
+  SELECT sequence_name FROM cached_sequences 
+  ORDER BY sequence_name ASC
+`);
+
+export const getCacheAge = db.prepare(`
+  SELECT MAX(last_updated) as last_updated FROM cached_sequences
 `);
 
 export default db;
