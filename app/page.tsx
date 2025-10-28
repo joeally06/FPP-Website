@@ -1,65 +1,160 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { signIn, signOut } from 'next-auth/react';
+import { getDistanceFromLatLonInMiles } from '../lib/location';
+
+interface Status {
+  status_name: string;
+  current_playlist: { playlist: string; count: string; index: string };
+  current_sequence: string;
+  volume: number;
+  mode_name: string;
+  // Add more fields as needed
+}
 
 export default function Home() {
+  const [status, setStatus] = useState<Status | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { data: session, status: sessionStatus } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
+  const [locationAllowed, setLocationAllowed] = useState<boolean | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // FPP location coordinates
+  const FPP_LAT = 36.47066867976104;
+  const FPP_LON = -89.10852792197582;
+  const ALLOWED_RADIUS_MILES = 2; // 2 mile radius
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const response = await fetch('/api/fppd/status');
+        if (response.ok) {
+          const data = await response.json();
+          setStatus(data);
+        } else {
+          setError('Failed to fetch FPP status');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Check location for standard users (not admins)
+    if (!isAdmin && sessionStatus !== 'loading') {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            const distance = getDistanceFromLatLonInMiles(FPP_LAT, FPP_LON, latitude, longitude);
+            setLocationAllowed(distance <= ALLOWED_RADIUS_MILES);
+            if (distance > ALLOWED_RADIUS_MILES) {
+              setLocationError(`Access restricted. You are ${distance.toFixed(1)} miles away. Must be within ${ALLOWED_RADIUS_MILES} mile(s) of the light show location.`);
+            }
+          },
+          (error) => {
+            setLocationAllowed(false);
+            setLocationError('Location access denied or unavailable. Please enable location services and refresh the page.');
+          }
+        );
+      } else {
+        setLocationAllowed(false);
+        setLocationError('Geolocation is not supported by this browser.');
+      }
+    } else {
+      setLocationAllowed(true); // Admins bypass location check
+    }
+  }, [isAdmin, sessionStatus]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-gray-100 p-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">FPP Light Show Control</h1>
+        <div>
+          {sessionStatus === 'loading' ? (
+            <span>Loading...</span>
+          ) : session ? (
+            <div className="flex items-center space-x-4">
+              <span>Welcome, {session.user.name} ({session.user.role})</span>
+              <button
+                onClick={() => signOut()}
+                className="bg-red-500 text-white px-4 py-2 rounded"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => signIn()}
+              className="bg-blue-500 text-white px-4 py-2 rounded"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              Admin Sign In
+            </button>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold mb-4">Dashboard</h2>
+        {locationError && !isAdmin && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <p>{locationError}</p>
+          </div>
+        )}
+        {error && <p className="text-red-500">Error: {error}</p>}
+        {(locationAllowed || isAdmin) ? (
+          status ? (
+            <div className="space-y-4" suppressHydrationWarning>
+              <p><strong>Status:</strong> {status.status_name}</p>
+              <p><strong>Mode:</strong> {status.mode_name}</p>
+              <p><strong>Current Playlist:</strong> {status.current_playlist.playlist || 'None'}</p>
+              <p><strong>Current Sequence:</strong> {status.current_sequence || 'None'}</p>
+              {isAdmin && (
+                <div>
+                  <label><strong>Volume:</strong> {status.volume}</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={status.volume}
+                    onChange={async (e) => {
+                      const vol = parseInt(e.target.value);
+                      try {
+                        await fetch(`/api/web/system/volume`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ volume: vol })
+                        });
+                        setStatus({ ...status, volume: vol });
+                      } catch (err) {
+                        alert('Failed to set volume');
+                      }
+                    }}
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p>Loading...</p>
+          )
+        ) : locationAllowed === false ? (
+          <p className="text-gray-500">Access restricted due to location.</p>
+        ) : (
+          <p>Checking location...</p>
+        )}
+      </div>
+      <nav className="mt-8">
+        <a href="/playlists" className="bg-blue-500 text-white px-4 py-2 rounded mr-4">Playlists</a>
+        <a href="/sequences" className="bg-blue-500 text-white px-4 py-2 rounded">Sequences</a>
+      </nav>
     </div>
   );
 }
