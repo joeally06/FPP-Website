@@ -9,6 +9,8 @@ export default function Sequences() {
   const [currentSequence, setCurrentSequence] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [voteCounts, setVoteCounts] = useState<Record<string, { upvotes: number; downvotes: number }>>({});
+  const [userVotes, setUserVotes] = useState<Record<string, string | null>>({});
   const { data: session, status: sessionStatus } = useSession();
   const isAdmin = session?.user?.role === 'admin';
   const [locationAllowed, setLocationAllowed] = useState<boolean | null>(null);
@@ -18,6 +20,50 @@ export default function Sequences() {
   const FPP_LAT = 36.47066867976104;
   const FPP_LON = -89.10852792197582;
   const ALLOWED_RADIUS_MILES = 2;
+  const fetchVotes = async () => {
+    try {
+      const response = await fetch('/api/votes');
+      if (response.ok) {
+        const counts = await response.json();
+        setVoteCounts(counts);
+      }
+    } catch (err) {
+      console.error('Failed to fetch votes:', err);
+    }
+  };
+
+  const fetchUserVotes = async () => {
+    try {
+      const userVotesMap: Record<string, string | null> = {};
+      for (const sequence of sequences) {
+        const response = await fetch(`/api/votes?sequence=${encodeURIComponent(sequence)}`);
+        if (response.ok) {
+          const data = await response.json();
+          userVotesMap[sequence] = data.userVote;
+        }
+      }
+      setUserVotes(userVotesMap);
+    } catch (err) {
+      console.error('Failed to fetch user votes:', err);
+    }
+  };
+
+  const handleVote = async (sequenceName: string, voteType: 'up' | 'down') => {
+    try {
+      const response = await fetch('/api/votes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequenceName, voteType })
+      });
+      if (response.ok) {
+        // Refresh votes after voting
+        await fetchVotes();
+        await fetchUserVotes();
+      }
+    } catch (err) {
+      console.error('Failed to vote:', err);
+    }
+  };
 
   const fetchData = async () => {
     setIsRefreshing(true);
@@ -95,6 +141,13 @@ export default function Sequences() {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (sequences.length > 0) {
+      fetchVotes();
+      fetchUserVotes();
+    }
+  }, [sequences]);
 
   useEffect(() => {
     // Check location for standard users (not admins)
@@ -188,18 +241,38 @@ export default function Sequences() {
         {(locationAllowed || isAdmin) ? (
           <>
             <ul className="space-y-2" suppressHydrationWarning>
-              {sequences.map((sequence) => (
-                <li key={sequence} className={`flex justify-between items-center p-2 rounded ${currentSequence === sequence ? 'bg-green-100 border border-green-300' : ''}`}>
-                  <span>{sequence} {currentSequence === sequence && <span className="text-green-600 font-semibold">(Currently Playing)</span>}</span>
-                  <button
-                    onClick={() => startSequence(sequence)}
-                    className="bg-green-500 text-white px-4 py-2 rounded"
-                    disabled={currentSequence === sequence}
-                  >
-                    Start
-                  </button>
-                </li>
-              ))}
+              {sequences.map((sequence) => {
+                const counts = voteCounts[sequence] || { upvotes: 0, downvotes: 0 };
+                const userVote = userVotes[sequence];
+                return (
+                  <li key={sequence} className={`flex justify-between items-center p-2 rounded ${currentSequence === sequence ? 'bg-green-100 border border-green-300' : ''}`}>
+                    <div className="flex-1">
+                      <span>{sequence} {currentSequence === sequence && <span className="text-green-600 font-semibold">(Currently Playing)</span>}</span>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <button
+                          onClick={() => handleVote(sequence, 'up')}
+                          className={`px-2 py-1 rounded text-sm ${userVote === 'up' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+                        >
+                          👍 {counts.upvotes}
+                        </button>
+                        <button
+                          onClick={() => handleVote(sequence, 'down')}
+                          className={`px-2 py-1 rounded text-sm ${userVote === 'down' ? 'bg-red-500 text-white' : 'bg-gray-200'}`}
+                        >
+                          👎 {counts.downvotes}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => startSequence(sequence)}
+                      className="bg-green-500 text-white px-4 py-2 rounded ml-4"
+                      disabled={currentSequence === sequence}
+                    >
+                      Start
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
             <button
               onClick={stopSequence}

@@ -82,6 +82,30 @@ Standard users (non-admins) must be within 1 mile of the FPP location to access 
 
 If location access is denied or the user is too far, a restriction message is displayed.
 
+## Voting System
+
+Users can vote on sequences using thumbs up/down buttons:
+
+- **Storage**: SQLite database (`votes.db`)
+- **Tracking**: Votes by sequence name with user IP for uniqueness
+- **Display**: Vote counts shown next to each sequence
+- **Admin Access**: Admins can view voting analytics
+
+Vote data helps improve future show playlists based on user preferences.
+
+## Admin Features
+
+Admin users (authenticated via OAuth) have access to:
+
+- **Volume Control**: Adjust FPP volume from the dashboard
+- **Analytics Dashboard** (`/admin`): View detailed voting analytics including:
+  - Total sequences and votes
+  - Vote counts per sequence (upvotes/downvotes)
+  - Popularity scores and rankings
+  - Visual progress bars for vote distribution
+
+Admin access requires sign-in with Google or Facebook using emails listed in `ADMIN_EMAILS`.
+
 ## Deployment
 
 For production, build the application:
