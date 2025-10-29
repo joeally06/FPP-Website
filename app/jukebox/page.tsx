@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface QueueItem {
   id: number;
@@ -18,6 +19,11 @@ interface PopularSequence {
   upvotes: number;
   downvotes: number;
   popularity_score: number;
+}
+
+interface VoteCounts {
+  upvotes: number;
+  downvotes: number;
 }
 
 interface CurrentlyPlaying {
@@ -41,6 +47,8 @@ interface SequenceMetadata {
 
 export default function JukeboxPage() {
   const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
+  const router = useRouter();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [popularSequences, setPopularSequences] = useState<PopularSequence[]>([]);
   const [currentlyPlaying, setCurrentlyPlaying] = useState<CurrentlyPlaying | null>(null);
@@ -51,10 +59,13 @@ export default function JukeboxPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [loadingSequences, setLoadingSequences] = useState(true);
+  const [voteCounts, setVoteCounts] = useState<Record<string, VoteCounts>>({});
+  const [userVotes, setUserVotes] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     fetchAvailableSequences();
     fetchData();
+    fetchVotes();
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     
     // Queue processor - check every 10 seconds
@@ -108,6 +119,58 @@ export default function JukeboxPage() {
       console.error('Error fetching data:', error);
     }
   };
+
+  const fetchVotes = async () => {
+    try {
+      const response = await fetch('/api/votes');
+      if (response.ok) {
+        const counts = await response.json();
+        setVoteCounts(counts);
+      }
+    } catch (err) {
+      console.error('Failed to fetch votes:', err);
+    }
+  };
+
+  const fetchUserVotes = async () => {
+    try {
+      const userVotesMap: Record<string, string | null> = {};
+      for (const sequence of availableSequences) {
+        const response = await fetch(`/api/votes?sequence=${encodeURIComponent(sequence)}`);
+        if (response.ok) {
+          const data = await response.json();
+          userVotesMap[sequence] = data.userVote;
+        }
+      }
+      setUserVotes(userVotesMap);
+    } catch (err) {
+      console.error('Failed to fetch user votes:', err);
+    }
+  };
+
+  const handleVote = async (sequenceName: string, voteType: 'up' | 'down') => {
+    try {
+      const response = await fetch('/api/votes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequenceName, voteType })
+      });
+      if (response.ok) {
+        // Refresh votes after voting
+        await fetchVotes();
+        await fetchUserVotes();
+      }
+    } catch (err) {
+      console.error('Failed to vote:', err);
+    }
+  };
+
+  // Fetch user votes when sequences are available
+  useEffect(() => {
+    if (availableSequences.length > 0) {
+      fetchUserVotes();
+    }
+  }, [availableSequences]);
 
   const fetchAvailableSequences = async () => {
     try {
@@ -273,9 +336,34 @@ export default function JukeboxPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">🎵 Light Show Jukebox</h1>
-          <p className="text-gray-600">Request your favorite songs and see what's playing!</p>
+        {/* Header with Admin Login */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="text-center flex-1">
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">🎵 Light Show Jukebox</h1>
+            <p className="text-gray-600">Request your favorite songs and see what's playing!</p>
+          </div>
+          <div className="ml-4">
+            {!session ? (
+              <button
+                onClick={() => signIn()}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition shadow-md"
+              >
+                🔐 Admin Login
+              </button>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <span className="text-gray-700 font-medium">Welcome, {session.user?.name}</span>
+                {isAdmin && (
+                  <button
+                    onClick={() => router.push('/')}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md"
+                  >
+                    📊 Dashboard
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Currently Playing */}
@@ -418,25 +506,39 @@ export default function JukeboxPage() {
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {popularSequences
                 .filter(seq => availableSequences.includes(seq.sequence_name))
-                .map((seq) => (
-                <div key={seq.sequence_name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <h3 className="font-medium">{seq.sequence_name}</h3>
-                    <div className="text-sm text-gray-600 flex space-x-4">
-                      <span>👍 {seq.upvotes}</span>
-                      <span>👎 {seq.downvotes}</span>
-                      <span>🎵 {seq.total_requests} requests</span>
+                .map((seq) => {
+                  const counts = voteCounts[seq.sequence_name] || { upvotes: 0, downvotes: 0 };
+                  const userVote = userVotes[seq.sequence_name];
+                  return (
+                    <div key={seq.sequence_name} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium flex-1">{seq.sequence_name}</h3>
+                        <button
+                          onClick={() => requestPopularSequence(seq.sequence_name)}
+                          disabled={loading}
+                          className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 disabled:opacity-50"
+                        >
+                          Request
+                        </button>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleVote(seq.sequence_name, 'up')}
+                          className={`px-2 py-1 rounded text-sm ${userVote === 'up' ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                        >
+                          👍 {counts.upvotes}
+                        </button>
+                        <button
+                          onClick={() => handleVote(seq.sequence_name, 'down')}
+                          className={`px-2 py-1 rounded text-sm ${userVote === 'down' ? 'bg-red-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                        >
+                          👎 {counts.downvotes}
+                        </button>
+                        <span className="text-sm text-gray-600">🎵 {seq.total_requests} requests</span>
+                      </div>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => requestPopularSequence(seq.sequence_name)}
-                    disabled={loading}
-                    className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 disabled:opacity-50"
-                  >
-                    Request
-                  </button>
-                </div>
-              ))}
+                  );
+                })}
               {popularSequences.filter(seq => availableSequences.includes(seq.sequence_name)).length === 0 && (
                 <p className="text-gray-500 text-center py-4">
                   No popular sequences available from current schedule.
@@ -487,6 +589,44 @@ export default function JukeboxPage() {
             <div className="text-center text-gray-500 py-8">
               <p>No songs in queue. Be the first to request one!</p>
             </div>
+          )}
+        </div>
+
+        {/* All Available Songs with Voting */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h2 className="text-2xl font-semibold mb-4">🎵 All Available Songs - Vote for Your Favorites!</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Help us know what songs you love! Your votes help determine which songs appear in the popular list.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+            {availableSequences.map((sequence) => {
+              const counts = voteCounts[sequence] || { upvotes: 0, downvotes: 0 };
+              const userVote = userVotes[sequence];
+              return (
+                <div key={sequence} className="p-3 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium mb-2 text-sm">{sequence}</h3>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleVote(sequence, 'up')}
+                      className={`flex-1 px-2 py-1 rounded text-sm ${userVote === 'up' ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                    >
+                      👍 {counts.upvotes}
+                    </button>
+                    <button
+                      onClick={() => handleVote(sequence, 'down')}
+                      className={`flex-1 px-2 py-1 rounded text-sm ${userVote === 'down' ? 'bg-red-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                    >
+                      👎 {counts.downvotes}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {availableSequences.length === 0 && !loadingSequences && (
+            <p className="text-gray-500 text-center py-4">
+              No songs available. Try refreshing the sequence cache.
+            </p>
           )}
         </div>
       </div>
