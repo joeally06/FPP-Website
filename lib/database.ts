@@ -37,6 +37,45 @@ db.exec(`
   );
 `);
 
+// Create theme settings table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS theme_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    active_theme_id TEXT NOT NULL DEFAULT 'default',
+    custom_particles TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Insert default theme if not exists
+db.exec(`
+  INSERT OR IGNORE INTO theme_settings (id, active_theme_id) VALUES (1, 'default');
+`);
+
+// Create Santa letters table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS santa_letters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    child_name TEXT NOT NULL,
+    child_age INTEGER,
+    parent_email TEXT NOT NULL,
+    letter_content TEXT NOT NULL,
+    santa_reply TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'sent', 'rejected')),
+    ip_address TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    sent_at DATETIME,
+    admin_notes TEXT
+  );
+`);
+
+// Add custom_particles column if it doesn't exist (for existing databases)
+try {
+  db.exec(`ALTER TABLE theme_settings ADD COLUMN custom_particles TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
 // Add media_name column if it doesn't exist (for existing databases)
 try {
   db.exec(`ALTER TABLE jukebox_queue ADD COLUMN media_name TEXT;`);
@@ -105,6 +144,45 @@ db.exec(`
     album_cover_url TEXT,
     spotify_id TEXT,
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Create visitor tracking table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS visitors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    visitor_hash TEXT NOT NULL UNIQUE,  -- Anonymized hash of IP
+    first_visit DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_visit DATETIME DEFAULT CURRENT_TIMESTAMP,
+    total_visits INTEGER DEFAULT 1,
+    city TEXT,
+    region TEXT,
+    country TEXT
+  );
+`);
+
+// Create session tracking table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    visitor_hash TEXT NOT NULL,
+    session_start DATETIME DEFAULT CURRENT_TIMESTAMP,
+    session_end DATETIME,
+    page_views INTEGER DEFAULT 1,
+    duration_seconds INTEGER,
+    user_agent TEXT,
+    FOREIGN KEY (visitor_hash) REFERENCES visitors(visitor_hash)
+  );
+`);
+
+// Create page view tracking table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS page_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    page_path TEXT NOT NULL,
+    view_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES sessions(id)
   );
 `);
 
@@ -265,6 +343,37 @@ export const upsertSequenceMetadata = db.prepare(`
 
 export const getAllSequenceMetadata = db.prepare(`
   SELECT * FROM sequence_metadata ORDER BY last_updated DESC
+`);
+
+// Theme prepared statements
+export const getActiveTheme = db.prepare(`
+  SELECT active_theme_id, custom_particles FROM theme_settings WHERE id = 1
+`);
+
+export const setActiveTheme = db.prepare(`
+  UPDATE theme_settings SET active_theme_id = ?, custom_particles = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1
+`);
+
+// Santa letters prepared statements
+export const insertSantaLetter = db.prepare(`
+  INSERT INTO santa_letters (child_name, child_age, parent_email, letter_content, ip_address)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+export const getSantaLetter = db.prepare(`
+  SELECT * FROM santa_letters WHERE id = ?
+`);
+
+export const getAllSantaLetters = db.prepare(`
+  SELECT * FROM santa_letters ORDER BY created_at DESC
+`);
+
+export const updateSantaReply = db.prepare(`
+  UPDATE santa_letters SET santa_reply = ?, status = ?, sent_at = CURRENT_TIMESTAMP WHERE id = ?
+`);
+
+export const updateSantaLetterStatus = db.prepare(`
+  UPDATE santa_letters SET status = ?, admin_notes = ? WHERE id = ?
 `);
 
 export default db;

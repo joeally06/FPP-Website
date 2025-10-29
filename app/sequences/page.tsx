@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import AdminLayout from '@/components/AdminLayout';
 
 export default function Sequences() {
   const [sequences, setSequences] = useState<string[]>([]);
   const [currentSequence, setCurrentSequence] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { data: session, status: sessionStatus } = useSession();
+  const [searchTerm, setSearchTerm] = useState('');
+  const { data: session, status: sessionStatus} = useSession();
   const isAdmin = session?.user?.role === 'admin';
   const router = useRouter();
 
@@ -102,13 +104,16 @@ export default function Sequences() {
   // Show loading while checking authentication
   if (sessionStatus === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-xl">Loading...</p>
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl text-white">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // Non-admins will be redirected, but show nothing while redirecting
+  // Non-admins will be redirected
   if (!isAdmin) {
     return null;
   }
@@ -130,7 +135,8 @@ export default function Sequences() {
         data = { Status: response.ok ? 'OK' : 'ERROR' };
       }
       if (data.Status !== 'OK') throw new Error(data.Message || 'Failed to start sequence');
-      alert(`Started sequence: ${name}`);
+      // Show success message instead of alert
+      setTimeout(() => fetchData(), 500);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
@@ -146,66 +152,154 @@ export default function Sequences() {
         data = { Status: response.ok ? 'OK' : 'ERROR' };
       }
       if (data.Status !== 'OK') throw new Error(data.Message || 'Failed to stop sequence');
-      alert('Stopped sequence');
+      setTimeout(() => fetchData(), 500);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
+  const filteredSequences = sequences.filter(seq => 
+    seq.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Sequence Control (Admin)</h1>
-        <div className="flex items-center space-x-4">
-          <span>Welcome, {session?.user.name}</span>
-          <button
-            onClick={() => signOut()}
-            className="bg-red-500 text-white px-4 py-2 rounded"
-          >
-            Sign Out
-          </button>
+    <AdminLayout 
+      title="🎵 Sequence Control" 
+      subtitle="Manage and control your light sequences"
+    >
+      {error && (
+        <div className="mb-6 backdrop-blur-md bg-red-500/20 border border-red-500/50 text-white px-6 py-4 rounded-xl shadow-lg">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="font-semibold">Error</p>
+              <p className="text-sm text-white/80">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Controls Section */}
+      <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20 mb-6">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex-1 w-full md:w-auto">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="🔍 Search sequences..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={fetchData}
+              disabled={isRefreshing}
+              className="backdrop-blur-sm bg-blue-500/80 hover:bg-blue-600 disabled:bg-gray-500/50 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            
+            <button
+              onClick={stopSequence}
+              disabled={!currentSequence}
+              className="backdrop-blur-sm bg-red-500/80 hover:bg-red-600 disabled:bg-gray-500/50 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <span>⏹️</span>
+              Stop Current
+            </button>
+          </div>
         </div>
       </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4">Scheduled Sequences</h2>
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-600">Only sequences used in currently scheduled playlists are shown.</p>
-          <button
-            onClick={fetchData}
-            disabled={isRefreshing}
-            className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
-          >
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
+
+      {/* Currently Playing Banner */}
+      {currentSequence && (
+        <div className="backdrop-blur-md bg-gradient-to-r from-green-500/80 to-emerald-600/80 rounded-xl p-6 shadow-2xl border border-white/20 mb-6 animate-pulse">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+              <span className="text-2xl">▶️</span>
+            </div>
+            <div>
+              <p className="text-sm text-white/80">Now Playing</p>
+              <p className="text-2xl font-bold text-white">{currentSequence}</p>
+            </div>
+          </div>
         </div>
-        {error && <p className="text-red-500">Error: {error}</p>}
-        <ul className="space-y-2" suppressHydrationWarning>
-          {sequences.map((sequence) => (
-            <li key={sequence} className={`flex justify-between items-center p-2 rounded ${currentSequence === sequence ? 'bg-green-100 border border-green-300' : ''}`}>
-              <span>{sequence} {currentSequence === sequence && <span className="text-green-600 font-semibold">(Currently Playing)</span>}</span>
-              <button
-                onClick={() => startSequence(sequence)}
-                className="bg-green-500 text-white px-4 py-2 rounded ml-4"
-                disabled={currentSequence === sequence}
-              >
-                Start
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button
-          onClick={stopSequence}
-          className="bg-red-500 text-white px-4 py-2 rounded mt-4"
-        >
-          Stop Current Sequence
-        </button>
+      )}
+
+      {/* Sequences Grid */}
+      <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+            <span>🎼</span>
+            Available Sequences
+          </h2>
+          <span className="text-white/70 text-sm">
+            {filteredSequences.length} of {sequences.length} sequences
+          </span>
+        </div>
+
+        {filteredSequences.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-white/60 text-lg">
+              {searchTerm ? 'No sequences match your search' : 'No sequences found in scheduled playlists'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredSequences.map((sequence) => {
+              const isPlaying = currentSequence === sequence;
+              return (
+                <div
+                  key={sequence}
+                  className={`
+                    backdrop-blur-sm rounded-lg p-4 border-2 transition-all
+                    ${isPlaying 
+                      ? 'bg-green-500/30 border-green-400 shadow-lg shadow-green-500/50' 
+                      : 'bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/40'
+                    }
+                  `}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className={`
+                      w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+                      ${isPlaying ? 'bg-green-500/50 animate-pulse' : 'bg-white/10'}
+                    `}>
+                      <span className="text-xl">{isPlaying ? '▶️' : '🎵'}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm truncate" title={sequence}>
+                        {sequence}
+                      </p>
+                      {isPlaying && (
+                        <p className="text-green-300 text-xs mt-1 font-semibold">Currently Playing</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => startSequence(sequence)}
+                    disabled={isPlaying}
+                    className={`
+                      w-full py-2 px-4 rounded-lg font-semibold text-sm transition-all
+                      ${isPlaying
+                        ? 'bg-gray-500/50 text-white/50 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl'
+                      }
+                    `}
+                  >
+                    {isPlaying ? '▶️ Playing' : '▶️ Start Sequence'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
-      <nav className="mt-8">
-        <a href="/" className="bg-blue-500 text-white px-4 py-2 rounded mr-4">Dashboard</a>
-        <a href="/playlists" className="bg-blue-500 text-white px-4 py-2 rounded mr-4">Playlists</a>
-        <a href="/jukebox" className="bg-green-500 text-white px-4 py-2 rounded mr-4">🎵 Jukebox (Public)</a>
-        <a href="/admin" className="bg-purple-500 text-white px-4 py-2 rounded">Analytics</a>
-      </nav>
-    </div>
+    </AdminLayout>
   );
 }

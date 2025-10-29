@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useVisitorTracking } from '@/hooks/useVisitorTracking';
+import { useTheme } from '@/lib/themes/theme-context';
+import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
+import LetterToSantaModal from '@/components/LetterToSantaModal';
 
 interface QueueItem {
   id: number;
@@ -46,7 +50,11 @@ interface SequenceMetadata {
 }
 
 export default function JukeboxPage() {
+  // Track visitor engagement
+  useVisitorTracking('/jukebox');
+  
   const { data: session } = useSession();
+  const { theme } = useTheme();
   const isAdmin = session?.user?.role === 'admin';
   const router = useRouter();
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -61,6 +69,8 @@ export default function JukeboxPage() {
   const [loadingSequences, setLoadingSequences] = useState(true);
   const [voteCounts, setVoteCounts] = useState<Record<string, VoteCounts>>({});
   const [userVotes, setUserVotes] = useState<Record<string, string | null>>({});
+  const [showSantaModal, setShowSantaModal] = useState(false);
+  const isChristmasTheme = theme.id === 'christmas';
 
   useEffect(() => {
     fetchAvailableSequences();
@@ -334,19 +344,22 @@ export default function JukeboxPage() {
   }, [currentlyPlaying?.media_name, currentlyPlaying?.sequence_name]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <ThemedJukeboxWrapper>
       <div className="max-w-6xl mx-auto">
         {/* Header with Admin Login */}
         <div className="flex justify-between items-center mb-6">
           <div className="text-center flex-1">
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">🎵 Light Show Jukebox</h1>
-            <p className="text-gray-600">Request your favorite songs and see what's playing!</p>
+            <h1 className="text-4xl font-bold text-white mb-2 themed-font flex items-center justify-center gap-3">
+              <span className="text-5xl">{theme.icons.nowPlaying}</span>
+              Light Show Jukebox
+            </h1>
+            <p className="text-white/80">Request your favorite songs and see what's playing!</p>
           </div>
           <div className="ml-4">
             {!session ? (
               <button
                 onClick={() => signIn()}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition shadow-md"
+                className={`bg-${theme.primaryColor}/80 hover:bg-${theme.primaryColor} text-white px-4 py-2 rounded-lg font-semibold transition shadow-lg backdrop-blur-sm`}
               >
                 🔐 Admin Login
               </button>
@@ -366,31 +379,54 @@ export default function JukeboxPage() {
           </div>
         </div>
 
+        {/* Write to Santa Button (Christmas theme only) */}
+        {isChristmasTheme && (
+          <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mb-6 border ${theme.cardBorder}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-2xl font-bold text-white mb-2 themed-font flex items-center gap-2">
+                  🎅 Write a Letter to Santa! 🎄
+                </h3>
+                <p className="text-white/80 text-sm">
+                  Send your Christmas wishes to the North Pole and receive a magical reply from Santa himself!
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSantaModal(true)}
+                className="bg-gradient-to-r from-red-600 to-green-600 text-white px-8 py-4 rounded-full text-lg font-bold hover:shadow-2xl transform hover:scale-105 transition-all duration-200 shadow-lg"
+              >
+                ✉️ Write to Santa! ✉️
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Currently Playing */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-2xl font-semibold mb-4 flex items-center">
-            🎶 Now Playing
+        <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mb-6 border ${theme.cardBorder}`}>
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2 text-white themed-font">
+            <span className="text-3xl">{theme.icons.nowPlaying}</span>
+            Now Playing
           </h2>
           {currentlyPlaying ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className={`bg-gradient-to-r from-${theme.primaryColor}/20 to-${theme.secondaryColor}/20 border-2 border-${theme.primaryColor}/40 rounded-xl p-4 backdrop-blur-sm`}>
               <div className="flex items-start space-x-4">
                 {currentMetadata?.album_cover_url ? (
                   <img
                     src={currentMetadata.album_cover_url}
                     alt={`${currentMetadata.album} cover`}
-                    className="w-24 h-24 rounded-lg object-cover shadow-md"
+                    className="w-24 h-24 rounded-lg object-cover shadow-md ring-2 ring-white/30"
                   />
                 ) : (
-                  <div className="w-24 h-24 bg-gray-300 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-500 text-2xl">🎵</span>
+                  <div className={`w-24 h-24 bg-${theme.primaryColor}/30 rounded-lg flex items-center justify-center backdrop-blur-sm`}>
+                    <span className="text-white text-3xl">{theme.icons.nowPlaying}</span>
                   </div>
                 )}
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-green-800 mb-1">
+                  <h3 className="text-xl font-semibold text-white mb-1">
                     {currentMetadata?.song_title || currentlyPlaying.media_name || currentlyPlaying.sequence_name}
                   </h3>
                   {currentMetadata && (
-                    <div className="text-green-700 space-y-1">
+                    <div className="text-white/90 space-y-1 text-sm">
                       <p><strong>Artist:</strong> {currentMetadata.artist}</p>
                       <p><strong>Album:</strong> {currentMetadata.album}</p>
                       {currentMetadata.release_year && (
@@ -398,10 +434,11 @@ export default function JukeboxPage() {
                       )}
                     </div>
                   )}
-                  <p className="text-green-600 mt-2">
+                  <p className="text-white/80 mt-2 text-sm">
                     Requested by: {currentlyPlaying.requester_name}
                   </p>
-                  <p className="text-sm text-green-500">
+                  <p className="text-sm text-white/70 flex items-center gap-1">
+                    <span>{theme.icons.time}</span>
                     Started: {new Date(currentlyPlaying.played_at).toLocaleTimeString()}
                   </p>
                 </div>
@@ -410,42 +447,45 @@ export default function JukeboxPage() {
                 <div className="mt-4 space-x-2">
                   <button
                     onClick={() => updateStatus(currentlyPlaying.id, 'completed')}
-                    className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                    className={`bg-green-500/80 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all`}
                   >
-                    Mark Complete
+                    ✓ Mark Complete
                   </button>
                   <button
                     onClick={() => updateStatus(currentlyPlaying.id, 'skipped')}
-                    className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+                    className={`bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all`}
                   >
-                    Skip
+                    ⏭️ Skip
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-gray-500">No sequence currently playing</p>
+            <div className="bg-white/5 border border-white/20 rounded-xl p-4 backdrop-blur-sm">
+              <p className="text-white/60">No sequence currently playing</p>
             </div>
           )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Request Form */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 border ${theme.cardBorder}`}>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold">🎯 Request a Song</h2>
+              <h2 className="text-2xl font-semibold text-white themed-font flex items-center gap-2">
+                <span className="text-3xl">{theme.icons.queue}</span>
+                Request a Song
+              </h2>
               <button
                 onClick={refreshSequenceCache}
                 disabled={loadingSequences}
-                className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loadingSequences ? 'Loading...' : '🔄 Refresh'}
               </button>
             </div>
             <form onSubmit={handleRequest} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/90 mb-2">
                   Your Name (Optional)
                 </label>
                 <input
@@ -453,34 +493,34 @@ export default function JukeboxPage() {
                   value={requesterName}
                   onChange={(e) => setRequesterName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white/90 mb-2">
                   Song Name *
                 </label>
                 {loadingSequences ? (
-                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
-                    <span className="text-gray-500">Loading sequences...</span>
+                  <div className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg backdrop-blur-sm">
+                    <span className="text-white/60">Loading sequences...</span>
                   </div>
                 ) : (
                   <select
                     value={newRequest}
                     onChange={(e) => setNewRequest(e.target.value)}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-sm"
                   >
-                    <option value="">Select a song...</option>
+                    <option value="" className="bg-gray-800">Select a song...</option>
                     {availableSequences.map((sequence) => (
-                      <option key={sequence} value={sequence}>
+                      <option key={sequence} value={sequence} className="bg-gray-800">
                         {sequence}
                       </option>
                     ))}
                   </select>
                 )}
                 {availableSequences.length === 0 && !loadingSequences && (
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-white/60 mt-1">
                     No songs available. Make sure playlists are scheduled in FPP and try refreshing.
                   </p>
                 )}
@@ -488,59 +528,65 @@ export default function JukeboxPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:opacity-50"
+                className={`w-full bg-gradient-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white py-3 px-4 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg backdrop-blur-sm`}
               >
-                {loading ? 'Adding...' : 'Add to Queue'}
+                {loading ? 'Adding...' : '✓ Add to Queue'}
               </button>
             </form>
             {message && (
-              <div className="mt-4 p-3 rounded-md bg-gray-50 border">
-                <p className="text-sm">{message}</p>
+              <div className="mt-4 p-4 rounded-lg bg-white/10 border border-white/20 backdrop-blur-sm">
+                <p className="text-sm text-white">{message}</p>
               </div>
             )}
           </div>
 
           {/* Popular Sequences */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4">🔥 Popular Songs</h2>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 border ${theme.cardBorder}`}>
+            <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
+              <span className="text-3xl">{theme.icons.popular}</span>
+              Popular Songs
+            </h2>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
               {popularSequences
                 .filter(seq => availableSequences.includes(seq.sequence_name))
                 .map((seq) => {
                   const counts = voteCounts[seq.sequence_name] || { upvotes: 0, downvotes: 0 };
                   const userVote = userVotes[seq.sequence_name];
                   return (
-                    <div key={seq.sequence_name} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium flex-1">{seq.sequence_name}</h3>
+                    <div key={seq.sequence_name} className="p-4 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-medium flex-1 text-white">{seq.sequence_name}</h3>
                         <button
                           onClick={() => requestPopularSequence(seq.sequence_name)}
                           disabled={loading}
-                          className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 disabled:opacity-50"
+                          className={`bg-gradient-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md backdrop-blur-sm`}
                         >
-                          Request
+                          + Request
                         </button>
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleVote(seq.sequence_name, 'up')}
-                          className={`px-2 py-1 rounded text-sm ${userVote === 'up' ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${userVote === 'up' ? 'bg-green-500 text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}
                         >
                           👍 {counts.upvotes}
                         </button>
                         <button
                           onClick={() => handleVote(seq.sequence_name, 'down')}
-                          className={`px-2 py-1 rounded text-sm ${userVote === 'down' ? 'bg-red-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${userVote === 'down' ? 'bg-red-500 text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}
                         >
                           👎 {counts.downvotes}
                         </button>
-                        <span className="text-sm text-gray-600">🎵 {seq.total_requests} requests</span>
+                        <span className="text-sm text-white/70 flex items-center gap-1">
+                          <span>{theme.icons.nowPlaying}</span>
+                          {seq.total_requests} requests
+                        </span>
                       </div>
                     </div>
                   );
                 })}
               {popularSequences.filter(seq => availableSequences.includes(seq.sequence_name)).length === 0 && (
-                <p className="text-gray-500 text-center py-4">
+                <p className="text-white/60 text-center py-4">
                   No popular sequences available from current schedule.
                 </p>
               )}
@@ -549,19 +595,23 @@ export default function JukeboxPage() {
         </div>
 
         {/* Queue */}
-        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-          <h2 className="text-2xl font-semibold mb-4">📋 Queue ({queue.length} items)</h2>
+        <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mt-6 border ${theme.cardBorder}`}>
+          <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
+            <span className="text-3xl">{theme.icons.queue}</span>
+            Queue ({queue.length} items)
+          </h2>
           {queue.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {queue.map((item, index) => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={item.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all">
                   <div className="flex items-center space-x-4">
-                    <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-sm font-bold">
+                    <span className={`bg-gradient-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md`}>
                       #{index + 1}
                     </span>
                     <div>
-                      <h3 className="font-medium">{item.sequence_name}</h3>
-                      <p className="text-sm text-gray-600">
+                      <h3 className="font-medium text-white">{item.sequence_name}</h3>
+                      <p className="text-sm text-white/70 flex items-center gap-1">
+                        <span>{theme.icons.time}</span>
                         By: {item.requester_name} • {new Date(item.created_at).toLocaleString()}
                       </p>
                     </div>
@@ -570,15 +620,15 @@ export default function JukeboxPage() {
                     <div className="space-x-2">
                       <button
                         onClick={() => updateStatus(item.id, 'playing')}
-                        className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                        className="bg-blue-500/80 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all"
                       >
-                        Play Now
+                        ▶️ Play Now
                       </button>
                       <button
                         onClick={() => updateStatus(item.id, 'skipped')}
-                        className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+                        className="bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all"
                       >
-                        Remove
+                        ✕ Remove
                       </button>
                     </div>
                   )}
@@ -586,16 +636,19 @@ export default function JukeboxPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-500 py-8">
+            <div className="text-center text-white/60 py-8">
               <p>No songs in queue. Be the first to request one!</p>
             </div>
           )}
         </div>
 
         {/* All Available Songs with Voting */}
-        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-          <h2 className="text-2xl font-semibold mb-4">🎵 All Available Songs - Vote for Your Favorites!</h2>
-          <p className="text-sm text-gray-600 mb-4">
+        <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mt-6 border ${theme.cardBorder}`}>
+          <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
+            <span className="text-3xl">{theme.icons.vote}</span>
+            All Available Songs - Vote for Your Favorites!
+          </h2>
+          <p className="text-sm text-white/80 mb-4">
             Help us know what songs you love! Your votes help determine which songs appear in the popular list.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
@@ -603,18 +656,18 @@ export default function JukeboxPage() {
               const counts = voteCounts[sequence] || { upvotes: 0, downvotes: 0 };
               const userVote = userVotes[sequence];
               return (
-                <div key={sequence} className="p-3 bg-gray-50 rounded-lg">
-                  <h3 className="font-medium mb-2 text-sm">{sequence}</h3>
+                <div key={sequence} className="p-4 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all">
+                  <h3 className="font-medium mb-3 text-sm text-white">{sequence}</h3>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleVote(sequence, 'up')}
-                      className={`flex-1 px-2 py-1 rounded text-sm ${userVote === 'up' ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${userVote === 'up' ? 'bg-green-500 text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}
                     >
                       👍 {counts.upvotes}
                     </button>
                     <button
                       onClick={() => handleVote(sequence, 'down')}
-                      className={`flex-1 px-2 py-1 rounded text-sm ${userVote === 'down' ? 'bg-red-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${userVote === 'down' ? 'bg-red-500 text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}
                     >
                       👎 {counts.downvotes}
                     </button>
@@ -624,12 +677,15 @@ export default function JukeboxPage() {
             })}
           </div>
           {availableSequences.length === 0 && !loadingSequences && (
-            <p className="text-gray-500 text-center py-4">
+            <p className="text-white/60 text-center py-4">
               No songs available. Try refreshing the sequence cache.
             </p>
           )}
         </div>
       </div>
-    </div>
+
+      {/* Letter to Santa Modal */}
+      <LetterToSantaModal isOpen={showSantaModal} onClose={() => setShowSantaModal(false)} />
+    </ThemedJukeboxWrapper>
   );
 }
