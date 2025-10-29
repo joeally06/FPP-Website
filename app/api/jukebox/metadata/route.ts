@@ -61,17 +61,22 @@ function parseSequenceName(sequenceName: string) {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const sequenceName = searchParams.get('sequence');
+  const mediaName = searchParams.get('media');
+  
+  // Use media name if provided, otherwise fall back to sequence name
+  const lookupName = mediaName || sequenceName;
+  const storageKey = sequenceName || mediaName; // Use sequence name as storage key for backward compatibility
 
-  if (!sequenceName) {
-    return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
+  if (!lookupName) {
+    return NextResponse.json({ error: 'Sequence name or media name is required' }, { status: 400 });
   }
 
   try {
     // Check if we already have metadata cached
-    const cached = getSequenceMetadata.get(sequenceName) as any;
+    const cached = getSequenceMetadata.get(storageKey) as any;
     if (cached && cached.song_title) {
       return NextResponse.json({
-        sequence_name: sequenceName,
+        sequence_name: storageKey,
         ...cached
       });
     }
@@ -80,8 +85,8 @@ export async function GET(request: NextRequest) {
     const hasToken = await getSpotifyAccessToken();
     if (!hasToken) {
       return NextResponse.json({
-        sequence_name: sequenceName,
-        song_title: cleanSequenceName(sequenceName),
+        sequence_name: storageKey,
+        song_title: cleanSequenceName(lookupName),
         artist: 'Unknown',
         album: 'Unknown',
         release_year: null,
@@ -92,7 +97,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse sequence name to extract artist and song
-    const { artist, song } = parseSequenceName(sequenceName);
+    const { artist, song } = parseSequenceName(lookupName);
 
     // Search Spotify
     let searchQuery = song;
@@ -109,7 +114,7 @@ export async function GET(request: NextRequest) {
       const albumCover = album.images.length > 0 ? album.images[0].url : null;
 
       const metadata = {
-        sequence_name: sequenceName,
+        sequence_name: storageKey,
         song_title: track.name,
         artist: track.artists.map((a: any) => a.name).join(', '),
         album: album.name,
@@ -121,7 +126,7 @@ export async function GET(request: NextRequest) {
 
       // Cache the metadata
       upsertSequenceMetadata.run(
-        sequenceName,
+        storageKey,
         track.name,
         track.artists.map(a => a.name).join(', '),
         album.name,
@@ -134,8 +139,8 @@ export async function GET(request: NextRequest) {
     } else {
       // No results found, cache empty result to avoid repeated searches
       const fallbackMetadata = {
-        sequence_name: sequenceName,
-        song_title: cleanSequenceName(sequenceName),
+        sequence_name: storageKey,
+        song_title: cleanSequenceName(lookupName),
         artist: artist || 'Unknown',
         album: 'Unknown',
         release_year: null,
@@ -145,7 +150,7 @@ export async function GET(request: NextRequest) {
       };
 
       upsertSequenceMetadata.run(
-        sequenceName,
+        storageKey,
         fallbackMetadata.song_title,
         fallbackMetadata.artist,
         fallbackMetadata.album,
@@ -161,8 +166,8 @@ export async function GET(request: NextRequest) {
 
     // Return fallback metadata
     const fallbackMetadata = {
-      sequence_name: sequenceName,
-      song_title: cleanSequenceName(sequenceName),
+      sequence_name: storageKey,
+      song_title: cleanSequenceName(lookupName),
       artist: 'Unknown',
       album: 'Unknown',
       release_year: null,

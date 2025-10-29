@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addToQueue, getQueue, incrementSequenceRequests } from '@/lib/database';
+import { addToQueue, getQueue, incrementSequenceRequests, getMediaNameForSequence } from '@/lib/database';
 
 export async function GET() {
   try {
@@ -22,8 +22,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
     }
 
+    // Add .fseq extension back to get the full sequence name
+    const fullSequenceName = sequence_name + '.fseq';
+
+    // Look up the media name from FPP playlists
+    let media_name = null;
+    try {
+      // Get scheduled playlists
+      const scheduleResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/schedule`);
+      if (scheduleResponse.ok) {
+        const schedule = await scheduleResponse.json();
+        const playlistNames = new Set<string>();
+        schedule.forEach((entry: any) => {
+          if (entry.playlist) {
+            playlistNames.add(entry.playlist);
+          }
+        });
+
+        // Check each playlist for the sequence
+        for (const playlistName of playlistNames) {
+          try {
+            const playlistResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/playlist/${encodeURIComponent(playlistName)}`);
+            if (playlistResponse.ok) {
+              const playlist = await playlistResponse.json();
+              
+              // Check leadIn
+              if (playlist.leadIn) {
+                const item = playlist.leadIn.find((item: any) => item.sequenceName === fullSequenceName);
+                if (item && item.mediaName) {
+                  media_name = item.mediaName;
+                  break;
+                }
+              }
+              
+              // Check mainPlaylist
+              if (playlist.mainPlaylist) {
+                const item = playlist.mainPlaylist.find((item: any) => item.sequenceName === fullSequenceName);
+                if (item && item.mediaName) {
+                  media_name = item.mediaName;
+                  break;
+                }
+              }
+            }
+          } catch (err) {
+            // Continue checking other playlists
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Could not lookup media name from FPP:', error);
+    }
+
     // Add to jukebox queue
-    const result = addToQueue.run(sequence_name, requester_name || 'Anonymous', requester_ip);
+    const result = addToQueue.run(sequence_name, media_name, requester_name || 'Anonymous', requester_ip);
     
     // Track sequence requests
     incrementSequenceRequests.run(sequence_name);

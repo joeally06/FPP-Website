@@ -127,7 +127,7 @@ export default function Sequences() {
 
   useEffect(() => {
     fetchData();
-    // Auto-refresh current sequence status every 5 seconds
+    // Auto-refresh current sequence status every 2 seconds for real-time updates
     const interval = setInterval(async () => {
       try {
         const statusResponse = await fetch('/api/fppd/status');
@@ -138,7 +138,7 @@ export default function Sequences() {
       } catch (err) {
         console.error('Failed to refresh current sequence:', err);
       }
-    }, 5000);
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 

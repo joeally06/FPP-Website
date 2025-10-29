@@ -22,14 +22,58 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS jukebox_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sequence_name TEXT NOT NULL,
+    media_name TEXT,  -- MP3/media filename for better Spotify matching
     requester_name TEXT,
     requester_ip TEXT NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'playing', 'completed', 'skipped')),
     priority INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    played_at DATETIME
+    played_at DATETIME,
+    original_playlist TEXT,  -- Playlist that was interrupted
+    original_item_index INTEGER,  -- Item index in the interrupted playlist
+    was_resumed BOOLEAN DEFAULT 0,  -- Track if we've already resumed
+    started_at DATETIME,  -- When the sequence started playing
+    duration_ms INTEGER  -- Duration of the sequence in milliseconds
   );
 `);
+
+// Add media_name column if it doesn't exist (for existing databases)
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN media_name TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+// Add new columns for playlist resumption tracking
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN original_playlist TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN original_item_index INTEGER;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN was_resumed BOOLEAN DEFAULT 0;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN started_at DATETIME;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN duration_ms INTEGER;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
 
 // Create sequence requests tracking table
 db.exec(`
@@ -41,11 +85,11 @@ db.exec(`
   );
 `);
 
-// Create cached sequences table for performance
+// Create cached media table for performance (stores sequence names from FPP playlists)
 db.exec(`
   CREATE TABLE IF NOT EXISTS cached_sequences (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sequence_name TEXT NOT NULL UNIQUE,
+    sequence_name TEXT NOT NULL UNIQUE,  -- Now stores sequence names without .fseq extension
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
@@ -85,8 +129,8 @@ export const getUserVote = db.prepare(`
 
 // Jukebox prepared statements
 export const addToQueue = db.prepare(`
-  INSERT INTO jukebox_queue (sequence_name, requester_name, requester_ip)
-  VALUES (?, ?, ?)
+  INSERT INTO jukebox_queue (sequence_name, media_name, requester_name, requester_ip)
+  VALUES (?, ?, ?, ?)
 `);
 
 export const getQueue = db.prepare(`
@@ -105,6 +149,32 @@ export const getCurrentlyPlaying = db.prepare(`
 export const updateQueueStatus = db.prepare(`
   UPDATE jukebox_queue 
   SET status = ?, played_at = CURRENT_TIMESTAMP 
+  WHERE id = ?
+`);
+
+export const storeInterruptedPlaylist = db.prepare(`
+  UPDATE jukebox_queue 
+  SET original_playlist = ?, original_item_index = ? 
+  WHERE id = ?
+`);
+
+export const getInterruptedPlaylistInfo = db.prepare(`
+  SELECT id, sequence_name, original_playlist, original_item_index 
+  FROM jukebox_queue 
+  WHERE status = 'completed' AND was_resumed = 0 AND original_playlist IS NOT NULL
+  ORDER BY played_at DESC
+  LIMIT 1
+`);
+
+export const markPlaylistAsResumed = db.prepare(`
+  UPDATE jukebox_queue 
+  SET was_resumed = 1 
+  WHERE id = ?
+`);
+
+export const updateStartTimeAndDuration = db.prepare(`
+  UPDATE jukebox_queue 
+  SET started_at = CURRENT_TIMESTAMP, duration_ms = ? 
   WHERE id = ?
 `);
 
@@ -150,7 +220,7 @@ export const getPopularSequences = db.prepare(`
   LIMIT ?
 `);
 
-// Cached sequences prepared statements
+// Cached sequences prepared statements (stores sequence names from FPP playlists)
 export const clearCachedSequences = db.prepare(`
   DELETE FROM cached_sequences
 `);
@@ -163,6 +233,12 @@ export const insertCachedSequence = db.prepare(`
 export const getCachedSequences = db.prepare(`
   SELECT sequence_name FROM cached_sequences 
   ORDER BY sequence_name ASC
+`);
+
+export const getMediaNameForSequence = db.prepare(`
+  SELECT sequence_name as media_name FROM cached_sequences 
+  WHERE sequence_name = ? 
+  LIMIT 1
 `);
 
 export const getCacheAge = db.prepare(`

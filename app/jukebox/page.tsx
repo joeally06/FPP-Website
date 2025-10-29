@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 
 interface QueueItem {
   id: number;
-  sequence_name: string;
+  sequence_name: string; // Now contains sequence names without .fseq extension
   requester_name: string;
   status: string;
   created_at: string;
@@ -13,7 +13,7 @@ interface QueueItem {
 }
 
 interface PopularSequence {
-  sequence_name: string;
+  sequence_name: string; // Now contains sequence names without .fseq extension
   total_requests: number;
   upvotes: number;
   downvotes: number;
@@ -22,13 +22,14 @@ interface PopularSequence {
 
 interface CurrentlyPlaying {
   id: number;
-  sequence_name: string;
+  sequence_name: string; // Original sequence name without .fseq extension
+  media_name?: string; // MP3/media filename for Spotify matching
   requester_name: string;
   played_at: string;
 }
 
 interface SequenceMetadata {
-  sequence_name: string;
+  sequence_name: string; // Now contains sequence names without .fseq extension
   song_title: string;
   artist: string;
   album: string;
@@ -56,6 +57,15 @@ export default function JukeboxPage() {
     fetchData();
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     
+    // Queue processor - check every 10 seconds
+    const queueProcessorInterval = setInterval(async () => {
+      try {
+        await fetch('/api/jukebox/process-queue', { method: 'POST' });
+      } catch (error) {
+        console.error('Queue processor failed:', error);
+      }
+    }, 10000); // 10 seconds
+    
     // Background cache refresh every 10 minutes
     const cacheRefreshInterval = setInterval(async () => {
       try {
@@ -67,6 +77,7 @@ export default function JukeboxPage() {
     
     return () => {
       clearInterval(interval);
+      clearInterval(queueProcessorInterval);
       clearInterval(cacheRefreshInterval);
     };
   }, []);
@@ -102,7 +113,7 @@ export default function JukeboxPage() {
     try {
       setLoadingSequences(true);
       
-      // Try to get cached sequences first
+      // Try to get cached media files first
       const cacheResponse = await fetch('/api/jukebox/sequences');
       if (cacheResponse.ok) {
         const cacheData = await cacheResponse.json();
@@ -124,7 +135,7 @@ export default function JukeboxPage() {
       await refreshSequenceCache();
     } catch (error) {
       console.error('Error fetching available sequences:', error);
-      setMessage('❌ Failed to load available sequences');
+      setMessage('❌ Failed to load available songs. Please check FPP connection and try refreshing.');
       setLoadingSequences(false);
     }
   };
@@ -135,17 +146,19 @@ export default function JukeboxPage() {
         method: 'POST'
       });
       
+      const refreshData = await refreshResponse.json();
+      
       if (refreshResponse.ok) {
-        const refreshData = await refreshResponse.json();
         setAvailableSequences(refreshData.sequences);
         setMessage(`✅ Cache refreshed with ${refreshData.sequencesCached} sequences`);
         setTimeout(() => setMessage(''), 3000); // Clear message after 3 seconds
       } else {
-        throw new Error('Failed to refresh cache');
+        // Show specific error message from API
+        setMessage(`❌ ${refreshData.error || 'Failed to refresh sequence cache'}`);
       }
     } catch (error) {
       console.error('Error refreshing sequence cache:', error);
-      setMessage('❌ Failed to refresh sequence cache');
+      setMessage('❌ Network error while refreshing cache. Please check your connection.');
     } finally {
       setLoadingSequences(false);
     }
@@ -173,11 +186,11 @@ export default function JukeboxPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('✅ Sequence added to queue!');
+        setMessage('✅ Song added to queue!');
         setNewRequest('');
         fetchData(); // Refresh the queue
       } else {
-        setMessage(`❌ ${data.error || 'Failed to add sequence'}`);
+        setMessage(`❌ ${data.error || 'Failed to add song'}`);
       }
     } catch (error) {
       setMessage('❌ Error submitting request');
@@ -247,19 +260,22 @@ export default function JukeboxPage() {
   };
 
   useEffect(() => {
-    if (currentlyPlaying?.sequence_name) {
+    if (currentlyPlaying?.media_name) {
+      fetchMetadata(currentlyPlaying.media_name);
+    } else if (currentlyPlaying?.sequence_name) {
+      // Fallback to sequence name if media name not available
       fetchMetadata(currentlyPlaying.sequence_name);
     } else {
       setCurrentMetadata(null);
     }
-  }, [currentlyPlaying?.sequence_name]);
+  }, [currentlyPlaying?.media_name, currentlyPlaying?.sequence_name]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">🎵 Light Show Jukebox</h1>
-          <p className="text-gray-600">Request your favorite sequences and see what's playing!</p>
+          <p className="text-gray-600">Request your favorite songs and see what's playing!</p>
         </div>
 
         {/* Currently Playing */}
@@ -283,7 +299,7 @@ export default function JukeboxPage() {
                 )}
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-green-800 mb-1">
-                    {currentMetadata?.song_title || currentlyPlaying.sequence_name}
+                    {currentMetadata?.song_title || currentlyPlaying.media_name || currentlyPlaying.sequence_name}
                   </h3>
                   {currentMetadata && (
                     <div className="text-green-700 space-y-1">
@@ -302,7 +318,7 @@ export default function JukeboxPage() {
                   </p>
                 </div>
               </div>
-              {session?.user?.role === 'admin' && (
+              {session?.user?.role === 'admin' && currentlyPlaying.id && (
                 <div className="mt-4 space-x-2">
                   <button
                     onClick={() => updateStatus(currentlyPlaying.id, 'completed')}
@@ -330,7 +346,7 @@ export default function JukeboxPage() {
           {/* Request Form */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold">🎯 Request a Sequence</h2>
+              <h2 className="text-2xl font-semibold">🎯 Request a Song</h2>
               <button
                 onClick={refreshSequenceCache}
                 disabled={loadingSequences}
@@ -354,7 +370,7 @@ export default function JukeboxPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sequence Name *
+                  Song Name *
                 </label>
                 {loadingSequences ? (
                   <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
@@ -367,7 +383,7 @@ export default function JukeboxPage() {
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select a sequence...</option>
+                    <option value="">Select a song...</option>
                     {availableSequences.map((sequence) => (
                       <option key={sequence} value={sequence}>
                         {sequence}
@@ -377,7 +393,7 @@ export default function JukeboxPage() {
                 )}
                 {availableSequences.length === 0 && !loadingSequences && (
                   <p className="text-sm text-gray-500 mt-1">
-                    No sequences available. Make sure playlists are scheduled.
+                    No songs available. Make sure playlists are scheduled in FPP and try refreshing.
                   </p>
                 )}
               </div>
@@ -398,7 +414,7 @@ export default function JukeboxPage() {
 
           {/* Popular Sequences */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4">🔥 Popular Sequences</h2>
+            <h2 className="text-2xl font-semibold mb-4">🔥 Popular Songs</h2>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {popularSequences
                 .filter(seq => availableSequences.includes(seq.sequence_name))
@@ -469,7 +485,7 @@ export default function JukeboxPage() {
             </div>
           ) : (
             <div className="text-center text-gray-500 py-8">
-              <p>No sequences in queue. Be the first to request one!</p>
+              <p>No songs in queue. Be the first to request one!</p>
             </div>
           )}
         </div>
