@@ -16,6 +16,7 @@ export default function AdminNavigation() {
     { name: 'Engagement', path: '/engagement', icon: '👥' },
     { name: 'Themes', path: '/theme-settings', icon: '🎨' },
     { name: 'Santa Letters', path: '/santa-letters', icon: '🎅' },
+    { name: 'Device Monitor', path: '/device-status', icon: '📡' },
     { name: 'Jukebox', path: '/jukebox', icon: '🎶', public: true }
   ];
 

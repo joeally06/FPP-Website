@@ -217,6 +217,18 @@ db.exec(`
   );
 `);
 
+// Create device status tracking table for monitoring
+db.exec(`
+  CREATE TABLE IF NOT EXISTS device_status (
+    device_id TEXT PRIMARY KEY,
+    is_online BOOLEAN NOT NULL DEFAULT 0,
+    last_checked DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_seen_online DATETIME,
+    consecutive_failures INTEGER DEFAULT 0,
+    last_notified DATETIME
+  );
+`);
+
 // Voting prepared statements
 export const insertVote = db.prepare(`
   INSERT OR REPLACE INTO votes (sequence_name, vote_type, user_ip)
@@ -456,6 +468,26 @@ export const getQueueStats = db.prepare(`
   FROM santa_letters
   WHERE queue_status IN ('queued', 'processing', 'failed')
   GROUP BY queue_status
+`);
+
+// Device monitoring prepared statements
+export const upsertDeviceStatus = db.prepare(`
+  INSERT INTO device_status (device_id, is_online, last_checked, last_seen_online, consecutive_failures, last_notified)
+  VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?)
+  ON CONFLICT(device_id) DO UPDATE SET
+    is_online = excluded.is_online,
+    last_checked = CURRENT_TIMESTAMP,
+    last_seen_online = excluded.last_seen_online,
+    consecutive_failures = excluded.consecutive_failures,
+    last_notified = excluded.last_notified
+`);
+
+export const getDeviceStatus = db.prepare(`
+  SELECT * FROM device_status WHERE device_id = ?
+`);
+
+export const getAllDeviceStatuses = db.prepare(`
+  SELECT * FROM device_status ORDER BY device_id
 `);
 
 export default db;

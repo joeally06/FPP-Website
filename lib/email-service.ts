@@ -248,3 +248,162 @@ export async function testEmailConnection(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Send device offline alert email
+ */
+export async function sendAlertEmail(deviceName: string, deviceIp: string): Promise<boolean> {
+  try {
+    console.log(`📧 Sending device alert email for ${deviceName} (${deviceIp})`);
+    
+    const nodemailer = await import('nodemailer');
+    const config = getEmailConfig();
+    
+    // Validate configuration
+    if (!config.auth.user || !config.auth.pass) {
+      console.error('❌ Email configuration missing: SMTP_USER and SMTP_PASS required');
+      return false;
+    }
+
+    // Create transporter
+    const transporter = nodemailer.default.createTransport(config);
+
+    // Verify connection
+    await transporter.verify();
+    
+    // Escape HTML in device name and IP
+    const safeName = escapeHtml(deviceName);
+    const safeIp = escapeHtml(deviceIp);
+    
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      border-left: 5px solid #dc3545;
+    }
+    .header {
+      background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+      padding: 30px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 30px;
+    }
+    .alert-box {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 5px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .device-info {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 15px 0;
+      font-family: 'Courier New', monospace;
+    }
+    .device-info strong {
+      color: #dc3545;
+    }
+    .footer {
+      background: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      color: #6c757d;
+      font-size: 12px;
+    }
+    .status-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="status-icon">⚠️</div>
+      <h1>Device Offline Alert</h1>
+    </div>
+    
+    <div class="content">
+      <div class="alert-box">
+        <strong>⚠️ DEVICE OFFLINE</strong>
+        <p>A monitored device has failed its health check and is currently offline.</p>
+      </div>
+      
+      <div class="device-info">
+        <strong>Device Name:</strong> ${safeName}<br>
+        <strong>IP Address:</strong> ${safeIp}<br>
+        <strong>Time:</strong> ${new Date().toLocaleString()}<br>
+        <strong>Status:</strong> <span style="color: #dc3545;">❌ OFFLINE</span>
+      </div>
+      
+      <p style="color: #666; line-height: 1.6;">
+        The device monitoring system has detected that <strong>${safeName}</strong> is not responding to ping requests.
+        Please check the device and network connection.
+      </p>
+      
+      <p style="color: #666; font-size: 14px; margin-top: 20px;">
+        <strong>Troubleshooting Steps:</strong>
+      </p>
+      <ul style="color: #666; line-height: 1.8;">
+        <li>Verify the device is powered on</li>
+        <li>Check network cable connections</li>
+        <li>Verify the device IP address is correct (${safeIp})</li>
+        <li>Check your network switch/router</li>
+        <li>Try accessing the device directly via web browser</li>
+      </ul>
+      
+      <p style="color: #999; font-size: 12px; margin-top: 30px; font-style: italic;">
+        Note: You will receive another alert if the device remains offline for more than 1 hour.
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p>FPP Website Device Monitoring System</p>
+      <p>This is an automated alert from your device health monitoring service.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    // Send email
+    const info = await transporter.sendMail({
+      from: `"Device Monitor" <${config.auth.user}>`,
+      to: config.auth.user, // Send to admin (same as SMTP_USER)
+      subject: `⚠️ Device Offline: ${deviceName} (${deviceIp})`,
+      text: `DEVICE OFFLINE ALERT\n\nDevice Name: ${deviceName}\nIP Address: ${deviceIp}\nTime: ${new Date().toLocaleString()}\n\nThe device is not responding to ping requests. Please check the device and network connection.`,
+      html: htmlContent,
+    });
+
+    console.log('✅ Device alert email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending device alert email:', error);
+    return false;
+  }
+}
