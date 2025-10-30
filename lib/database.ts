@@ -229,6 +229,20 @@ db.exec(`
   );
 `);
 
+// Create devices configuration table for dynamic device management
+db.exec(`
+  CREATE TABLE IF NOT EXISTS devices (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    ip TEXT NOT NULL,
+    enabled BOOLEAN DEFAULT 1,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 // Voting prepared statements
 export const insertVote = db.prepare(`
   INSERT OR REPLACE INTO votes (sequence_name, vote_type, user_ip)
@@ -488,6 +502,34 @@ export const getDeviceStatus = db.prepare(`
 
 export const getAllDeviceStatuses = db.prepare(`
   SELECT * FROM device_status ORDER BY device_id
+`);
+
+// Device management prepared statements
+export const insertDevice = db.prepare(`
+  INSERT INTO devices (id, name, type, ip, enabled, description)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+
+export const updateDevice = db.prepare(`
+  UPDATE devices 
+  SET name = ?, type = ?, ip = ?, enabled = ?, description = ?, updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+export const deleteDevice = db.prepare(`
+  DELETE FROM devices WHERE id = ?
+`);
+
+export const getDeviceById = db.prepare(`
+  SELECT * FROM devices WHERE id = ?
+`);
+
+export const getAllDevices = db.prepare(`
+  SELECT * FROM devices ORDER BY name
+`);
+
+export const getEnabledDevices = db.prepare(`
+  SELECT * FROM devices WHERE enabled = 1 ORDER BY name
 `);
 
 export default db;

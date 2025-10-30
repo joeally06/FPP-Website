@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { DEVICES } from '@/lib/device-config';
-import { getAllDeviceStatuses } from '@/lib/database';
+import { getAllDevices, getAllDeviceStatuses } from '@/lib/database';
 
 export async function GET() {
   try {
+    const devices = getAllDevices.all();
     const statuses = getAllDeviceStatuses.all();
     
     return NextResponse.json({
       success: true,
-      devices: DEVICES,
+      devices,
       statuses,
       timestamp: new Date().toISOString()
     });

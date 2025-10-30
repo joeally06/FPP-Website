@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { DEVICES } from '@/lib/device-config';
-import { upsertDeviceStatus, getDeviceStatus } from '@/lib/database';
+import { getEnabledDevices, upsertDeviceStatus, getDeviceStatus } from '@/lib/database';
 import { sendAlertEmail } from '@/lib/email-service';
 
 const execPromise = promisify(exec);
@@ -20,14 +19,31 @@ async function pingDevice(ip: string): Promise<boolean> {
 
 export async function GET() {
   try {
+    console.log('[Device Monitor] Starting device health check...');
+    
+    // Get enabled devices from database
+    const devices = getEnabledDevices.all() as Array<{
+      id: string;
+      name: string;
+      type: string;
+      ip: string;
+      enabled: number;
+      description: string | null;
+    }>;
+
+    if (devices.length === 0) {
+      console.log('[Device Monitor] No enabled devices to check');
+      return NextResponse.json({
+        success: true,
+        message: 'No enabled devices to check',
+        timestamp: new Date().toISOString(),
+        results: []
+      });
+    }
+
     const results = [];
 
-    for (const device of DEVICES) {
-      if (!device.enabled) {
-        console.log(`[Device Monitor] Skipping disabled device: ${device.name}`);
-        continue;
-      }
-
+    for (const device of devices) {
       console.log(`[Device Monitor] Checking ${device.name} (${device.ip})...`);
       const isOnline = await pingDevice(device.ip);
 
