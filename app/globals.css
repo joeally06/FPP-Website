@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #000000;
 }
 
 @theme inline {
@@ -15,7 +15,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #000000;
   }
 }
 
@@ -23,4 +23,36 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Ensure consistent black text on light backgrounds */
+@layer base {
+  /* Default to black text */
+  p, span, div, label, input, textarea, select, td, th, li {
+    @apply text-black;
+  }
+  
+  /* White text only on dark gradient backgrounds */
+  .bg-gradient-to-br p,
+  .bg-gradient-to-br span,
+  .bg-gradient-to-br div,
+  .bg-gradient-to-br h1,
+  .bg-gradient-to-br h2,
+  .bg-gradient-to-br h3,
+  .bg-gradient-to-br h4,
+  .bg-gradient-to-br label,
+  .bg-gradient-to-br td,
+  .bg-gradient-to-br th,
+  .bg-gradient-to-br li,
+  .bg-gradient-to-br a {
+    @apply text-white;
+  }
+  
+  /* Ensure white text on other dark backgrounds */
+  .bg-purple-900 *,
+  .bg-blue-900 *,
+  .bg-indigo-900 *,
+  .bg-gray-900 * {
+    @apply text-white;
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
+import { formatDateTime } from '@/lib/time-utils';
 
 interface Device {
   id: string;
@@ -292,11 +293,6 @@ export default function DeviceStatusPage() {
     return status.is_online ? 'ONLINE' : 'OFFLINE';
   };
 
-  const formatTimestamp = (timestamp: string | null) => {
-    if (!timestamp) return 'Never';
-    return new Date(timestamp).toLocaleString();
-  };
-
   const totalDevices = devices.length;
   const enabledDevices = devices.filter(d => d.enabled);
   const onlineDevices = enabledDevices.filter(d => statuses[d.id]?.is_online).length;
@@ -478,16 +474,16 @@ export default function DeviceStatusPage() {
                   {status && (
                     <>
                       <div className="text-xs text-white/60 mt-2">
-                        Last Checked: {formatTimestamp(status.last_checked)}
+                        Last Checked: {formatDateTime(status.last_checked, 'relative')}
                       </div>
                       {status.last_seen_online && (
                         <div className="text-xs text-white/60">
-                          Last Online: {formatTimestamp(status.last_seen_online)}
+                          Last Online: {formatDateTime(status.last_seen_online, 'medium')}
                         </div>
                       )}
                       {status.last_notified && (
                         <div className="text-xs text-yellow-300 mt-1">
-                          📧 Alerted: {formatTimestamp(status.last_notified)}
+                          📧 Alerted: {formatDateTime(status.last_notified, 'relative')}
                         </div>
                       )}
                     </>

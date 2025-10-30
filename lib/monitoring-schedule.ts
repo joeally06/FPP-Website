@@ -1,4 +1,6 @@
+import { DateTime } from 'luxon';
 import { getMonitoringSchedule } from './database';
+import { APP_TIMEZONE } from './time-utils';
 
 export interface MonitoringSchedule {
   id: number;
@@ -21,22 +23,24 @@ export function isMonitoringActive(): boolean {
       return true;
     }
 
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
+    // Use app timezone from env or schedule timezone
+    const timezone = schedule.timezone || APP_TIMEZONE;
+    const now = DateTime.now().setZone(timezone);
     
+    // Parse schedule times in the configured timezone
     const [startHour, startMin] = schedule.start_time.split(':').map(Number);
     const [endHour, endMin] = schedule.end_time.split(':').map(Number);
     
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
+    const startTime = now.set({ hour: startHour, minute: startMin, second: 0 });
+    const endTime = now.set({ hour: endHour, minute: endMin, second: 0 });
 
     // Handle overnight schedules (e.g., 22:00 - 02:00)
-    if (endMinutes < startMinutes) {
-      return currentTime >= startMinutes || currentTime <= endMinutes;
+    if (endTime < startTime) {
+      return now >= startTime || now <= endTime;
     }
 
     // Normal schedule (e.g., 16:00 - 22:00)
-    return currentTime >= startMinutes && currentTime <= endMinutes;
+    return now >= startTime && now <= endTime;
   } catch (error) {
     console.error('[Monitoring Schedule] Error checking schedule:', error);
     // On error, default to monitoring active to avoid missing critical alerts
@@ -60,8 +64,17 @@ export function getSchedule(): MonitoringSchedule | null {
  * Format time for display (e.g., "16:00" -> "4:00 PM")
  */
 export function formatTime(time24: string): string {
-  const [hours, minutes] = time24.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hours12 = hours % 12 || 12;
-  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  try {
+    const schedule = getMonitoringSchedule.get() as MonitoringSchedule | undefined;
+    const timezone = schedule?.timezone || APP_TIMEZONE;
+    
+    const [hour, minute] = time24.split(':').map(Number);
+    const dt = DateTime.now()
+      .setZone(timezone)
+      .set({ hour, minute });
+    
+    return dt.toLocaleString(DateTime.TIME_SIMPLE); // "4:00 PM"
+  } catch (error) {
+    return time24;
+  }
 }

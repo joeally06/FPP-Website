@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import TimezoneIndicator from './TimezoneIndicator';
 
 export default function AdminNavigation() {
   const pathname = usePathname();
@@ -12,27 +13,25 @@ export default function AdminNavigation() {
     { name: 'Dashboard', path: '/', icon: '🏠' },
     { name: 'Sequences', path: '/sequences', icon: '🎵' },
     { name: 'Playlists', path: '/playlists', icon: '📋' },
-    { name: 'Analytics', path: '/admin', icon: '📊' },
-    { name: 'Engagement', path: '/engagement', icon: '👥' },
-    { name: 'Themes', path: '/theme-settings', icon: '🎨' },
-    { name: 'Santa Letters', path: '/santa-letters', icon: '🎅' },
-    { name: 'Device Monitor', path: '/device-status', icon: '📡' },
+    { name: 'Metrics', path: '/metrics', icon: '📊' },
+    { name: 'Devices', path: '/device-status', icon: '📡' },
+    { name: 'Settings', path: '/settings', icon: '⚙️' },
     { name: 'Jukebox', path: '/jukebox', icon: '🎶', public: true }
   ];
 
   return (
     <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/10 border-b border-white/20 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo/Brand */}
-          <div className="flex-shrink-0">
-            <h1 className="text-2xl font-bold text-white">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center h-16">
+          {/* Logo/Brand - Far Left */}
+          <div className="flex-shrink-0 mr-8">
+            <h1 className="text-2xl font-bold text-white whitespace-nowrap">
               ✨ FPP Control Center
             </h1>
           </div>
 
-          {/* Navigation Links */}
-          <div className="hidden md:block">
+          {/* Navigation Links - Center/Left */}
+          <div className="hidden md:flex flex-1 items-center">
             <div className="flex items-center space-x-2">
               {navItems.map((item) => {
                 const isActive = pathname === item.path;
@@ -58,8 +57,10 @@ export default function AdminNavigation() {
             </div>
           </div>
 
-          {/* User Menu */}
-          <div className="flex items-center gap-4">
+          {/* User Menu - Far Right */}
+          <div className="flex items-center gap-4 ml-auto">
+            <TimezoneIndicator />
+            
             {session?.user && (
               <div className="hidden md:flex items-center gap-3 bg-white/10 px-4 py-2 rounded-lg">
                 {session.user.image && (
