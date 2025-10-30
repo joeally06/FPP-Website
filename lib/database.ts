@@ -243,6 +243,24 @@ db.exec(`
   );
 `);
 
+// Create monitoring schedule configuration table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS monitoring_schedule (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled BOOLEAN DEFAULT 1,
+    start_time TEXT NOT NULL DEFAULT '16:00',
+    end_time TEXT NOT NULL DEFAULT '22:00',
+    timezone TEXT DEFAULT 'America/Chicago',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Insert default monitoring schedule if not exists
+db.exec(`
+  INSERT OR IGNORE INTO monitoring_schedule (id, enabled, start_time, end_time, timezone)
+  VALUES (1, 1, '16:00', '22:00', 'America/Chicago');
+`);
+
 // Voting prepared statements
 export const insertVote = db.prepare(`
   INSERT OR REPLACE INTO votes (sequence_name, vote_type, user_ip)
@@ -530,6 +548,17 @@ export const getAllDevices = db.prepare(`
 
 export const getEnabledDevices = db.prepare(`
   SELECT * FROM devices WHERE enabled = 1 ORDER BY name
+`);
+
+// Monitoring schedule prepared statements
+export const getMonitoringSchedule = db.prepare(`
+  SELECT * FROM monitoring_schedule WHERE id = 1
+`);
+
+export const updateMonitoringSchedule = db.prepare(`
+  UPDATE monitoring_schedule 
+  SET enabled = ?, start_time = ?, end_time = ?, timezone = ?, updated_at = CURRENT_TIMESTAMP
+  WHERE id = 1
 `);
 
 export default db;

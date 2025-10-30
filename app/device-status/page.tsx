@@ -21,6 +21,15 @@ interface DeviceStatus {
   last_notified: string | null;
 }
 
+interface MonitoringSchedule {
+  id: number;
+  enabled: boolean;
+  start_time: string;
+  end_time: string;
+  timezone: string;
+  updated_at: string;
+}
+
 export default function DeviceStatusPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [statuses, setStatuses] = useState<Record<string, DeviceStatus>>({});
@@ -29,7 +38,15 @@ export default function DeviceStatusPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [schedule, setSchedule] = useState<MonitoringSchedule | null>(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    enabled: true,
+    start_time: '16:00',
+    end_time: '22:00',
+    timezone: 'America/Chicago'
+  });
   const [formData, setFormData] = useState({
     id: '',
     name: '',
@@ -70,6 +87,25 @@ export default function DeviceStatusPage() {
       console.error('Error loading device statuses:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSchedule = async () => {
+    try {
+      const response = await fetch('/api/devices/schedule');
+      const data = await response.json();
+      
+      if (data.success && data.schedule) {
+        setSchedule(data.schedule);
+        setScheduleForm({
+          enabled: data.schedule.enabled,
+          start_time: data.schedule.start_time,
+          end_time: data.schedule.end_time,
+          timezone: data.schedule.timezone
+        });
+      }
+    } catch (error) {
+      console.error('Error loading schedule:', error);
     }
   };
 
@@ -189,8 +225,39 @@ export default function DeviceStatusPage() {
     }
   }
 
+  async function handleUpdateSchedule() {
+    try {
+      const response = await fetch('/api/devices/schedule', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scheduleForm),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Failed to update schedule');
+        return;
+      }
+
+      setShowScheduleModal(false);
+      await loadSchedule();
+    } catch (error) {
+      console.error('Failed to update schedule:', error);
+      alert('Failed to update schedule');
+    }
+  }
+
+  function formatTime12Hour(time24: string): string {
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  }
+
   useEffect(() => {
     loadDeviceStatuses();
+    loadSchedule();
     
     // Auto-refresh every 30 seconds
     const interval = setInterval(loadDeviceStatuses, 30000);
@@ -261,6 +328,12 @@ export default function DeviceStatusPage() {
             </h1>
             <div className="flex gap-3">
               <button
+                onClick={() => setShowScheduleModal(true)}
+                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg font-semibold transition-all hover:from-purple-600 hover:to-pink-700 flex items-center gap-2"
+              >
+                ⏰ Schedule
+              </button>
+              <button
                 onClick={openAddModal}
                 className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg font-semibold transition-all hover:from-blue-600 hover:to-cyan-700 flex items-center gap-2"
               >
@@ -284,9 +357,22 @@ export default function DeviceStatusPage() {
               </button>
             </div>
           </div>
-          <p className="text-white/80">
-            Real-time monitoring of network devices. Auto-refreshes every 30 seconds.
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-white/80">
+              Real-time monitoring of network devices. Auto-refreshes every 30 seconds.
+            </p>
+            {schedule && (
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${schedule.enabled ? 'bg-green-500/20 border border-green-500/30' : 'bg-gray-500/20 border border-gray-500/30'}`}>
+                <span className="text-white/80 text-sm">
+                  {schedule.enabled ? (
+                    <>⏰ Monitoring Hours: {formatTime12Hour(schedule.start_time)} - {formatTime12Hour(schedule.end_time)}</>
+                  ) : (
+                    <>🔕 Schedule Disabled - Monitoring 24/7</>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -673,6 +759,89 @@ export default function DeviceStatusPage() {
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Schedule Configuration Modal */}
+        {showScheduleModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-2xl p-8 max-w-md w-full border-2 border-purple-500/50">
+              <h2 className="text-2xl font-bold text-white mb-4">⏰ Monitoring Schedule</h2>
+              <p className="text-white/80 mb-6">
+                Configure when device monitoring should be active. No alerts will be sent outside these hours.
+              </p>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="flex items-center gap-3 mb-4">
+                    <input
+                      type="checkbox"
+                      checked={scheduleForm.enabled}
+                      onChange={(e) => setScheduleForm({...scheduleForm, enabled: e.target.checked})}
+                      className="w-5 h-5 rounded"
+                    />
+                    <span className="text-white font-medium">Enable Monitoring Schedule</span>
+                  </label>
+                  {!scheduleForm.enabled && (
+                    <p className="text-yellow-300 text-sm ml-8">
+                      ⚠️ Monitoring will be active 24/7 and send alerts at any time
+                    </p>
+                  )}
+                </div>
+
+                {scheduleForm.enabled && (
+                  <>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Start Time (Show Starts)</label>
+                      <input
+                        type="time"
+                        value={scheduleForm.start_time}
+                        onChange={(e) => setScheduleForm({...scheduleForm, start_time: e.target.value})}
+                        className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:border-purple-400"
+                      />
+                      <p className="text-white/50 text-xs mt-1">When to start monitoring devices</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">End Time (Show Ends)</label>
+                      <input
+                        type="time"
+                        value={scheduleForm.end_time}
+                        onChange={(e) => setScheduleForm({...scheduleForm, end_time: e.target.value})}
+                        className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:border-purple-400"
+                      />
+                      <p className="text-white/50 text-xs mt-1">When to stop monitoring devices</p>
+                    </div>
+
+                    <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
+                      <p className="text-blue-200 text-sm">
+                        <strong>ℹ️ Preview:</strong> Monitoring will be active from{' '}
+                        <strong>{formatTime12Hour(scheduleForm.start_time)}</strong> to{' '}
+                        <strong>{formatTime12Hour(scheduleForm.end_time)}</strong> each day.
+                      </p>
+                      <p className="text-blue-200 text-xs mt-2">
+                        No email alerts will be sent when devices are offline outside these hours.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowScheduleModal(false)}
+                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateSchedule}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-lg transition-all"
+                >
+                  Save Schedule
                 </button>
               </div>
             </div>

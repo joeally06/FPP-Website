@@ -3,6 +3,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { getEnabledDevices, upsertDeviceStatus, getDeviceStatus } from '@/lib/database';
 import { sendAlertEmail } from '@/lib/email-service';
+import { isMonitoringActive, getSchedule, formatTime } from '@/lib/monitoring-schedule';
 
 const execPromise = promisify(exec);
 
@@ -19,6 +20,23 @@ async function pingDevice(ip: string): Promise<boolean> {
 
 export async function GET() {
   try {
+    // Check if monitoring is currently active based on schedule
+    if (!isMonitoringActive()) {
+      const schedule = getSchedule();
+      const startTime = schedule ? formatTime(schedule.start_time) : 'N/A';
+      const endTime = schedule ? formatTime(schedule.end_time) : 'N/A';
+      
+      console.log(`[Device Monitor] ⏰ Outside monitoring hours (${startTime} - ${endTime}) - skipping checks`);
+      
+      return NextResponse.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        message: `Monitoring paused - Show hours: ${startTime} - ${endTime}`,
+        monitoringActive: false,
+        results: []
+      });
+    }
+
     console.log('[Device Monitor] Starting device health check...');
     
     // Get enabled devices from database
@@ -37,6 +55,7 @@ export async function GET() {
         success: true,
         message: 'No enabled devices to check',
         timestamp: new Date().toISOString(),
+        monitoringActive: true,
         results: []
       });
     }
@@ -78,16 +97,21 @@ export async function GET() {
         let shouldNotify = false;
         let lastNotified = previousStatus?.last_notified || null;
 
-        if (consecutiveFailures === 1) {
-          // First failure - always notify
-          shouldNotify = true;
-        } else if (previousStatus?.last_notified) {
-          // Subsequent failures - notify only if more than 1 hour since last notification
-          const lastNotifiedTime = new Date(previousStatus.last_notified).getTime();
-          const oneHourAgo = Date.now() - (60 * 60 * 1000);
-          if (lastNotifiedTime < oneHourAgo) {
+        // Only send alerts if monitoring is active (during show hours)
+        if (isMonitoringActive()) {
+          if (consecutiveFailures === 1) {
+            // First failure - always notify
             shouldNotify = true;
+          } else if (previousStatus?.last_notified) {
+            // Subsequent failures - notify only if more than 1 hour since last notification
+            const lastNotifiedTime = new Date(previousStatus.last_notified).getTime();
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+            if (lastNotifiedTime < oneHourAgo) {
+              shouldNotify = true;
+            }
           }
+        } else {
+          console.log(`[Device Monitor] 🔕 Alerts suppressed - outside monitoring hours`);
         }
 
         if (shouldNotify) {
@@ -125,6 +149,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
+      monitoringActive: true,
       results
     });
 
