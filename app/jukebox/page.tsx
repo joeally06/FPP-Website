@@ -347,29 +347,32 @@ export default function JukeboxPage() {
     <ThemedJukeboxWrapper>
       <div className="max-w-6xl mx-auto">
         {/* Header with Admin Login */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="text-center flex-1">
-            <h1 className="text-4xl font-bold text-white mb-2 themed-font flex items-center justify-center gap-3">
-              <span className="text-5xl">{theme.icons.nowPlaying}</span>
-              Light Show Jukebox
+        <div className="mb-6">
+          {/* Title - Full width on mobile */}
+          <div className="text-center mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 themed-font flex items-center justify-center gap-2 md:gap-3">
+              <span className="text-4xl md:text-5xl">{theme.icons.nowPlaying}</span>
+              <span className="break-words">Light Show Jukebox</span>
             </h1>
-            <p className="text-white/80">Request your favorite songs and see what's playing!</p>
+            <p className="text-white/80 text-sm md:text-base px-4">Request your favorite songs and see what's playing!</p>
           </div>
-          <div className="ml-4">
+          
+          {/* Admin Controls - Centered on mobile, right-aligned on desktop */}
+          <div className="flex justify-center lg:justify-end">
             {!session ? (
               <button
                 onClick={() => signIn()}
-                className={`bg-${theme.primaryColor}/80 hover:bg-${theme.primaryColor} text-white px-4 py-2 rounded-lg font-semibold transition shadow-lg backdrop-blur-sm`}
+                className={`bg-${theme.primaryColor}/80 hover:bg-${theme.primaryColor} text-white px-4 py-2 md:px-6 md:py-3 rounded-lg font-semibold transition shadow-lg backdrop-blur-sm text-sm md:text-base`}
               >
                 🔐 Admin Login
               </button>
             ) : (
-              <div className="flex items-center space-x-3">
-                <span className="text-gray-700 font-medium">Welcome, {session.user?.name}</span>
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
+                <span className="text-white font-medium text-sm md:text-base">Welcome, {session.user?.name}</span>
                 {isAdmin && (
                   <button
                     onClick={() => router.push('/')}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md"
+                    className="bg-blue-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md text-sm md:text-base whitespace-nowrap"
                   >
                     📊 Dashboard
                   </button>
