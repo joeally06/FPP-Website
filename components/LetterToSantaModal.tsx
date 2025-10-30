@@ -164,7 +164,7 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
               disabled={isSubmitting}
             />
             <p className="text-sm text-gray-600 mt-1">
-              Santa will send a magical reply to this email! 📧✨
+              Santa will read your letter and send a magical reply to this email! 📧✨
             </p>
           </div>
 
@@ -202,7 +202,7 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Sending to North Pole...
+                  Sending to the North Pole...
                 </span>
               ) : (
                 '🎁 Send to Santa! 🎁'
@@ -212,8 +212,11 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
 
           {/* Footer note */}
           <div className="text-center text-sm text-gray-600 pt-4 border-t-2 border-red-200">
-            <p>
-              🎄 Santa reads every letter! You can send one letter per day. 🎄
+            <p className="mb-1">
+              🎄 Santa reads every letter carefully! You can send one letter per day. 🎄
+            </p>
+            <p className="text-xs">
+              ✉️ Your letter will be delivered to Santa's workshop, and he'll send a personalized reply to your email soon!
             </p>
           </div>
         </form>

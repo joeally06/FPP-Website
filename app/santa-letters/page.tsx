@@ -17,6 +17,11 @@ interface SantaLetter {
   created_at: string;
   sent_at: string | null;
   admin_notes: string | null;
+  queue_status: 'queued' | 'processing' | 'completed' | 'failed';
+  processing_started_at: string | null;
+  processing_completed_at: string | null;
+  retry_count: number;
+  last_error: string | null;
 }
 
 export default function SantaLettersPage() {
@@ -119,6 +124,28 @@ export default function SantaLettersPage() {
     }
   };
 
+  const triggerQueueProcessing = async () => {
+    try {
+      setUpdating(true);
+      const response = await fetch('/api/santa/trigger-queue', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert('Queue processing triggered! Check console for details.');
+        await fetchLetters();
+      } else {
+        alert('Failed to trigger queue processing');
+      }
+    } catch (error) {
+      console.error('Error triggering queue:', error);
+      alert('Failed to trigger queue processing');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const exportToCSV = () => {
     const headers = ['ID', 'Child Name', 'Age', 'Email', 'Status', 'Created', 'Letter Excerpt', 'Reply Excerpt'];
     const rows = filteredLetters.map(letter => [
@@ -155,6 +182,16 @@ export default function SantaLettersPage() {
     return badges[status as keyof typeof badges] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
+  const getQueueBadge = (queueStatus: string) => {
+    const badges = {
+      queued: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      processing: 'bg-blue-100 text-blue-800 border-blue-300 animate-pulse',
+      completed: 'bg-green-100 text-green-800 border-green-300',
+      failed: 'bg-red-100 text-red-800 border-red-300',
+    };
+    return badges[queueStatus as keyof typeof badges] || 'bg-gray-100 text-gray-800 border-gray-300';
+  };
+
   if (status === 'loading' || loading) {
     return (
       <AdminLayout>
@@ -179,7 +216,7 @@ export default function SantaLettersPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-lg border border-yellow-200 shadow-sm">
             <div className="text-sm text-yellow-600 font-semibold">Pending</div>
             <div className="text-2xl font-bold text-yellow-900">
@@ -202,6 +239,12 @@ export default function SantaLettersPage() {
             <div className="text-sm text-red-600 font-semibold">Rejected</div>
             <div className="text-2xl font-bold text-red-900">
               {letters.filter(l => l.status === 'rejected').length}
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200 shadow-sm">
+            <div className="text-sm text-orange-600 font-semibold">In Queue</div>
+            <div className="text-2xl font-bold text-orange-900">
+              {letters.filter(l => l.queue_status === 'queued' || l.queue_status === 'processing').length}
             </div>
           </div>
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200 shadow-sm">
@@ -228,6 +271,13 @@ export default function SantaLettersPage() {
               </select>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={triggerQueueProcessing}
+                disabled={updating}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
+              >
+                ⚡ Process Queue Now
+              </button>
               <button
                 onClick={fetchLetters}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -256,6 +306,7 @@ export default function SantaLettersPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold">Age</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">Email</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">Queue</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">Created</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
                   </tr>
@@ -271,6 +322,18 @@ export default function SantaLettersPage() {
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusBadge(letter.status)}`}>
                           {letter.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getQueueBadge(letter.queue_status)}`}>
+                            {letter.queue_status === 'processing' ? '⚙️ ' : ''}{letter.queue_status}
+                          </span>
+                          {letter.retry_count > 0 && (
+                            <span className="text-xs text-red-600">
+                              Retries: {letter.retry_count}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm">{new Date(letter.created_at).toLocaleString()}</td>
                       <td className="px-4 py-3 text-sm">

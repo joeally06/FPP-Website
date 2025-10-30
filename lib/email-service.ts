@@ -1,5 +1,8 @@
 // Email Service for Santa Letter Replies
 
+import validator from 'validator';
+import { escapeHtml } from './input-sanitization';
+
 interface EmailConfig {
   host: string;
   port: number;
@@ -33,14 +36,20 @@ function getEmailConfig(): EmailConfig {
 
 /**
  * Create festive HTML email template for Santa's reply
+ * ✅ SECURITY: Escapes all dynamic content to prevent XSS
  */
 function createSantaEmailHTML(childName: string, santaReply: string): string {
+  // ✅ SECURITY: Escape HTML in dynamic content
+  const safeName = escapeHtml(childName);
+  const safeReply = escapeHtml(santaReply).replace(/\n/g, '<br>');
+  
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https:; style-src 'unsafe-inline';">
   <style>
     body {
       margin: 0;
@@ -130,12 +139,12 @@ function createSantaEmailHTML(childName: string, santaReply: string): string {
     
     <div class="content">
       <p style="text-align: center; color: #c41e3a; font-size: 18px; margin-bottom: 20px;">
-        <strong>Special Delivery for ${childName}'s Family! 🎄</strong>
+        <strong>Special Delivery for ${safeName}'s Family! 🎄</strong>
       </p>
       
       <div class="divider"></div>
       
-      <div class="letter">${santaReply}</div>
+      <div class="letter">${safeReply}</div>
       
       <div class="divider"></div>
       
@@ -162,10 +171,23 @@ function createSantaEmailHTML(childName: string, santaReply: string): string {
 
 /**
  * Send Santa's reply email to parent
+ * ✅ SECURITY: Validates email address before sending
  */
 export async function sendSantaReply(params: SantaEmailParams): Promise<boolean> {
   try {
     console.log('📧 Email service: Starting to send email to', params.parentEmail);
+    
+    // ✅ SECURITY: Validate email address again before sending
+    if (!validator.isEmail(params.parentEmail)) {
+      console.error('❌ Invalid email address:', params.parentEmail);
+      throw new Error('Invalid email address');
+    }
+    
+    // ✅ SECURITY: Block email header injection
+    if (/[\r\n]/.test(params.parentEmail)) {
+      console.error('❌ Email contains invalid characters');
+      throw new Error('Email contains invalid characters');
+    }
     
     // Dynamic import of nodemailer to avoid bundling issues
     const nodemailer = await import('nodemailer');

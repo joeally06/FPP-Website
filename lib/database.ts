@@ -69,6 +69,37 @@ db.exec(`
   );
 `);
 
+// Add queue fields to santa_letters table if they don't exist (for existing databases)
+try {
+  db.exec(`ALTER TABLE santa_letters ADD COLUMN queue_status TEXT DEFAULT 'queued' CHECK (queue_status IN ('queued', 'processing', 'completed', 'failed'));`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE santa_letters ADD COLUMN processing_started_at DATETIME;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE santa_letters ADD COLUMN processing_completed_at DATETIME;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE santa_letters ADD COLUMN retry_count INTEGER DEFAULT 0;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE santa_letters ADD COLUMN last_error TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
 // Add custom_particles column if it doesn't exist (for existing databases)
 try {
   db.exec(`ALTER TABLE theme_settings ADD COLUMN custom_particles TEXT;`);
@@ -374,6 +405,57 @@ export const updateSantaReply = db.prepare(`
 
 export const updateSantaLetterStatus = db.prepare(`
   UPDATE santa_letters SET status = ?, admin_notes = ? WHERE id = ?
+`);
+
+// Queue management prepared statements
+export const getNextQueuedLetter = db.prepare(`
+  SELECT * FROM santa_letters 
+  WHERE queue_status = 'queued' 
+  ORDER BY created_at ASC 
+  LIMIT 1
+`);
+
+export const markLetterProcessing = db.prepare(`
+  UPDATE santa_letters 
+  SET queue_status = 'processing', 
+      processing_started_at = CURRENT_TIMESTAMP 
+  WHERE id = ?
+`);
+
+export const markLetterCompleted = db.prepare(`
+  UPDATE santa_letters 
+  SET queue_status = 'completed',
+      santa_reply = ?,
+      status = 'sent',
+      processing_completed_at = CURRENT_TIMESTAMP,
+      sent_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+export const markLetterFailed = db.prepare(`
+  UPDATE santa_letters 
+  SET queue_status = 'failed',
+      last_error = ?,
+      retry_count = ?
+  WHERE id = ?
+`);
+
+export const requeueLetter = db.prepare(`
+  UPDATE santa_letters 
+  SET queue_status = 'queued',
+      last_error = ?,
+      retry_count = ?,
+      processing_started_at = NULL
+  WHERE id = ?
+`);
+
+export const getQueueStats = db.prepare(`
+  SELECT 
+    queue_status,
+    COUNT(*) as count
+  FROM santa_letters
+  WHERE queue_status IN ('queued', 'processing', 'failed')
+  GROUP BY queue_status
 `);
 
 export default db;
