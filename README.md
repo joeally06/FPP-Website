@@ -19,39 +19,39 @@ A comprehensive web-based control center for managing Falcon Player (FPP) Christ
 
 Before running the installer, you need to install these system dependencies. **This is a one-time setup** that works for all Node.js projects.
 
-#### ✅ **Install Node.js 18+**
+#### ✅ **Install Node.js 20+**
 
 Node.js is required to run the application. npm (Node Package Manager) is included with Node.js.
 
 **Windows:**
 1. Download the installer from [nodejs.org](https://nodejs.org/)
-2. Run the installer (use the LTS version)
+2. Run the installer (use the LTS version - currently v20.x)
 3. Follow the installation wizard (accept all defaults)
 4. Restart your terminal/PowerShell
 
 **Mac:**
 ```bash
 # Option 1: Using Homebrew (recommended)
-brew install node
+brew install node@20
 
 # Option 2: Download installer from nodejs.org
 ```
 
 **Linux (Ubuntu/Debian):**
 ```bash
-# Install Node.js 18.x LTS
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# Install Node.js 20.x LTS (recommended)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # Verify installation
-node --version  # Should show v18.x.x or higher
-npm --version   # Should show 8.x.x or higher
+node --version  # Should show v20.x.x or higher
+npm --version   # Should show 10.x.x or higher
 ```
 
 **Linux (CentOS/RHEL/Fedora):**
 ```bash
-# Install Node.js 18.x LTS
-curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+# Install Node.js 20.x LTS (recommended)
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
 sudo yum install -y nodejs
 
 # Verify installation
@@ -83,7 +83,10 @@ git --version
 
 **Linux (Ubuntu/Debian):**
 ```bash
+# Update package list
 sudo apt-get update
+
+# Install Git
 sudo apt-get install -y git
 
 # Verify installation
@@ -92,6 +95,7 @@ git --version
 
 **Linux (CentOS/RHEL/Fedora):**
 ```bash
+# Install Git
 sudo yum install -y git
 
 # Verify installation
@@ -103,10 +107,10 @@ git --version
 Before proceeding, verify everything is installed correctly:
 
 ```bash
-# Check Node.js (should be 18.0.0 or higher)
+# Check Node.js (should be 20.0.0 or higher)
 node --version
 
-# Check npm (should be 8.0.0 or higher)
+# Check npm (should be 10.0.0 or higher)
 npm --version
 
 # Check Git (any recent version is fine)
@@ -125,8 +129,8 @@ Once prerequisites are installed, the rest is fully automated!
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/fpp-control-center.git
-cd fpp-control-center
+git clone https://github.com/joeally06/FPP-Website.git
+cd FPP-Website
 
 # Make install script executable
 chmod +x install.sh
@@ -140,8 +144,8 @@ chmod +x install.sh
 ```powershell
 # Open PowerShell (no need for Administrator rights)
 # Clone the repository
-git clone https://github.com/yourusername/fpp-control-center.git
-cd fpp-control-center
+git clone https://github.com/joeally06/FPP-Website.git
+cd FPP-Website
 
 # Run the automated installer
 .\install.ps1
@@ -240,7 +244,7 @@ curl -L https://npmjs.org/install.sh | sh
 2. If still not found, reinstall Git
 3. On Windows, ensure "Add Git to PATH" was selected during installation
 
-### Node.js version too old (< 18)
+### Node.js version too old (< 20)
 
 **Cause:** You have an older version of Node.js installed.
 
@@ -249,7 +253,7 @@ curl -L https://npmjs.org/install.sh | sh
 # Check your version
 node --version
 
-# If less than v18.0.0, update Node.js
+# If less than v20.0.0, update Node.js
 # Windows/Mac: Download latest LTS from nodejs.org
 # Linux: Use NodeSource repository (see installation instructions above)
 ```
@@ -301,8 +305,8 @@ Once you run `install.sh` or `install.ps1`, these packages are installed automat
 
 | Requirement | Check Command | Install Guide |
 |-------------|---------------|---------------|
-| Node.js 18+ | `node --version` | [nodejs.org](https://nodejs.org/) |
-| npm 8+ | `npm --version` | (Included with Node.js) |
+| Node.js 20+ | `node --version` | [nodejs.org](https://nodejs.org/) |
+| npm 10+ | `npm --version` | (Included with Node.js) |
 | Git | `git --version` | [git-scm.com](https://git-scm.com/) |
 
 ### Optional Features
@@ -316,13 +320,13 @@ Once you run `install.sh` or `install.ps1`, these packages are installed automat
 
 ```bash
 # 1. Verify prerequisites
-node --version  # Must be 18+
-npm --version   # Must be 8+
+node --version  # Must be 20+
+npm --version   # Must be 10+
 git --version   # Any version
 
 # 2. Clone and install
-git clone https://github.com/yourusername/fpp-control-center.git
-cd fpp-control-center
+git clone https://github.com/joeally06/FPP-Website.git
+cd FPP-Website
 ./install.sh  # or .\install.ps1 on Windows
 
 # 3. Start server
@@ -664,7 +668,7 @@ bash deploy-production.sh
 ```
 
 **What the deployment script does:**
-1. Validates Node.js version (18+)
+1. Validates Node.js version (20+)
 2. Installs all dependencies (`npm install`)
 3. Builds Next.js application (`npm run build`)
 4. Installs PM2 process manager (if needed)
@@ -935,7 +939,7 @@ npm run build
 ### Server Won't Start
 
 ```bash
-# Check Node.js version (must be 18+)
+# Check Node.js version (must be 20+)
 node --version
 
 # Clean install dependencies

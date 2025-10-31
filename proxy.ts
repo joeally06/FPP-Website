@@ -17,21 +17,50 @@ export async function proxy(request: NextRequest) {
       const referer = request.headers.get('referer');
       const host = request.headers.get('host');
       
-      // Get expected origin from environment or host header
-      const expectedOrigin = process.env.NEXTAUTH_URL || `http://${host}`;
-      
-      // Validate origin or referer matches expected origin
-      const isValidOrigin = origin === expectedOrigin;
-      const isValidReferer = referer?.startsWith(expectedOrigin);
-      
+      // Build allowed origins list
+      const allowedOrigins = [
+        process.env.NEXTAUTH_URL || '',
+        process.env.NEXT_PUBLIC_APP_URL || '',
+      ].filter(Boolean);
+
+      // For development/local network, allow localhost and local IPs
+      if (process.env.NODE_ENV === 'development' || !process.env.NEXTAUTH_URL?.startsWith('https://')) {
+        // Allow localhost variants
+        allowedOrigins.push('http://localhost:3000', 'http://127.0.0.1:3000');
+        
+        // Allow local network IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        if (host) {
+          allowedOrigins.push(`http://${host}`, `https://${host}`);
+          
+          // If host is a local IP, also allow it
+          if (/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(host)) {
+            allowedOrigins.push(`http://${host}`);
+          }
+        }
+        
+        // If origin is a local IP, allow it
+        if (origin && /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|localhost|127\.0\.0\.1)/.test(origin)) {
+          allowedOrigins.push(origin);
+        }
+      }
+
+      // Check if origin or referer is valid
+      const isValidOrigin = origin && allowedOrigins.some(allowed => 
+        origin === allowed || origin.startsWith(allowed.split(':').slice(0, -1).join(':'))
+      );
+
+      const isValidReferer = referer && allowedOrigins.some(allowed =>
+        referer.startsWith(allowed.split(':').slice(0, -1).join(':'))
+      );
+
       if (!isValidOrigin && !isValidReferer) {
-        console.error('[SECURITY] CSRF detected:', {
+        console.warn('[SECURITY] CSRF detected:', {
           path: pathname,
           method,
-          origin,
-          referer,
-          expected: expectedOrigin,
-          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip')
+          origin: origin || 'none',
+          referer: referer || 'none',
+          allowed: allowedOrigins.join(', '),
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
         });
         
         return NextResponse.json(

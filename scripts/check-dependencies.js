@@ -9,13 +9,13 @@ const dependencies = {
     {
       name: 'Node.js',
       command: 'node --version',
-      minVersion: '18.0.0',
+      minVersion: '20.0.0',
       installUrl: 'https://nodejs.org/'
     },
     {
       name: 'npm',
       command: 'npm --version',
-      minVersion: '8.0.0',
+      minVersion: '10.0.0',
       installUrl: 'https://nodejs.org/'
     },
     {

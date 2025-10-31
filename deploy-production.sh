@@ -8,8 +8,8 @@ echo ""
 
 # Check if running with proper Node.js version
 NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "❌ Node.js 18+ is required (found: $(node -v))"
+if [ "$NODE_VERSION" -lt 20 ]; then
+    echo "❌ Node.js 20+ is required (found: $(node -v))"
     exit 1
 fi
 
