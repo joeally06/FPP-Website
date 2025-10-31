@@ -243,6 +243,9 @@ fi
 # ═══════════════════════════════════════════════════════════
 print_header "Step 6/8: Configuring Environment Variables"
 
+CONFIGURE_ENV=false
+OAUTH_JUST_UPDATED=false
+
 if [ -f ".env.local" ]; then
     print_warning "Existing .env.local found"
     
@@ -257,16 +260,27 @@ if [ -f ".env.local" ]; then
             
             # Update the .env.local file
             if command -v sed &> /dev/null; then
-                sed -i.bak "s|GOOGLE_CLIENT_ID=.*|GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID|" .env.local
-                sed -i.bak "s|GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET|" .env.local
-                rm -f .env.local.bak
+                # Check if the fields exist
+                if grep -q "GOOGLE_CLIENT_ID=" .env.local; then
+                    sed -i.bak "s|GOOGLE_CLIENT_ID=.*|GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID|" .env.local
+                    sed -i.bak "s|GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET|" .env.local
+                    rm -f .env.local.bak
+                else
+                    # Add the fields if they don't exist
+                    echo "" >> .env.local
+                    echo "# Google OAuth" >> .env.local
+                    echo "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" >> .env.local
+                    echo "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" >> .env.local
+                fi
                 print_success "Google OAuth credentials updated in .env.local"
+                OAUTH_JUST_UPDATED=true
+                SKIP_OAUTH=false
             else
                 print_warning "Could not auto-update. Please manually edit .env.local:"
                 echo "  GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID"
                 echo "  GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET"
+                SKIP_OAUTH=true
             fi
-            SKIP_OAUTH=false
         else
             print_info "Skipping OAuth configuration"
             SKIP_OAUTH=true
@@ -276,31 +290,38 @@ if [ -f ".env.local" ]; then
         SKIP_OAUTH=false
     fi
     
-    # Check if other critical fields are missing
-    if grep -q "your-" .env.local 2>/dev/null; then
-        print_warning "Some configuration values appear to be placeholders"
-        echo ""
-        echo "Current .env.local contains placeholder values like 'your-spotify-client-id'"
-        echo ""
-        if confirm "Review and update all configuration values?"; then
-            mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
-            print_info "Backed up old configuration"
-            CONFIGURE_ENV=true
-        else
-            print_info "Keeping existing configuration"
+    # Only ask about full reconfiguration if OAuth wasn't just updated
+    if [ "$OAUTH_JUST_UPDATED" = false ]; then
+        # Check if other critical fields are missing
+        if grep -q "your-" .env.local 2>/dev/null; then
+            print_warning "Some configuration values appear to be placeholders"
             echo ""
-            print_warning "To manually update later, edit: .env.local"
-            CONFIGURE_ENV=false
+            echo "Current .env.local contains placeholder values like 'your-spotify-client-id'"
+            echo ""
+            if confirm "Review and update all configuration values?"; then
+                mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
+                print_info "Backed up old configuration"
+                CONFIGURE_ENV=true
+            else
+                print_info "Keeping existing configuration"
+                echo ""
+                print_warning "To manually update later, edit: .env.local"
+                CONFIGURE_ENV=false
+            fi
+        else
+            if confirm "Keep existing configuration?"; then
+                print_info "Using existing .env.local"
+                CONFIGURE_ENV=false
+            else
+                mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
+                print_info "Backed up old configuration"
+                CONFIGURE_ENV=true
+            fi
         fi
     else
-        if confirm "Keep existing configuration?"; then
-            print_info "Using existing .env.local"
-            CONFIGURE_ENV=false
-        else
-            mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
-            print_info "Backed up old configuration"
-            CONFIGURE_ENV=true
-        fi
+        # OAuth was just updated, keep the rest of the config
+        print_success "Using existing configuration with updated OAuth credentials"
+        CONFIGURE_ENV=false
     fi
 else
     CONFIGURE_ENV=true
