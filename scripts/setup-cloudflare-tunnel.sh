@@ -228,9 +228,27 @@ print_header "Step 4: Configuring DNS"
 
 print_info "Setting up DNS record for $DOMAIN..."
 
-cloudflared tunnel route dns $TUNNEL_NAME $DOMAIN
-
-print_success "DNS record created"
+# Try to create DNS route, but don't fail if it already exists
+if cloudflared tunnel route dns $TUNNEL_NAME $DOMAIN 2>&1 | grep -q "record.*already exists"; then
+    print_warning "DNS record already exists - skipping creation"
+    print_info "Existing DNS record will be used"
+elif cloudflared tunnel route dns $TUNNEL_NAME $DOMAIN; then
+    print_success "DNS record created"
+else
+    print_warning "DNS routing encountered an issue"
+    echo ""
+    echo "You may need to configure DNS manually in Cloudflare dashboard:"
+    echo "  1. Go to your domain in Cloudflare"
+    echo "  2. DNS → Add record"
+    echo "  3. Type: CNAME"
+    echo "  4. Name: $(echo $DOMAIN | cut -d. -f1)"
+    echo "  5. Target: $TUNNEL_ID.cfargotunnel.com"
+    echo "  6. Proxy status: Proxied (orange cloud)"
+    echo ""
+    if ! confirm "Continue anyway?"; then
+        exit 1
+    fi
+fi
 
 # Update .env.local
 print_header "Step 5: Updating Environment Configuration"
