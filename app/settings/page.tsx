@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import Link from 'next/link';
 
-type SettingSection = 'general' | 'themes' | 'santa' | 'monitoring';
+type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database';
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingSection>('general');
+  const [activeSection, setActiveSection] = useState<SettingSection>('themes');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -25,16 +25,6 @@ export default function SettingsPage() {
           {/* Settings Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 space-y-2">
-              <button
-                onClick={() => setActiveSection('general')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-all font-semibold ${
-                  activeSection === 'general'
-                    ? 'bg-white text-black shadow-lg'
-                    : 'text-white hover:bg-white/10'
-                }`}
-              >
-                🔧 General
-              </button>
               <button
                 onClick={() => setActiveSection('themes')}
                 className={`w-full text-left px-4 py-3 rounded-lg transition-all font-semibold ${
@@ -65,71 +55,26 @@ export default function SettingsPage() {
               >
                 📡 Device Monitoring
               </button>
+              <button
+                onClick={() => setActiveSection('database')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-all font-semibold ${
+                  activeSection === 'database'
+                    ? 'bg-white text-black shadow-lg'
+                    : 'text-white hover:bg-white/10'
+                }`}
+              >
+                💾 Database
+              </button>
             </div>
           </div>
 
           {/* Settings Content */}
           <div className="lg:col-span-3">
-            {activeSection === 'general' && <GeneralSettings />}
             {activeSection === 'themes' && <ThemeSettings />}
             {activeSection === 'santa' && <SantaLetterSettings />}
             {activeSection === 'monitoring' && <MonitoringSettings />}
+            {activeSection === 'database' && <DatabaseSettings />}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GeneralSettings() {
-  return (
-    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-      <h2 className="text-2xl font-bold text-white mb-6">🔧 General Settings</h2>
-      
-      <div className="space-y-6">
-        <div>
-          <label className="block text-white font-semibold mb-2">Application Timezone</label>
-          <input
-            type="text"
-            value="America/Chicago (Central Time)"
-            disabled
-            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60"
-          />
-          <p className="text-white/60 text-sm mt-1">
-            Configure in .env.local as NEXT_PUBLIC_TIMEZONE
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-white font-semibold mb-2">FPP Controller URL</label>
-          <input
-            type="text"
-            defaultValue="http://192.168.5.2:80"
-            disabled
-            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60"
-          />
-          <p className="text-white/60 text-sm mt-1">
-            Configure in .env.local as FPP_URL
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-white font-semibold mb-2">Ollama LLM URL</label>
-          <input
-            type="text"
-            defaultValue="http://192.168.2.186:11434"
-            disabled
-            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60"
-          />
-          <p className="text-white/60 text-sm mt-1">
-            Configure in .env.local as OLLAMA_URL
-          </p>
-        </div>
-
-        <div className="p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
-          <p className="text-white text-sm">
-            ℹ️ <strong>Note:</strong> Most settings are configured via environment variables in .env.local for security
-          </p>
         </div>
       </div>
     </div>
@@ -287,6 +232,222 @@ function MonitoringSettings() {
             View Device Monitor →
           </Link>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DatabaseSettings() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/database/maintenance');
+      const data = await response.json();
+      if (data.success) {
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch database stats:', error);
+      setMessage('❌ Failed to load database statistics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runMaintenance = async (action: string) => {
+    try {
+      setLoading(true);
+      setMessage(`⏳ Running ${action} maintenance...`);
+      
+      const response = await fetch('/api/database/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage(`✅ ${action.charAt(0).toUpperCase() + action.slice(1)} maintenance completed successfully`);
+        await fetchStats(); // Refresh stats
+      } else {
+        setMessage(`❌ Maintenance failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Maintenance error:', error);
+      setMessage('❌ Maintenance operation failed');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
+    }
+  };
+
+  // Load stats on component mount
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+      <h2 className="text-2xl font-bold text-white mb-6">💾 Database Management</h2>
+      
+      {message && (
+        <div className="mb-6 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <p className="text-white text-sm">{message}</p>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {/* Database Statistics */}
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">📊 Database Statistics</h3>
+          {loading && !stats ? (
+            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <p className="text-white/60">Loading statistics...</p>
+            </div>
+          ) : stats ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-white/60 text-sm mb-1">Database Size</div>
+                <div className="text-white text-2xl font-bold">
+                  {stats.approximateSizeMB?.toFixed(2) || '0'} MB
+                </div>
+              </div>
+              
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-white/60 text-sm mb-1">Journal Mode</div>
+                <div className="text-white text-2xl font-bold">{stats.journalMode || 'Unknown'}</div>
+              </div>
+              
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-white/60 text-sm mb-1">Page Views</div>
+                <div className="text-white text-2xl font-bold">{stats.pageViews?.count?.toLocaleString() || '0'}</div>
+              </div>
+              
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-white/60 text-sm mb-1">Visitors</div>
+                <div className="text-white text-2xl font-bold">{stats.visitors?.count?.toLocaleString() || '0'}</div>
+              </div>
+              
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-white/60 text-sm mb-1">Song Requests</div>
+                <div className="text-white text-2xl font-bold">{stats.jukeboxQueue?.count?.toLocaleString() || '0'}</div>
+              </div>
+              
+              <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-white/60 text-sm mb-1">Santa Letters</div>
+                <div className="text-white text-2xl font-bold">{stats.santaLetters?.count?.toLocaleString() || '0'}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <p className="text-white/60">No statistics available</p>
+            </div>
+          )}
+        </div>
+
+        {/* Maintenance Actions */}
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">🔧 Maintenance Operations</h3>
+          <div className="space-y-3">
+            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="text-white font-semibold mb-1">Quick Maintenance</h4>
+                  <p className="text-white/60 text-sm">
+                    Analyze database statistics for query optimization (fast, ~1 second)
+                  </p>
+                </div>
+                <button
+                  onClick={() => runMaintenance('quick')}
+                  disabled={loading}
+                  className="ml-4 px-4 py-2 bg-blue-500/80 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Run Quick
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="text-white font-semibold mb-1">Full Maintenance</h4>
+                  <p className="text-white/60 text-sm">
+                    ANALYZE, REINDEX, and VACUUM database (slow, ~30-60 seconds)
+                  </p>
+                </div>
+                <button
+                  onClick={() => runMaintenance('full')}
+                  disabled={loading}
+                  className="ml-4 px-4 py-2 bg-purple-500/80 hover:bg-purple-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Run Full
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="text-white font-semibold mb-1">Archive Old Data</h4>
+                  <p className="text-white/60 text-sm">
+                    Remove page views older than 1 year and device status older than 90 days
+                  </p>
+                </div>
+                <button
+                  onClick={() => runMaintenance('archive')}
+                  disabled={loading}
+                  className="ml-4 px-4 py-2 bg-orange-500/80 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Archive
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="text-white font-semibold mb-1">Integrity Check</h4>
+                  <p className="text-white/60 text-sm">
+                    Verify database integrity and check for corruption
+                  </p>
+                </div>
+                <button
+                  onClick={() => runMaintenance('integrity')}
+                  disabled={loading}
+                  className="ml-4 px-4 py-2 bg-green-500/80 hover:bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Check
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Automated Maintenance Info */}
+        <div className="p-4 bg-green-500/20 rounded-lg border border-green-500/30">
+          <h4 className="text-white font-semibold mb-2">✅ Automated Maintenance Active</h4>
+          <ul className="text-white/80 text-sm space-y-1">
+            <li>• Quick maintenance runs daily (every 24 hours)</li>
+            <li>• Full maintenance runs weekly (every 7 days)</li>
+            <li>• Data archival is MANUAL ONLY (use button above)</li>
+            <li>• WAL mode enabled for better performance</li>
+            <li>• 64MB cache size for faster queries</li>
+            <li>• 30+ indexes created for optimal performance</li>
+          </ul>
+        </div>
+
+        <button
+          onClick={fetchStats}
+          disabled={loading}
+          className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          🔄 Refresh Statistics
+        </button>
       </div>
     </div>
   );

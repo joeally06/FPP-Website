@@ -5,6 +5,34 @@ import path from 'path';
 const dbPath = path.join(process.cwd(), 'votes.db');
 const db = new Database(dbPath);
 
+// ========================================
+// SQLite Performance Optimizations
+// ========================================
+
+// Enable Write-Ahead Logging (WAL) mode for better concurrent performance
+// - Readers don't block writers
+// - Writers don't block readers
+// - Better for web applications with mixed read/write workloads
+db.pragma('journal_mode = WAL');
+
+// Set synchronous mode to NORMAL for faster writes while maintaining safety
+// - Faster than FULL on Windows
+// - Still safe for most use cases (survives OS crashes, not disk failures)
+db.pragma('synchronous = NORMAL');
+
+// Increase cache size to 64MB for better read performance
+// - Negative value means size in KB
+// - More cache = fewer disk reads
+db.pragma('cache_size = -64000');
+
+// Set temp_store to memory for faster temporary operations
+db.pragma('temp_store = MEMORY');
+
+// Enable memory-mapped I/O for faster reads (64MB)
+db.pragma('mmap_size = 67108864');
+
+console.log('✅ SQLite performance optimizations enabled (WAL mode, 64MB cache, memory-mapped I/O)');
+
 // Create votes table
 db.exec(`
   CREATE TABLE IF NOT EXISTS votes (
@@ -260,6 +288,125 @@ db.exec(`
   INSERT OR IGNORE INTO monitoring_schedule (id, enabled, start_time, end_time, timezone)
   VALUES (1, 1, '16:00', '22:00', 'America/Chicago');
 `);
+
+// ========================================
+// Database Indexes for Performance
+// ========================================
+
+console.log('🔍 Creating database indexes for optimal performance...');
+
+// Votes indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_votes_sequence 
+  ON votes(sequence_name);
+  
+  CREATE INDEX IF NOT EXISTS idx_votes_user_sequence 
+  ON votes(user_ip, sequence_name);
+`);
+
+// Jukebox queue indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_jukebox_status 
+  ON jukebox_queue(status);
+  
+  CREATE INDEX IF NOT EXISTS idx_jukebox_priority 
+  ON jukebox_queue(priority DESC, created_at ASC);
+  
+  CREATE INDEX IF NOT EXISTS idx_jukebox_played_at 
+  ON jukebox_queue(played_at DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_jukebox_resume 
+  ON jukebox_queue(status, was_resumed, original_playlist);
+`);
+
+// Sequence requests indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_sequence_requests_popularity 
+  ON sequence_requests(total_requests DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_sequence_requests_last 
+  ON sequence_requests(last_requested DESC);
+`);
+
+// Cached sequences indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_cached_sequences_updated 
+  ON cached_sequences(last_updated DESC);
+`);
+
+// Sequence metadata indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_metadata_updated 
+  ON sequence_metadata(last_updated DESC);
+`);
+
+// Santa letters indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_santa_created 
+  ON santa_letters(created_at DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_santa_status 
+  ON santa_letters(status);
+  
+  CREATE INDEX IF NOT EXISTS idx_santa_queue_status 
+  ON santa_letters(queue_status, created_at ASC);
+  
+  CREATE INDEX IF NOT EXISTS idx_santa_ip_date 
+  ON santa_letters(ip_address, created_at);
+`);
+
+// Visitor tracking indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_visitors_hash 
+  ON visitors(visitor_hash);
+  
+  CREATE INDEX IF NOT EXISTS idx_visitors_last_visit 
+  ON visitors(last_visit DESC);
+`);
+
+// Session tracking indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_sessions_visitor 
+  ON sessions(visitor_hash);
+  
+  CREATE INDEX IF NOT EXISTS idx_sessions_start 
+  ON sessions(session_start DESC);
+`);
+
+// Page views indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_page_views_session 
+  ON page_views(session_id);
+  
+  CREATE INDEX IF NOT EXISTS idx_page_views_time 
+  ON page_views(view_time DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_page_views_path 
+  ON page_views(page_path, view_time DESC);
+`);
+
+// Device status indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_device_status_online 
+  ON device_status(is_online, last_checked DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_device_status_checked 
+  ON device_status(last_checked DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_device_status_failures 
+  ON device_status(consecutive_failures DESC);
+`);
+
+// Devices indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_devices_enabled 
+  ON devices(enabled);
+  
+  CREATE INDEX IF NOT EXISTS idx_devices_type 
+  ON devices(type);
+`);
+
+console.log('✅ All database indexes created successfully');
 
 // Voting prepared statements
 export const insertVote = db.prepare(`
