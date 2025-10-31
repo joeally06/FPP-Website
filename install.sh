@@ -9,33 +9,10 @@ echo "🎄 FPP Control Center - Installation Wizard"
 echo "============================================"
 echo ""
 
-# Check if Node.js is installed
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed!"
-    echo "Please install Node.js 18+ from: https://nodejs.org/"
-    exit 1
-fi
+# Check system dependencies
+node scripts/check-dependencies.js || exit 1
 
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "❌ Node.js version 18 or higher required!"
-    echo "Current version: $(node -v)"
-    exit 1
-fi
-
-echo "✅ Node.js $(node -v) detected"
 echo ""
-
-# Check if Git is installed
-if ! command -v git &> /dev/null; then
-    echo "❌ Git is not installed!"
-    echo "Please install Git from: https://git-scm.com/"
-    exit 1
-fi
-
-echo "✅ Git detected"
-echo ""
-
 # Install dependencies
 echo "📦 Installing dependencies..."
 npm install

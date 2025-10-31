@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "checkJs": false
+  },
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "migrations",
+    ".next",
+    "out",
+    "build",
+    "backups"
+  ]
+}

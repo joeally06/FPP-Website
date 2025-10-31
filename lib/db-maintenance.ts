@@ -117,11 +117,16 @@ export function archiveOldData(daysToKeep = 365) {
  */
 export function getDatabaseStats() {
   try {
+    const pageSize = db.pragma('page_size', { simple: true }) as number;
+    const pageCount = db.pragma('page_count', { simple: true }) as number;
+    const journalMode = db.pragma('journal_mode', { simple: true }) as string;
+    const cacheSize = db.pragma('cache_size', { simple: true }) as number;
+    
     const stats = {
-      pageSize: db.pragma('page_size', { simple: true }),
-      pageCount: db.pragma('page_count', { simple: true }),
-      journalMode: db.pragma('journal_mode', { simple: true }),
-      cacheSize: db.pragma('cache_size', { simple: true }),
+      pageSize,
+      pageCount,
+      journalMode,
+      cacheSize,
       
       // Table counts
       votes: db.prepare('SELECT COUNT(*) as count FROM votes').get() as any,
@@ -134,7 +139,7 @@ export function getDatabaseStats() {
       devices: db.prepare('SELECT COUNT(*) as count FROM devices').get() as any,
       
       // Calculate approximate database size in MB
-      approximateSizeMB: ((stats.pageSize as number) * (stats.pageCount as number)) / (1024 * 1024),
+      approximateSizeMB: (pageSize * pageCount) / (1024 * 1024),
     };
 
     return stats;
@@ -166,14 +171,15 @@ export function optimizeTable(tableName: string) {
 export function checkIntegrity() {
   try {
     console.log('🔍 Checking database integrity...');
-    const result = db.pragma('integrity_check');
+    const result: unknown = db.pragma('integrity_check');
+    const resultArray = result as Array<{ integrity_check: string }>;
     
-    if (result.length === 1 && (result[0] as any).integrity_check === 'ok') {
+    if (resultArray.length === 1 && resultArray[0].integrity_check === 'ok') {
       console.log('✅ Database integrity check passed');
       return { success: true, status: 'ok' };
     } else {
-      console.error('⚠️  Database integrity issues found:', result);
-      return { success: false, status: 'issues', details: result };
+      console.error('⚠️  Database integrity issues found:', resultArray);
+      return { success: false, status: 'issues', details: resultArray };
     }
   } catch (error) {
     console.error('❌ Integrity check failed:', error);

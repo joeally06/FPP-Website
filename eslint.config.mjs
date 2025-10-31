@@ -12,6 +12,15 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Additional ignores:
+    "scripts/**",
+    "migrations/**",
+    "*.sh",
+    "*.ps1",
+    "backups/**",
+    "*.db",
+    "*.db-wal",
+    "*.db-shm",
   ]),
 ]);
 
