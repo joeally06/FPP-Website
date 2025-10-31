@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup": "node scripts/setup-wizard.js && node scripts/init-database.js",
+    "migrate": "node scripts/migrate-database.js",
+    "db:stats": "node scripts/db-stats.js",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "@types/luxon": "^3.7.1",
