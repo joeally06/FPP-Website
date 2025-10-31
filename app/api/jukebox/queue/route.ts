@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addToQueue, getQueue, incrementSequenceRequests, getMediaNameForSequence } from '@/lib/database';
+import { songRequestLimiter, getClientIP } from '@/lib/rate-limit';
+import db from '@/lib/database';
 
 export async function GET() {
   try {
@@ -14,12 +16,42 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { sequence_name, requester_name } = await request.json();
-    const requester_ip = request.headers.get('x-forwarded-for') || 
-                        request.headers.get('x-real-ip') || 
-                        'unknown';
+    const requester_ip = getClientIP(request);
+
+    // Rate limiting check
+    const rateLimitResult = songRequestLimiter.check(requester_ip);
+    if (!rateLimitResult.success) {
+      const errorMessage = rateLimitResult.blocked 
+        ? `Too many requests. You are blocked until ${rateLimitResult.blockedUntil?.toLocaleString()}`
+        : `Rate limit exceeded. Try again after ${rateLimitResult.resetAt.toLocaleString()}`;
+      
+      console.warn(`[SECURITY] Rate limit exceeded for ${requester_ip} (song request)`);
+      
+      return NextResponse.json({ 
+        error: errorMessage,
+        resetAt: rateLimitResult.resetAt.toISOString()
+      }, { status: 429 });
+    }
 
     if (!sequence_name) {
       return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
+    }
+
+    // Check for duplicate request within 5 minutes
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    const duplicate = db.prepare(`
+      SELECT id FROM jukebox_queue 
+      WHERE requester_ip = ? 
+        AND sequence_name = ? 
+        AND created_at > ?
+      LIMIT 1
+    `).get(requester_ip, sequence_name, fiveMinutesAgo);
+    
+    if (duplicate) {
+      console.warn(`[SECURITY] Duplicate request detected from ${requester_ip} for ${sequence_name}`);
+      return NextResponse.json({ 
+        error: 'You already requested this song recently. Please wait a few minutes.' 
+      }, { status: 429 });
     }
 
     // Add .fseq extension back to get the full sequence name

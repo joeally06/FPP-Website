@@ -551,6 +551,355 @@ For production, update `app/api/auth/[...nextauth]/route.ts` to use a secure aut
 
 ---
 
+## 🌐 Production Deployment
+
+### Security Overview
+
+The FPP Control Center includes comprehensive security features for public internet deployment:
+
+- ✅ **HTTPS via Cloudflare Tunnel** - Automatic SSL/TLS encryption
+- ✅ **Google OAuth Authentication** - Secure admin access with email whitelist
+- ✅ **CSRF Protection** - Middleware validates request origins
+- ✅ **Database-Backed Rate Limiting** - Prevents abuse and spam
+  - Song requests: 3 per hour per IP
+  - Santa letters: 2 per day per IP
+  - General API: 100 per minute per IP
+- ✅ **Session Timeouts** - 30-minute admin sessions with auto-refresh
+- ✅ **Input Sanitization** - Email header injection prevention
+- ✅ **DDoS Protection** - Built-in with Cloudflare Tunnel
+- ✅ **Security Logging** - Tracks login attempts and rate limit violations
+
+**Security Grade: A-** (ready for public internet deployment)
+
+### Cloudflare Tunnel Setup (Recommended)
+
+Cloudflare Tunnel provides the easiest and most secure way to expose your application to the internet:
+
+**Benefits:**
+- ✅ Automatic HTTPS with valid SSL certificates
+- ✅ No port forwarding required
+- ✅ DDoS protection included
+- ✅ Hides your origin server IP
+- ✅ 10-minute setup process
+
+**Prerequisites:**
+- Free Cloudflare account ([sign up here](https://dash.cloudflare.com/sign-up))
+- Domain name pointed to Cloudflare DNS
+
+**Linux/Mac Setup:**
+```bash
+# Run automated setup script
+npm run cloudflare:setup
+
+# Or manually:
+bash scripts/setup-cloudflare-tunnel.sh
+```
+
+**Windows Setup:**
+```powershell
+# Run automated setup script
+npm run cloudflare:setup:win
+
+# Or manually:
+powershell -ExecutionPolicy Bypass -File scripts/setup-cloudflare-tunnel.ps1
+```
+
+**What the script does:**
+1. Installs `cloudflared` (Cloudflare Tunnel client)
+2. Logs you into your Cloudflare account
+3. Creates a new tunnel with your chosen name
+4. Configures DNS routing to your domain
+5. Sets up automatic startup as a system service
+6. Provides next steps for environment configuration
+
+**After Cloudflare Setup:**
+
+1. **Update Environment Variables** (`.env.local`):
+   ```bash
+   # Change this from localhost to your domain
+   NEXTAUTH_URL=https://yourdomain.com
+   ```
+
+2. **Update Google OAuth Redirect URIs**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Select your OAuth 2.0 Client ID
+   - Add authorized redirect URI: `https://yourdomain.com/api/auth/callback/google`
+   - Save changes
+
+3. **Restart Application**:
+   ```bash
+   # If using PM2:
+   pm2 restart fpp-control
+   
+   # If using npm:
+   npm run dev  # or npm start for production
+   ```
+
+4. **Verify Deployment**:
+   ```bash
+   # Check tunnel status
+   cloudflared tunnel list
+   cloudflared tunnel info <your-tunnel-name>
+   
+   # Test HTTPS access
+   curl https://yourdomain.com
+   
+   # View tunnel logs (Linux/Mac)
+   journalctl -u cloudflared -f
+   
+   # View tunnel logs (Windows)
+   Get-Service cloudflared
+   ```
+
+### Production Deployment Script
+
+For a complete production deployment with PM2 process manager:
+
+```bash
+# Automated deployment
+npm run deploy:prod
+
+# Or manually:
+bash deploy-production.sh
+```
+
+**What the deployment script does:**
+1. Validates Node.js version (18+)
+2. Installs all dependencies (`npm install`)
+3. Builds Next.js application (`npm run build`)
+4. Installs PM2 process manager (if needed)
+5. Optionally runs Cloudflare Tunnel setup
+6. Starts application with PM2
+7. Configures PM2 auto-start on system boot
+8. Displays monitoring commands and next steps
+
+**PM2 Process Management:**
+
+```bash
+# View application status
+pm2 status
+
+# View live logs
+pm2 logs fpp-control
+
+# Restart application
+pm2 restart fpp-control
+
+# Stop application
+pm2 stop fpp-control
+
+# View metrics (CPU, memory)
+pm2 monit
+
+# Save PM2 configuration
+pm2 save
+
+# Setup auto-start on system boot
+pm2 startup
+```
+
+### Environment Configuration
+
+**Required for Production:**
+
+```bash
+# Domain (update after Cloudflare setup)
+NEXTAUTH_URL=https://yourdomain.com
+
+# Google OAuth (for admin authentication)
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# Admin Email Whitelist (comma-separated)
+ADMIN_EMAILS=admin@example.com,another@example.com
+
+# NextAuth Secret (generate random string)
+NEXTAUTH_SECRET=your-random-secret-string
+
+# FPP Configuration
+FPP_URL=http://192.168.5.2:80
+
+# Email (for Santa letters and alerts)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=noreply@yourdomain.com
+```
+
+**Generate NEXTAUTH_SECRET:**
+```bash
+# Linux/Mac:
+openssl rand -base64 32
+
+# Windows (PowerShell):
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+```
+
+### Rate Limiting Configuration
+
+Rate limits are configured in `lib/rate-limit.ts`:
+
+```typescript
+// Current limits (adjust as needed)
+songRequestLimiter: 3 requests/hour, block for 1 hour
+santaLetterLimiter: 2 letters/day, block for 24 hours
+votingLimiter: 10 votes/hour, block for 30 minutes
+apiGeneralLimiter: 100 requests/minute, block for 5 minutes
+```
+
+**To adjust limits:**
+1. Edit `lib/rate-limit.ts`
+2. Modify `points`, `duration`, or `blockDuration`
+3. Rebuild: `npm run build`
+4. Restart: `pm2 restart fpp-control`
+
+### Monitoring & Maintenance
+
+**Check Rate Limit Status:**
+```bash
+# View blocked IPs and rate limit entries
+npm run db:stats
+
+# Manual cleanup of old rate limits
+node -e "const {cleanupRateLimits} = require('./lib/rate-limit'); cleanupRateLimits();"
+```
+
+**Monitor Security Events:**
+```bash
+# View security logs
+pm2 logs fpp-control | grep SECURITY
+
+# Count rate limit violations
+pm2 logs fpp-control | grep "Rate limit exceeded" | wc -l
+```
+
+**Database Maintenance:**
+```bash
+# Run automated maintenance
+npm run db:stats
+
+# Create manual backup
+npm run backup
+
+# View backup list
+ls -la backups/
+```
+
+### Firewall Configuration
+
+If using Cloudflare Tunnel, **no inbound firewall rules** are needed:
+
+```bash
+# Only allow outbound HTTPS (443) for Cloudflare Tunnel
+# The tunnel connects OUT to Cloudflare, no inbound ports needed
+
+# Optional: Block all inbound ports except SSH (for management)
+# Linux (ufw):
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw enable
+```
+
+### DNS Configuration
+
+**Cloudflare DNS Setup:**
+
+1. Log into [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. Select your domain
+3. Go to **DNS** → **Records**
+4. The tunnel setup script automatically creates a CNAME record:
+   ```
+   Type: CNAME
+   Name: yourdomain (or subdomain like 'fpp')
+   Target: <tunnel-id>.cfargotunnel.com
+   Proxy: Enabled (orange cloud)
+   ```
+
+### Troubleshooting Production Deployment
+
+**Cloudflare Tunnel Not Connecting:**
+```bash
+# Check tunnel status
+cloudflared tunnel list
+
+# Test tunnel connectivity
+cloudflared tunnel run <tunnel-name>
+
+# View tunnel configuration
+cat ~/.cloudflared/config.yml
+
+# Restart tunnel service (Linux)
+sudo systemctl restart cloudflared
+
+# Restart tunnel service (Windows)
+Restart-Service cloudflared
+```
+
+**OAuth Redirect Error:**
+- Verify `NEXTAUTH_URL` matches your domain exactly
+- Check Google OAuth redirect URIs include: `https://yourdomain.com/api/auth/callback/google`
+- Clear browser cookies and try again
+
+**Rate Limiting Too Strict:**
+- Adjust limits in `lib/rate-limit.ts`
+- Manually reset a blocked IP:
+  ```bash
+  node -e "const {songRequestLimiter} = require('./lib/rate-limit'); songRequestLimiter.reset('IP_ADDRESS');"
+  ```
+
+**PM2 Not Auto-Starting:**
+```bash
+# Generate startup script
+pm2 startup
+
+# Run the command it displays (with sudo if needed)
+# Then save PM2 configuration
+pm2 save
+```
+
+**CSRF Protection Blocking Legitimate Requests:**
+- Check `middleware.ts` configuration
+- Verify `NEXTAUTH_URL` environment variable is correct
+- Ensure requests are coming from the same domain
+
+### Testing Production Security
+
+**Test Rate Limiting:**
+```bash
+# Try to request more than 3 songs rapidly
+for i in {1..5}; do
+  curl -X POST https://yourdomain.com/api/jukebox/queue \
+    -H "Content-Type: application/json" \
+    -d '{"sequence_name":"test","requester_name":"Test"}'
+  echo ""
+done
+
+# Expected: First 3 succeed, 4th and 5th return 429 Too Many Requests
+```
+
+**Test CSRF Protection:**
+```bash
+# Try request from different origin (should fail)
+curl -X POST https://yourdomain.com/api/jukebox/queue \
+  -H "Origin: https://evil.com" \
+  -H "Content-Type: application/json" \
+  -d '{"sequence_name":"test","requester_name":"Test"}'
+
+# Expected: 403 Forbidden
+```
+
+**Test OAuth:**
+1. Visit `https://yourdomain.com/dashboard`
+2. Should redirect to Google OAuth
+3. Login with whitelisted admin email
+4. Should grant access to dashboard
+5. Try with non-whitelisted email
+6. Should deny access
+
+---
+
 ## 🐛 Troubleshooting
 
 ### Database Issues

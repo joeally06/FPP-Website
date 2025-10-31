@@ -1,11 +1,11 @@
 // API Route: Send Letter to Santa
 
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 import {
   insertSantaLetter,
 } from '@/lib/database';
 import { validateAndSanitizeSantaLetter } from '@/lib/input-sanitization';
+import { santaLetterLimiter, getClientIP } from '@/lib/rate-limit';
 import db from '@/lib/database';
 
 interface SendLetterRequest {
@@ -15,36 +15,11 @@ interface SendLetterRequest {
   letterContent: string;
 }
 
-// Rate limiting: Track IPs and timestamps
-const rateLimitMap = new Map<string, number[]>();
-const RATE_LIMIT_WINDOW = 24 * 60 * 60 * 1000; // 24 hours
-const MAX_LETTERS_PER_DAY = 100; // TEMPORARILY INCREASED FOR TESTING
-const MAX_LETTERS_PER_HOUR = 3; // Hourly limit to prevent rapid spam
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const timestamps = rateLimitMap.get(ip) || [];
-  
-  // Remove old timestamps
-  const recentTimestamps = timestamps.filter(
-    (ts) => now - ts < RATE_LIMIT_WINDOW
-  );
-  
-  if (recentTimestamps.length >= MAX_LETTERS_PER_DAY) {
-    return false;
-  }
-  
-  recentTimestamps.push(now);
-  rateLimitMap.set(ip, recentTimestamps);
-  return true;
-}
-
-function getClientIP(request: NextRequest): string {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
-  return request.headers.get('x-real-ip') || 'unknown';
+/**
+ * Sanitize email headers to prevent injection
+ */
+function sanitizeEmailHeader(input: string): string {
+  return input.replace(/[\r\n]/g, '');
 }
 
 export async function POST(request: NextRequest) {
@@ -56,11 +31,45 @@ export async function POST(request: NextRequest) {
     // Get client IP for rate limiting
     const clientIP = getClientIP(request);
     
+    // Rate limiting check using database-backed limiter
+    const rateLimitResult = santaLetterLimiter.check(clientIP);
+    if (!rateLimitResult.success) {
+      const errorMessage = rateLimitResult.blocked 
+        ? `Too many letters sent. You are blocked until ${rateLimitResult.blockedUntil?.toLocaleString()}`
+        : `You can only send 2 letters per day. Try again after ${rateLimitResult.resetAt.toLocaleString()}`;
+      
+      console.warn(`[SECURITY] Rate limit exceeded for ${clientIP} (Santa letter)`);
+      
+      return NextResponse.json({ 
+        error: errorMessage,
+        resetAt: rateLimitResult.resetAt.toISOString()
+      }, { status: 429 });
+    }
+
+    // Check for duplicate submission within 24 hours
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const duplicate = db.prepare(`
+      SELECT id FROM santa_letters 
+      WHERE ip_address = ? 
+        AND created_at > ?
+      LIMIT 1
+    `).get(clientIP, oneDayAgo);
+    
+    if (duplicate) {
+      console.warn(`[SECURITY] Duplicate submission detected from ${clientIP}`);
+      return NextResponse.json({ 
+        error: 'You already sent a letter today. Please wait 24 hours before sending another.' 
+      }, { status: 429 });
+    }
+    
+    // Sanitize email headers to prevent injection
+    const sanitizedEmail = sanitizeEmailHeader(body.parentEmail || '');
+    
     // ✅ SECURITY: Validate and sanitize ALL inputs
     const validation = validateAndSanitizeSantaLetter(
       body.childName || '',
       body.childAge || null,
-      body.parentEmail || '',
+      sanitizedEmail,
       body.letterContent || ''
     );
 
@@ -78,31 +87,6 @@ export async function POST(request: NextRequest) {
 
     // Use sanitized values from this point forward
     const sanitized = validation.sanitized!;
-    
-    // ✅ SECURITY: Daily rate limiting
-    if (!checkRateLimit(clientIP)) {
-      return NextResponse.json(
-        { error: 'You can only send one letter per day. Please try again tomorrow!' },
-        { status: 429 }
-      );
-    }
-
-    // ✅ SECURITY: Hourly rate limiting (protect against rapid spam)
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const hourlyCount = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM santa_letters 
-      WHERE ip_address = ? 
-      AND created_at > ?
-    `).get(clientIP, oneHourAgo) as { count: number };
-
-    if (hourlyCount && hourlyCount.count >= MAX_LETTERS_PER_HOUR) {
-      console.log(`⚠️ Rate limit exceeded for IP ${clientIP}: ${hourlyCount.count} letters in last hour`);
-      return NextResponse.json(
-        { error: 'Too many requests. Please try again in a few minutes.' },
-        { status: 429 }
-      );
-    }
     
     // Insert letter into database with 'queued' status
     // The queue processor will handle LLM generation and email sending

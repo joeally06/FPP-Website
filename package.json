@@ -11,7 +11,10 @@
     "migrate": "node scripts/migrate-database.js",
     "db:stats": "node scripts/db-stats.js",
     "backup": "node scripts/backup.js",
-    "check-deps": "node scripts/check-dependencies.js"
+    "check-deps": "node scripts/check-dependencies.js",
+    "cloudflare:setup": "bash scripts/setup-cloudflare-tunnel.sh",
+    "cloudflare:setup:win": "powershell -ExecutionPolicy Bypass -File scripts/setup-cloudflare-tunnel.ps1",
+    "deploy:prod": "bash deploy-production.sh"
   },
   "dependencies": {
     "@types/luxon": "^3.7.1",
