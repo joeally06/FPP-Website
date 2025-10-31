@@ -1,21 +1,73 @@
 # FPP Control Center
 
-A comprehensive web-based control center for managing Falcon Player (FPP) Christmas light displays with interactive features including a song request jukebox, voting system, Santa letter automation, device monitoring, and visitor analytics.
+🎄 **A modern web interface for controlling Falcon Player (FPP) with interactive jukebox, Santa letter generation, and device monitoring.** 🎅
 
-## ✨ Features
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.0-black)](https://nextjs.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- 🎵 **Interactive Jukebox** - Let visitors request songs with real-time queue management
-- 🗳️ **Sequence Voting** - Community voting on favorite light sequences
-- 🎅 **AI-Powered Santa Letters** - Automated letter generation and email delivery via Ollama
-- 📊 **Analytics Dashboard** - Visitor tracking, sequence popularity, and engagement metrics
-- 🖥️ **Device Monitoring** - Real-time status tracking with email alerts
-- 🎨 **Theme Engine** - Multiple visual themes with custom particle effects
-- ⚡ **Optimized Database** - SQLite with WAL mode, indexes, and automated maintenance
-- 🔐 **Admin Panel** - Secure authentication with NextAuth
+> **🚀 New!** One-command installation wizard - [Get started in 10 minutes](#-quick-start-recommended)
 
-## 🚀 Quick Start
+---
 
-### Step 1: Install Prerequisites (One-Time Setup)
+## ⚡ Quick Start (Recommended)
+
+**The easiest way to get started is with our interactive setup wizard:**
+
+### **Linux/Mac:**
+```bash
+git clone https://github.com/joeally06/FPP-Website.git
+cd FPP-Website
+chmod +x setup.sh
+./setup.sh
+```
+
+### **Windows (PowerShell as Administrator):**
+```powershell
+git clone https://github.com/joeally06/FPP-Website.git
+cd FPP-Website
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
+
+**That's it!** The wizard will:
+- ✅ Check system requirements (Node.js 20+, Git)
+- ✅ Install all dependencies
+- ✅ Set up the database
+- ✅ Guide you through configuration
+- ✅ Build and start the application
+- ✅ (Optional) Set up public access with Cloudflare Tunnel
+
+**Takes 10-15 minutes total.** 🚀
+
+---
+
+## 🎯 What You Get
+
+- **🎵 Interactive Jukebox** - Visitors request songs for your light show
+- **🎅 Santa Letters** - AI-generated personalized responses (Ollama)
+- **📊 Device Monitoring** - Real-time FPP status with email alerts
+- **🎛️ Admin Dashboard** - Manage everything from one place
+- **🗳️ Sequence Voting** - Let the community choose favorites
+- **📈 Analytics** - Track visitor engagement and popular sequences
+- **🔒 Enterprise Security** - OAuth, rate limiting, CSRF protection
+- **🌐 Public or Private** - Local network or worldwide via Cloudflare Tunnel
+
+---
+
+## � Documentation
+
+- **🚀 [QUICKSTART.md](QUICKSTART.md)** - Quick reference guide
+- **📋 [INSTALLATION.md](INSTALLATION.md)** - Complete installation guide with troubleshooting
+- **🔒 [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md)** - Security features and best practices
+- **📚 Full guide below** - Everything you need to know
+
+---
+
+## 📋 Manual Installation
+
+If you prefer manual setup over the interactive wizard:
+
+### Prerequisites
 
 Before running the installer, you need to install these system dependencies. **This is a one-time setup** that works for all Node.js projects.
 
@@ -101,6 +153,26 @@ sudo yum install -y git
 # Verify installation
 git --version
 ```
+
+#### ✅ **Install PM2 (Production Linux Only)**
+
+PM2 is a process manager that keeps the application running in the background on production servers. **Only needed for Linux production deployments.**
+
+**Linux (Ubuntu/Debian/CentOS/RHEL/Fedora):**
+```bash
+# Install PM2 globally (requires Node.js to be installed first)
+sudo npm install -g pm2
+
+# Verify installation
+pm2 --version
+
+# Optional: Set PM2 to start on system boot
+pm2 startup
+# Follow the command it gives you (will be specific to your system)
+```
+
+**Windows/Mac Development:**
+PM2 is not required for development - the app runs directly with `npm run dev`.
 
 #### ⚠️ **Verify Prerequisites are Installed**
 

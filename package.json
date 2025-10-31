@@ -8,13 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "setup": "node scripts/setup-wizard.js && node scripts/init-database.js",
+    "setup:interactive": "bash setup.sh || powershell -ExecutionPolicy Bypass -File setup.ps1",
     "migrate": "node scripts/migrate-database.js",
     "db:stats": "node scripts/db-stats.js",
     "backup": "node scripts/backup.js",
     "check-deps": "node scripts/check-dependencies.js",
     "cloudflare:setup": "bash scripts/setup-cloudflare-tunnel.sh",
     "cloudflare:setup:win": "powershell -ExecutionPolicy Bypass -File scripts/setup-cloudflare-tunnel.ps1",
-    "deploy:prod": "bash deploy-production.sh"
+    "deploy:prod": "bash deploy-production.sh",
+    "update": "bash update.sh || powershell -ExecutionPolicy Bypass -File update.ps1"
   },
   "dependencies": {
     "@types/luxon": "^3.7.1",
