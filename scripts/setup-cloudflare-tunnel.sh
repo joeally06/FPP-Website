@@ -257,7 +257,8 @@ print_header "Step 6: Installing Tunnel Service"
 
 print_step "Installing cloudflared as a system service..."
 
-sudo cloudflared service install
+# Install service with explicit config path
+sudo cloudflared --config ~/.cloudflared/config.yml service install
 
 print_success "Service installed"
 
