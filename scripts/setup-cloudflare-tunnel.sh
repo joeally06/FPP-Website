@@ -275,7 +275,32 @@ print_header "Step 6: Installing Tunnel Service"
 
 print_step "Installing cloudflared as a system service..."
 
+# Check for conflicting config files
+if [ -f "/etc/cloudflared/config.yml" ]; then
+    print_warning "Found existing config in /etc/cloudflared/config.yml"
+    
+    if confirm "Remove old config and use the new one?"; then
+        print_step "Removing old configuration..."
+        sudo rm -f /etc/cloudflared/config.yml
+        print_success "Old config removed"
+    else
+        print_info "Keeping both configs - using ~/.cloudflared/config.yml"
+    fi
+fi
+
+# Uninstall existing service if present (to avoid conflicts)
+if systemctl is-active --quiet cloudflared 2>/dev/null; then
+    print_step "Stopping existing cloudflared service..."
+    sudo systemctl stop cloudflared 2>/dev/null || true
+fi
+
+if systemctl is-enabled --quiet cloudflared 2>/dev/null; then
+    print_step "Uninstalling existing cloudflared service..."
+    sudo cloudflared service uninstall 2>/dev/null || true
+fi
+
 # Install service with explicit config path
+print_step "Installing new service..."
 sudo cloudflared --config ~/.cloudflared/config.yml service install
 
 print_success "Service installed"
