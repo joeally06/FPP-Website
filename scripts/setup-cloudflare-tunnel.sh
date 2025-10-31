@@ -191,20 +191,84 @@ done
 # Create tunnel
 print_header "Step 3: Creating Tunnel"
 
-TUNNEL_NAME="fpp-control-$(date +%s)"
+# Check for existing tunnels
+print_step "Checking for existing tunnels..."
 
-print_step "Creating tunnel: $TUNNEL_NAME"
-cloudflared tunnel create $TUNNEL_NAME
+EXISTING_TUNNELS=$(cloudflared tunnel list 2>/dev/null | grep -E "fpp-control" || true)
 
-# Get tunnel ID
-TUNNEL_ID=$(cloudflared tunnel list | grep $TUNNEL_NAME | awk '{print $1}')
-
-if [ -z "$TUNNEL_ID" ]; then
-    print_error "Failed to create tunnel"
-    exit 1
+if [ -n "$EXISTING_TUNNELS" ]; then
+    echo ""
+    print_warning "Found existing FPP Control tunnels:"
+    echo ""
+    cloudflared tunnel list | grep -E "ID|fpp-control"
+    echo ""
+    
+    # Count tunnels
+    TUNNEL_COUNT=$(echo "$EXISTING_TUNNELS" | wc -l)
+    
+    if [ "$TUNNEL_COUNT" -gt 1 ]; then
+        print_warning "Multiple tunnels found! You should only have one."
+        echo ""
+        if confirm "Would you like to clean up old tunnels and create a new one?"; then
+            # Show tunnels with numbers
+            echo ""
+            print_info "Existing tunnels:"
+            cloudflared tunnel list | grep -E "fpp-control" | nl -w2 -s'. '
+            echo ""
+            
+            # Delete all old tunnels
+            print_step "Deleting old tunnels..."
+            while IFS= read -r line; do
+                TUNNEL_ID=$(echo "$line" | awk '{print $1}')
+                TUNNEL_NAME=$(echo "$line" | awk '{print $2}')
+                print_info "Deleting tunnel: $TUNNEL_NAME ($TUNNEL_ID)"
+                cloudflared tunnel delete "$TUNNEL_ID" 2>/dev/null || print_warning "Could not delete $TUNNEL_ID (may be in use)"
+            done <<< "$EXISTING_TUNNELS"
+            
+            print_success "Old tunnels cleaned up"
+            REUSE_TUNNEL=false
+        else
+            print_info "Keeping existing tunnels"
+            REUSE_TUNNEL=false
+        fi
+    else
+        # Only one tunnel exists
+        EXISTING_TUNNEL_ID=$(echo "$EXISTING_TUNNELS" | awk '{print $1}')
+        EXISTING_TUNNEL_NAME=$(echo "$EXISTING_TUNNELS" | awk '{print $2}')
+        
+        echo ""
+        if confirm "Reuse existing tunnel '$EXISTING_TUNNEL_NAME'?"; then
+            TUNNEL_ID="$EXISTING_TUNNEL_ID"
+            TUNNEL_NAME="$EXISTING_TUNNEL_NAME"
+            REUSE_TUNNEL=true
+            print_success "Using existing tunnel: $TUNNEL_NAME"
+        else
+            print_step "Deleting old tunnel..."
+            cloudflared tunnel delete "$EXISTING_TUNNEL_ID" 2>/dev/null || print_warning "Could not delete tunnel"
+            REUSE_TUNNEL=false
+        fi
+    fi
+else
+    REUSE_TUNNEL=false
 fi
 
-print_success "Tunnel created: $TUNNEL_ID"
+# Create new tunnel if not reusing
+if [ "$REUSE_TUNNEL" = false ]; then
+    TUNNEL_NAME="fpp-control-$(date +%s)"
+    
+    print_step "Creating new tunnel: $TUNNEL_NAME"
+    cloudflared tunnel create $TUNNEL_NAME
+    
+    # Get tunnel ID
+    TUNNEL_ID=$(cloudflared tunnel list | grep $TUNNEL_NAME | awk '{print $1}')
+    
+    if [ -z "$TUNNEL_ID" ]; then
+        print_error "Failed to create tunnel"
+        exit 1
+    fi
+    
+    print_success "Tunnel created: $TUNNEL_ID"
+fi
 
 # Create config file
 print_step "Creating tunnel configuration..."
