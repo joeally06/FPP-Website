@@ -324,12 +324,82 @@ echo "  • Domain:      $DOMAIN"
 echo "  • Local Port:  3000"
 echo ""
 
-if confirm "Do you want to restart your FPP Control Center now?"; then
-    if command -v pm2 &> /dev/null; then
-        pm2 restart fpp-control
-        print_success "Application restarted"
+# Smart application restart
+echo ""
+print_header "Application Restart"
+
+if command -v pm2 &> /dev/null; then
+    # Check if PM2 has fpp-control process
+    if pm2 list | grep -q "fpp-control"; then
+        # Process exists, ask to restart
+        if confirm "Restart FPP Control Center now to apply changes?"; then
+            pm2 restart fpp-control
+            print_success "Application restarted"
+            echo ""
+            print_info "Application is running with PM2"
+            echo "  • View status: pm2 status"
+            echo "  • View logs:   pm2 logs fpp-control"
+        fi
     else
-        print_info "Please restart your application manually"
+        # Process doesn't exist in PM2
+        print_warning "FPP Control Center is not running in PM2"
+        echo ""
+        echo "To start your application with PM2:"
+        echo ""
+        echo -e "  ${CYAN}cd $(pwd)${NC}"
+        echo -e "  ${CYAN}npm run build${NC}"
+        echo -e "  ${CYAN}pm2 start npm --name fpp-control -- start${NC}"
+        echo -e "  ${CYAN}pm2 save${NC}"
+        echo ""
+        
+        if confirm "Would you like to start it now?"; then
+            print_step "Building application..."
+            npm run build
+            
+            print_step "Starting with PM2..."
+            pm2 start npm --name fpp-control -- start
+            pm2 save
+            
+            print_success "Application started with PM2"
+        fi
+    fi
+else
+    # PM2 not installed
+    print_warning "PM2 is not installed"
+    echo ""
+    
+    # Check if node/npm process is running on port 3000
+    if lsof -i:3000 &> /dev/null; then
+        print_info "Application appears to be running on port 3000"
+        echo ""
+        echo "Please restart your application manually to apply changes:"
+        echo "  • Stop current process (Ctrl+C in terminal)"
+        echo "  • Run: npm run build"
+        echo "  • Run: npm start"
+    else
+        print_warning "Application is not running"
+        echo ""
+        echo "To start your application:"
+        echo ""
+        echo -e "  ${CYAN}cd $(pwd)${NC}"
+        echo -e "  ${CYAN}npm run build${NC}"
+        echo -e "  ${CYAN}npm start${NC}"
+        echo ""
+        
+        if confirm "Would you like to build and get start command?"; then
+            print_step "Building application..."
+            npm run build
+            
+            print_success "Build complete!"
+            echo ""
+            echo "Start your application with:"
+            echo -e "  ${CYAN}npm start${NC}"
+            echo ""
+            echo "Or for production with PM2 (recommended):"
+            echo -e "  ${CYAN}sudo npm install -g pm2${NC}"
+            echo -e "  ${CYAN}pm2 start npm --name fpp-control -- start${NC}"
+            echo -e "  ${CYAN}pm2 save${NC}"
+        fi
     fi
 fi
 
