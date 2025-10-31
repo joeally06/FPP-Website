@@ -9,6 +9,7 @@
     "lint": "eslint",
     "setup": "node scripts/setup-wizard.js && node scripts/init-database.js",
     "setup:interactive": "bash setup.sh || powershell -ExecutionPolicy Bypass -File setup.ps1",
+    "configure:oauth": "bash scripts/configure-oauth.sh || powershell -ExecutionPolicy Bypass -File scripts/configure-oauth.ps1",
     "migrate": "node scripts/migrate-database.js",
     "db:stats": "node scripts/db-stats.js",
     "backup": "node scripts/backup.js",
