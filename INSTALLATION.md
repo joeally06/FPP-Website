@@ -208,6 +208,67 @@ For Santa letter delivery and device alerts:
 
 ---
 
+## 🌐 Cloudflare Tunnel Setup (Public Access)
+
+If you selected **Public Internet** installation, you'll need to set up Cloudflare Tunnel.
+
+### Why Cloudflare Tunnel?
+
+- ✅ **No Port Forwarding** - No router configuration needed
+- ✅ **Free HTTPS** - Automatic SSL certificates
+- ✅ **DDoS Protection** - Built-in security
+- ✅ **Hide Your IP** - Your home IP stays private
+
+### Quick Setup
+
+The setup wizard guides you through Cloudflare Tunnel automatically, but you can also run it separately:
+
+**Linux/Mac:**
+```bash
+./scripts/setup-cloudflare-tunnel.sh
+```
+
+**Windows:**
+```powershell
+.\scripts\setup-cloudflare-tunnel.ps1
+```
+
+### ⚠️ Headless Server (SSH/No GUI)?
+
+If you're setting up on a server accessed via SSH (no web browser available):
+
+**The script automatically handles this!** When it reaches authentication:
+
+1. An authentication URL will be displayed prominently
+2. Copy the URL and paste it into a browser on **ANY device** (phone, laptop, etc.)
+3. Log in to Cloudflare (or create free account)
+4. Authorize the connection
+5. Return to your terminal - setup continues automatically
+
+**For complete details**, see the [Cloudflare Tunnel Guide](./docs/CLOUDFLARE-TUNNEL.md).
+
+### Post-Setup Steps
+
+After Cloudflare Tunnel is configured:
+
+1. **Update .env.local** (done automatically by script)
+   ```env
+   NEXTAUTH_URL=https://yourdomain.com
+   ```
+
+2. **Update Google OAuth** redirect URIs:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Add: `https://yourdomain.com/api/auth/callback/google`
+
+3. **Restart your application**:
+   ```bash
+   pm2 restart fpp-control
+   ```
+
+4. **Test** by visiting `https://yourdomain.com`
+
+---
+
 ## 🖥️ After Installation
 
 ### Access Your Control Center
@@ -377,8 +438,9 @@ After successful installation:
      ```
 
 4. **✅ Security Hardening**
-   - Review SECURITY-IMPLEMENTATION.md
-   - Set up Cloudflare Tunnel (if public)
+   - Review [SECURITY-IMPLEMENTATION.md](./SECURITY-IMPLEMENTATION.md)
+   - Set up [Cloudflare Tunnel](./docs/CLOUDFLARE-TUNNEL.md) (if public)
+     - **Headless Servers (SSH):** See special instructions in the guide
    - Configure firewall rules
 
 5. **✅ Customize**

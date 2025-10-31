@@ -683,10 +683,14 @@ powershell -ExecutionPolicy Bypass -File scripts/setup-cloudflare-tunnel.ps1
 **What the script does:**
 1. Installs `cloudflared` (Cloudflare Tunnel client)
 2. Logs you into your Cloudflare account
+   - **On headless servers (SSH)**: Displays authentication URL to copy/paste into browser on any device
+   - **On desktop**: Opens browser automatically
 3. Creates a new tunnel with your chosen name
 4. Configures DNS routing to your domain
 5. Sets up automatic startup as a system service
 6. Provides next steps for environment configuration
+
+> **💡 Headless Server Setup:** Running via SSH without GUI? No problem! The script automatically detects this and provides a URL you can copy and open on your phone, laptop, or any device with a browser. See [CLOUDFLARE-TUNNEL.md](./docs/CLOUDFLARE-TUNNEL.md) for details.
 
 **After Cloudflare Setup:**
 
