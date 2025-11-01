@@ -478,8 +478,10 @@ if ! confirm "Have you created your Google OAuth credentials?"; then
     print_info "No problem! You can do this later."
     print_info "The setup will continue, but admin login won't work until you configure OAuth."
     SKIP_OAUTH=true
+    OAUTH_READY=false
 else
     SKIP_OAUTH=false
+    OAUTH_READY=true
 fi
 
 # ═══════════════════════════════════════════════════════════
@@ -618,18 +620,28 @@ if [ "$CONFIGURE_ENV" = true ]; then
     
     # Get Google OAuth credentials
     echo ""
-    print_info "Google OAuth is required for admin authentication"
-    if confirm "Do you have your Google OAuth credentials ready?"; then
+    if [ "$OAUTH_READY" = true ]; then
+        # User already said they have OAuth ready in Step 5
+        print_info "Google OAuth is required for admin authentication"
         echo ""
         read -p "Enter Google Client ID: " GOOGLE_CLIENT_ID
         read -p "Enter Google Client Secret: " GOOGLE_CLIENT_SECRET
         SKIP_OAUTH=false
     else
-        print_warning "Google OAuth setup will be skipped"
-        print_info "Admin login will NOT work until you configure OAuth"
-        GOOGLE_CLIENT_ID="your-google-client-id"
-        GOOGLE_CLIENT_SECRET="your-google-client-secret"
-        SKIP_OAUTH=true
+        # User said OAuth not ready in Step 5, but give them another chance
+        print_info "Google OAuth is required for admin authentication"
+        if confirm "Do you have your Google OAuth credentials ready now?"; then
+            echo ""
+            read -p "Enter Google Client ID: " GOOGLE_CLIENT_ID
+            read -p "Enter Google Client Secret: " GOOGLE_CLIENT_SECRET
+            SKIP_OAUTH=false
+        else
+            print_warning "Google OAuth setup will be skipped"
+            print_info "Admin login will NOT work until you configure OAuth"
+            GOOGLE_CLIENT_ID="your-google-client-id"
+            GOOGLE_CLIENT_SECRET="your-google-client-secret"
+            SKIP_OAUTH=true
+        fi
     fi
     
     # Get Spotify API credentials
