@@ -63,131 +63,48 @@ powershell -ExecutionPolicy Bypass -File setup.ps1
 
 ---
 
-## 📋 Manual Installation
+## 🎯 How It Works
 
-If you prefer manual setup over the interactive wizard:
+### **For Visitors:**
+1. Visit your website (local or public)
+2. Browse available sequences
+3. Request their favorite song
+4. Write a letter to Santa (optional)
+5. Vote on sequences they love
 
-### Prerequisites
+### **For Admins:**
+1. Log in with Google OAuth
+2. Monitor FPP device status
+3. Review and manage song requests
+4. Approve Santa letters
+5. View analytics and engagement
 
-Before running the installer, you need to install these system dependencies. **This is a one-time setup** that works for all Node.js projects.
+### **Backend:**
+- **SQLite Database** - Fast, reliable, maintenance-free
+- **Rate Limiting** - Prevents spam and abuse
+- **Queue Processing** - Automated letter generation and email
+- **Scheduled Tasks** - Database maintenance, monitoring
+- **Security Middleware** - CSRF, session management, input validation
 
-#### ✅ **Install Node.js 20+**
+---
 
-Node.js is required to run the application. npm (Node Package Manager) is included with Node.js.
+## 🔧 Technology Stack
 
-**Windows:**
-1. Download the installer from [nodejs.org](https://nodejs.org/)
-2. Run the installer (use the LTS version - currently v20.x)
-3. Follow the installation wizard (accept all defaults)
-4. Restart your terminal/PowerShell
+**Frontend:**
+- Next.js 16 (React framework)
+- Tailwind CSS (styling)
+- Responsive design (mobile-friendly)
 
-**Mac:**
-```bash
-# Option 1: Using Homebrew (recommended)
-brew install node@20
+**Backend:**
+- Next.js API routes
+- SQLite (better-sqlite3)
+- NextAuth (Google OAuth)
+- Nodemailer (email)
 
-# Option 2: Download installer from nodejs.org
-```
-
-**Linux (Ubuntu/Debian):**
-```bash
-# Install Node.js 20.x LTS (recommended)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Verify installation
-node --version  # Should show v20.x.x or higher
-npm --version   # Should show 10.x.x or higher
-```
-
-**Linux (CentOS/RHEL/Fedora):**
-```bash
-# Install Node.js 20.x LTS (recommended)
-curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-sudo yum install -y nodejs
-
-# Verify installation
-node --version
-npm --version
-```
-
-#### ✅ **Install Git**
-
-Git is required to clone the repository and receive updates.
-
-**Windows:**
-1. Download Git from [git-scm.com](https://git-scm.com/download/win)
-2. Run the installer
-3. Use recommended settings (default options are fine)
-4. Restart your terminal/PowerShell
-
-**Mac:**
-```bash
-# Option 1: Using Homebrew (recommended)
-brew install git
-
-# Option 2: Install Xcode Command Line Tools
-xcode-select --install
-
-# Verify installation
-git --version
-```
-
-**Linux (Ubuntu/Debian):**
-```bash
-# Update package list
-sudo apt-get update
-
-# Install Git
-sudo apt-get install -y git
-
-# Verify installation
-git --version
-```
-
-**Linux (CentOS/RHEL/Fedora):**
-```bash
-# Install Git
-sudo yum install -y git
-
-# Verify installation
-git --version
-```
-
-#### ✅ **Install PM2 (Production Linux Only)**
-
-PM2 is a process manager that keeps the application running in the background on production servers. **Only needed for Linux production deployments.**
-
-**Linux (Ubuntu/Debian/CentOS/RHEL/Fedora):**
-```bash
-# Install PM2 globally (requires Node.js to be installed first)
-sudo npm install -g pm2
-
-# Verify installation
-pm2 --version
-
-# Optional: Set PM2 to start on system boot
-pm2 startup
-# Follow the command it gives you (will be specific to your system)
-```
-
-**Windows/Mac Development:**
-PM2 is not required for development - the app runs directly with `npm run dev`.
-
-#### ⚠️ **Verify Prerequisites are Installed**
-
-Before proceeding, verify everything is installed correctly:
-
-```bash
-# Check Node.js (should be 20.0.0 or higher)
-node --version
-
-# Check npm (should be 10.0.0 or higher)
-npm --version
-
-# Check Git (any recent version is fine)
-git --version
-```
+**Optional Integrations:**
+- Ollama (AI Santa letters)
+- Cloudflare Tunnel (public HTTPS)
+- PM2 (process management)
 
 **All three commands should return version numbers.** If any command shows "not found" or "command not recognized", go back and install that prerequisite.
 
