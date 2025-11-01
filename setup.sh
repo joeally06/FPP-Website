@@ -71,69 +71,308 @@ if ! confirm "Ready to begin?"; then
 fi
 
 # ═══════════════════════════════════════════════════════════
-# STEP 1: Check System Requirements
+# Dependency Installation Functions
 # ═══════════════════════════════════════════════════════════
-print_header "Step 1/8: Checking System Requirements"
 
-print_step "Checking operating system..."
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    print_success "Linux detected"
-    OS_TYPE="linux"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    print_success "macOS detected"
-    OS_TYPE="mac"
-else
-    print_error "Unsupported operating system: $OSTYPE"
-    echo "This setup script is for Linux and macOS only."
-    echo "For Windows, please run: powershell -ExecutionPolicy Bypass -File setup.ps1"
+install_dependencies_mac() {
+    print_header "Installing Dependencies (macOS)"
+    
+    # Check if Homebrew is installed
+    if ! command -v brew &> /dev/null; then
+        print_error "Homebrew is not installed"
+        echo ""
+        echo "Homebrew is required to install Node.js on macOS."
+        echo "Install it from: https://brew.sh"
+        echo ""
+        echo "Or run this command:"
+        echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+        echo ""
+        exit 1
+    fi
+    
+    print_step "Updating Homebrew..."
+    brew update
+    
+    # Install Node.js
+    if ! command -v node &> /dev/null; then
+        print_step "Installing Node.js 20..."
+        brew install node@20
+        brew link node@20
+        print_success "Node.js installed successfully"
+    else
+        NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$NODE_VERSION" -lt 20 ]; then
+            print_step "Upgrading Node.js to version 20..."
+            brew upgrade node@20
+            brew link --overwrite node@20
+            print_success "Node.js upgraded successfully"
+        fi
+    fi
+    
+    # Install Git if needed
+    if ! command -v git &> /dev/null; then
+        print_step "Installing Git..."
+        brew install git
+        print_success "Git installed successfully"
+    fi
+}
+
+install_dependencies_debian() {
+    print_header "Installing Dependencies (Debian/Ubuntu)"
+    
+    print_step "Updating package lists..."
+    sudo apt-get update
+    
+    # Install Node.js
+    if ! command -v node &> /dev/null; then
+        print_step "Adding NodeSource repository..."
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        
+        print_step "Installing Node.js 20..."
+        sudo apt-get install -y nodejs
+        print_success "Node.js installed successfully"
+    else
+        NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$NODE_VERSION" -lt 20 ]; then
+            print_warning "Node.js $(node -v) is too old. Upgrading to version 20..."
+            
+            # Remove old Node.js
+            sudo apt-get remove -y nodejs
+            
+            # Add NodeSource repository
+            print_step "Adding NodeSource repository..."
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            
+            # Install Node.js 20
+            print_step "Installing Node.js 20..."
+            sudo apt-get install -y nodejs
+            print_success "Node.js upgraded successfully"
+        fi
+    fi
+    
+    # Install Git if needed
+    if ! command -v git &> /dev/null; then
+        print_step "Installing Git..."
+        sudo apt-get install -y git
+        print_success "Git installed successfully"
+    fi
+}
+
+install_dependencies_redhat() {
+    print_header "Installing Dependencies (RHEL/CentOS/Fedora)"
+    
+    # Install Node.js
+    if ! command -v node &> /dev/null; then
+        print_step "Adding NodeSource repository..."
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+        
+        print_step "Installing Node.js 20..."
+        sudo yum install -y nodejs
+        print_success "Node.js installed successfully"
+    else
+        NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$NODE_VERSION" -lt 20 ]; then
+            print_warning "Node.js $(node -v) is too old. Upgrading to version 20..."
+            
+            # Remove old Node.js
+            sudo yum remove -y nodejs
+            
+            # Add NodeSource repository
+            print_step "Adding NodeSource repository..."
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+            
+            # Install Node.js 20
+            print_step "Installing Node.js 20..."
+            sudo yum install -y nodejs
+            print_success "Node.js upgraded successfully"
+        fi
+    fi
+    
+    # Install Git if needed
+    if ! command -v git &> /dev/null; then
+        print_step "Installing Git..."
+        sudo yum install -y git
+        print_success "Git installed successfully"
+    fi
+}
+
+install_dependencies() {
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════╗"
+    echo "║                                                           ║"
+    echo "║  This script will automatically install:                 ║"
+    echo "║  • Node.js 20+ (includes npm)                            ║"
+    echo "║  • Git                                                    ║"
+    echo "║                                                           ║"
+    echo "║  You may be prompted for your sudo password.             ║"
+    echo "║                                                           ║"
+    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    if ! confirm "Continue with automatic installation?"; then
+        print_info "Installation cancelled by user"
+        echo ""
+        echo "To install manually:"
+        if [[ "$OS_TYPE" == "linux" ]]; then
+            echo ""
+            echo "Node.js 20:"
+            echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
+            echo "  sudo apt-get install -y nodejs"
+            echo ""
+            echo "Git:"
+            echo "  sudo apt-get install -y git"
+        elif [[ "$OS_TYPE" == "mac" ]]; then
+            echo ""
+            echo "Node.js 20:"
+            echo "  brew install node@20"
+            echo ""
+            echo "Git:"
+            echo "  brew install git"
+        fi
+        echo ""
+        exit 1
+    fi
+    
+    # Detect Linux distribution
+    if [[ "$OS_TYPE" == "linux" ]]; then
+        if [ -f /etc/debian_version ]; then
+            install_dependencies_debian
+        elif [ -f /etc/redhat-release ]; then
+            install_dependencies_redhat
+        else
+            print_error "Unsupported Linux distribution"
+            echo ""
+            echo "This script supports:"
+            echo "  • Debian/Ubuntu (apt-get)"
+            echo "  • RHEL/CentOS/Fedora (yum)"
+            echo ""
+            echo "Please install Node.js 20+ and Git manually:"
+            echo "  https://nodejs.org"
+            echo "  https://git-scm.com"
+            exit 1
+        fi
+    elif [[ "$OS_TYPE" == "mac" ]]; then
+        install_dependencies_mac
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════
+# STEP 1: Dependency Checks
+# ═══════════════════════════════════════════════════════════
+print_header "Step 1/8: System Requirements"
+
+print_step "Detecting operating system..."
+OS_TYPE=""
+case "$(uname -s)" in
+    Linux*)     OS_TYPE="linux";;
+    Darwin*)    OS_TYPE="mac";;
+    *)          OS_TYPE="unknown";;
+esac
+
+if [[ "$OS_TYPE" == "unknown" ]]; then
+    print_error "Unsupported operating system: $(uname -s)"
+    echo "This setup script only supports Linux and macOS."
     exit 1
 fi
+print_success "Operating system: $OS_TYPE"
+
+# Check dependencies and offer auto-install
+MISSING_DEPS=false
 
 print_step "Checking Node.js..."
 if ! command -v node &> /dev/null; then
-    print_error "Node.js is not installed"
-    echo ""
-    echo "Please install Node.js 20+ first:"
-    echo ""
-    if [[ "$OS_TYPE" == "linux" ]]; then
-        echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
-        echo "  sudo apt-get install -y nodejs"
-    elif [[ "$OS_TYPE" == "mac" ]]; then
-        echo "  brew install node@20"
+    print_warning "Node.js is not installed"
+    MISSING_DEPS=true
+else
+    NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    if [ "$NODE_VERSION" -lt 20 ]; then
+        print_warning "Node.js 20+ is required (found: $(node -v))"
+        MISSING_DEPS=true
+    else
+        print_success "Node.js $(node -v) detected"
     fi
-    echo ""
-    echo "Then run this setup script again."
-    exit 1
 fi
-
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 20 ]; then
-    print_error "Node.js 20+ is required (found: $(node -v))"
-    echo "Please upgrade Node.js and run this script again."
-    exit 1
-fi
-print_success "Node.js $(node -v) detected"
 
 print_step "Checking npm..."
 if ! command -v npm &> /dev/null; then
-    print_error "npm is not installed"
-    exit 1
+    print_warning "npm is not installed (will be installed with Node.js)"
+    MISSING_DEPS=true
+else
+    print_success "npm $(npm -v) detected"
 fi
-print_success "npm $(npm -v) detected"
 
 print_step "Checking Git..."
 if ! command -v git &> /dev/null; then
-    print_error "Git is not installed"
-    echo ""
-    echo "Please install Git first:"
-    if [[ "$OS_TYPE" == "linux" ]]; then
-        echo "  sudo apt-get install -y git"
-    elif [[ "$OS_TYPE" == "mac" ]]; then
-        echo "  brew install git"
-    fi
-    exit 1
+    print_warning "Git is not installed"
+    MISSING_DEPS=true
+else
+    print_success "Git $(git --version | cut -d' ' -f3) detected"
 fi
-print_success "Git $(git --version | cut -d' ' -f3) detected"
+
+# If dependencies are missing, offer to install them
+if [ "$MISSING_DEPS" = true ]; then
+    echo ""
+    print_warning "Some required dependencies are missing or outdated"
+    echo ""
+    
+    if confirm "Would you like to install missing dependencies automatically?"; then
+        install_dependencies
+        
+        # Verify installation
+        echo ""
+        print_header "Verifying Installation"
+        
+        print_step "Checking Node.js..."
+        if ! command -v node &> /dev/null; then
+            print_error "Node.js installation failed"
+            exit 1
+        fi
+        NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$NODE_VERSION" -lt 20 ]; then
+            print_error "Node.js 20+ is required (found: $(node -v))"
+            exit 1
+        fi
+        print_success "Node.js $(node -v) installed"
+        
+        print_step "Checking npm..."
+        if ! command -v npm &> /dev/null; then
+            print_error "npm installation failed"
+            exit 1
+        fi
+        print_success "npm $(npm -v) installed"
+        
+        print_step "Checking Git..."
+        if ! command -v git &> /dev/null; then
+            print_error "Git installation failed"
+            exit 1
+        fi
+        print_success "Git $(git --version | cut -d' ' -f3) installed"
+        
+        echo ""
+        print_success "All dependencies installed successfully!"
+    else
+        print_error "Cannot continue without required dependencies"
+        echo ""
+        echo "Please install manually and run this script again:"
+        if [[ "$OS_TYPE" == "linux" ]]; then
+            echo ""
+            echo "Node.js 20:"
+            echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
+            echo "  sudo apt-get install -y nodejs"
+            echo ""
+            echo "Git:"
+            echo "  sudo apt-get install -y git"
+        elif [[ "$OS_TYPE" == "mac" ]]; then
+            echo ""
+            echo "Node.js 20:"
+            echo "  brew install node@20"
+            echo ""
+            echo "Git:"
+            echo "  brew install git"
+        fi
+        exit 1
+    fi
+fi
 
 # ═══════════════════════════════════════════════════════════
 # STEP 2: Choose Installation Type
@@ -405,25 +644,25 @@ if [ "$CONFIGURE_ENV" = true ]; then
     fi
     
     # Create .env.local file
-    cat > .env.local << EOF
+    cat > .env.local << 'ENV_FILE'
 # FPP Control Center - Environment Configuration
-# Generated by setup.sh on $(date)
+# Generated by setup.sh
 
 # NextAuth Configuration
 # For local network access, change to http://YOUR_SERVER_IP:3000
 # For production with Cloudflare Tunnel, change to https://yourdomain.com
-NEXTAUTH_URL=$NEXTAUTH_URL
-NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+NEXTAUTH_URL=PLACEHOLDER_NEXTAUTH_URL
+NEXTAUTH_SECRET=PLACEHOLDER_NEXTAUTH_SECRET
 
 # Google OAuth
-GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+GOOGLE_CLIENT_ID=PLACEHOLDER_GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET=PLACEHOLDER_GOOGLE_CLIENT_SECRET
 
 # Admin Access
-ADMIN_EMAILS=$ADMIN_EMAIL
+ADMIN_EMAILS=PLACEHOLDER_ADMIN_EMAIL
 
 # FPP Server Configuration
-FPP_URL=http://$FPP_IP:80
+FPP_URL=PLACEHOLDER_FPP_URL
 
 # Spotify API (optional - configure later if needed)
 SPOTIFY_CLIENT_ID=your-spotify-client-id
@@ -433,19 +672,33 @@ SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
 OLLAMA_URL=http://localhost:11434
 
 # Email Configuration (SMTP)
-SMTP_HOST=$SMTP_HOST
-SMTP_PORT=$SMTP_PORT
+SMTP_HOST=PLACEHOLDER_SMTP_HOST
+SMTP_PORT=PLACEHOLDER_SMTP_PORT
 SMTP_SECURE=false
-SMTP_USER=$SMTP_USER
-SMTP_PASS=$SMTP_PASS
+SMTP_USER=PLACEHOLDER_SMTP_USER
+SMTP_PASS=PLACEHOLDER_SMTP_PASS
 
 # Timezone Configuration
-NEXT_PUBLIC_TIMEZONE=$TIMEZONE
+NEXT_PUBLIC_TIMEZONE=PLACEHOLDER_TIMEZONE
 
 # Device Monitoring Schedule
 MONITORING_START_TIME=17:30
 MONITORING_END_TIME=22:00
-EOF
+ENV_FILE
+
+    # Replace placeholders with actual values
+    sed -i.bak "s|PLACEHOLDER_NEXTAUTH_URL|$NEXTAUTH_URL|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_NEXTAUTH_SECRET|$NEXTAUTH_SECRET|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_ID|$GOOGLE_CLIENT_ID|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_SECRET|$GOOGLE_CLIENT_SECRET|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_ADMIN_EMAIL|$ADMIN_EMAIL|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_FPP_URL|http://$FPP_IP:80|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_SMTP_HOST|$SMTP_HOST|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_SMTP_PORT|$SMTP_PORT|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_SMTP_USER|$SMTP_USER|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_SMTP_PASS|$SMTP_PASS|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_TIMEZONE|$TIMEZONE|g" .env.local
+    rm -f .env.local.bak
 
     print_success "Environment configuration created"
 fi
