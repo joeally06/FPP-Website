@@ -181,8 +181,16 @@ echo ""
 
 while true; do
     read -p "Enter your domain: " DOMAIN
+    # Trim whitespace and any special characters
+    DOMAIN=$(echo "$DOMAIN" | xargs | tr -d '[:space:]' | tr -d '\r\n')
+    
     if [[ $DOMAIN =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
-        break
+        # Confirm the domain with the user
+        echo ""
+        echo -e "${CYAN}You entered: $DOMAIN${NC}"
+        if confirm "Is this correct?"; then
+            break
+        fi
     else
         print_error "Invalid domain format. Please try again."
     fi
