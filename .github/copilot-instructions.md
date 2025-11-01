@@ -39,6 +39,15 @@
 - [x] Implement Automatic Dependency Updates
 	Completed: Added npm update and npm audit fix to both setup.sh and setup.ps1 to automatically resolve deprecation warnings and security vulnerabilities during installation.
 
+- [x] Fix Critical Setup Script Issues
+	Completed: Enhanced setup.sh with:
+	- Clear ADMIN_EMAILS instructions with multi-admin support
+	- Smart NEXTAUTH_URL detection for production servers (localhost vs domain/IP)
+	- OAuth redirect URI display during setup
+	- SMTP_SECURE configuration
+	- Required fields validation before build
+	- Post-setup configuration summary with status checks
+
 ---
 
 ## 🎯 Project Status: PRODUCTION READY

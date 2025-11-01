@@ -580,13 +580,41 @@ if [ "$CONFIGURE_ENV" = true ]; then
     # Generate secure random secret
     NEXTAUTH_SECRET=$(openssl rand -hex 32)
     
-    # Get admin email
+    # Get admin email(s)
     echo ""
-    read -p "Enter your email (for admin access): " ADMIN_EMAIL
-    while [[ ! "$ADMIN_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; do
-        print_error "Invalid email format"
-        read -p "Enter your email: " ADMIN_EMAIL
+    print_header "Admin Email Configuration"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${YELLOW}IMPORTANT:${NC} The email(s) you enter here will be used for admin login."
+    echo ""
+    echo "• This email MUST match the Google account you'll use to log in"
+    echo "• Only these email addresses will have admin access"
+    echo "• You can add multiple admins (comma-separated, no spaces)"
+    echo ""
+    echo -e "${GREEN}Examples:${NC}"
+    echo "  Single admin:   joeally5@gmail.com"
+    echo "  Multiple admins: joeally5@gmail.com,wife@gmail.com,helper@yahoo.com"
+    echo ""
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    read -p "Enter admin email(s): " ADMIN_EMAIL
+    
+    # Validate email format(s)
+    IFS=',' read -ra EMAIL_ARRAY <<< "$ADMIN_EMAIL"
+    for email in "${EMAIL_ARRAY[@]}"; do
+        # Trim whitespace
+        email=$(echo "$email" | xargs)
+        if [[ ! "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            print_error "Invalid email format: $email"
+            echo "Please enter valid email address(es)"
+            exit 1
+        fi
     done
+    
+    # Remove any spaces from the email list
+    ADMIN_EMAIL=$(echo "$ADMIN_EMAIL" | tr -d ' ')
+    
+    print_success "Admin email(s) configured: $ADMIN_EMAIL"
     
     # Get Google OAuth credentials
     echo ""
@@ -662,20 +690,103 @@ if [ "$CONFIGURE_ENV" = true ]; then
         echo ""
         SMTP_HOST="smtp.gmail.com"
         SMTP_PORT="587"
+        SMTP_SECURE="false"
     else
         SMTP_USER="your-email@gmail.com"
         SMTP_PASS="your-app-password"
         SMTP_HOST="smtp.gmail.com"
         SMTP_PORT="587"
+        SMTP_SECURE="false"
     fi
     
-    # Determine NEXTAUTH_URL based on installation type
+    # Determine NEXTAUTH_URL based on installation type and access method
+    echo ""
+    print_header "Access Configuration"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo "How will you access this FPP Control Center?"
+    echo ""
+    
     if [[ "$INSTALL_TYPE" == "public" ]]; then
+        echo "You selected PUBLIC installation (Cloudflare Tunnel)"
         echo ""
         read -p "Enter your domain name (e.g., fpp.example.com): " DOMAIN
         NEXTAUTH_URL="https://$DOMAIN"
+        SETUP_URL="https://$DOMAIN"
+        print_success "NEXTAUTH_URL set to: $NEXTAUTH_URL"
     else
-        NEXTAUTH_URL="http://localhost:3000"
+        echo "You selected LOCAL NETWORK installation"
+        echo ""
+        echo "Choose your primary access method:"
+        echo ""
+        echo "1) Only from this server (localhost)"
+        echo "   - Use http://localhost:3000"
+        echo "   - Best for: Testing, development"
+        echo ""
+        echo "2) From network devices (phones, tablets, computers)"
+        echo "   - Use http://YOUR_DOMAIN_OR_IP:3000"
+        echo "   - Best for: Production servers accessed by visitors"
+        echo ""
+        read -p "Enter choice (1 or 2): " ACCESS_CHOICE
+        
+        if [[ "$ACCESS_CHOICE" == "1" ]]; then
+            NEXTAUTH_URL="http://localhost:3000"
+            SETUP_URL="http://localhost:3000"
+            print_success "NEXTAUTH_URL set to: $NEXTAUTH_URL"
+        else
+            echo ""
+            echo "Enter the domain or IP address visitors will use to access your site:"
+            echo ""
+            echo -e "${GREEN}Examples:${NC}"
+            echo "  - lewisfamilylightshow.com (if using a domain)"
+            echo "  - 192.168.2.107 (if using IP address)"
+            echo ""
+            echo -e "${YELLOW}NOTE:${NC} Do NOT include http:// or port numbers"
+            echo ""
+            read -p "Domain or IP: " ACCESS_DOMAIN
+            
+            # Remove http://, https://, and trailing slashes
+            ACCESS_DOMAIN=$(echo "$ACCESS_DOMAIN" | sed -e 's|^https\?://||' -e 's|/$||')
+            
+            NEXTAUTH_URL="http://$ACCESS_DOMAIN:3000"
+            SETUP_URL="http://$ACCESS_DOMAIN:3000"
+            
+            echo ""
+            print_success "NEXTAUTH_URL set to: $NEXTAUTH_URL"
+            echo ""
+            print_warning "IMPORTANT: Visitors must access your site at: $SETUP_URL"
+            echo ""
+        fi
+    fi
+    
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    
+    # Show OAuth redirect URI instructions if OAuth was configured
+    if [ "$SKIP_OAUTH" = false ]; then
+        echo ""
+        print_header "⚠️  IMPORTANT: Update Google OAuth Settings"
+        echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo -e "${YELLOW}You MUST add this redirect URI to your Google OAuth app:${NC}"
+        echo ""
+        echo -e "${GREEN}   $NEXTAUTH_URL/api/auth/callback/google${NC}"
+        echo ""
+        echo "Steps:"
+        echo "  1. Go to: https://console.cloud.google.com/apis/credentials"
+        echo "  2. Click on your OAuth 2.0 Client ID"
+        echo "  3. Under 'Authorized redirect URIs', click '+ ADD URI'"
+        echo "  4. Paste the URL above"
+        echo "  5. Click 'Save'"
+        echo ""
+        echo -e "${RED}OAuth will NOT work until you complete this step!${NC}"
+        echo ""
+        echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        
+        if ! confirm "Have you added the redirect URI (or will you do it now)?"; then
+            print_warning "Remember to add the redirect URI before trying to log in!"
+        fi
+        echo ""
     fi
     
     # Create .env.local file
@@ -709,7 +820,7 @@ OLLAMA_URL=http://localhost:11434
 # Email Configuration (SMTP)
 SMTP_HOST=PLACEHOLDER_SMTP_HOST
 SMTP_PORT=PLACEHOLDER_SMTP_PORT
-SMTP_SECURE=false
+SMTP_SECURE=PLACEHOLDER_SMTP_SECURE
 SMTP_USER=PLACEHOLDER_SMTP_USER
 SMTP_PASS=PLACEHOLDER_SMTP_PASS
 
@@ -732,12 +843,58 @@ ENV_FILE
     sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_SECRET|$SPOTIFY_CLIENT_SECRET|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SMTP_HOST|$SMTP_HOST|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SMTP_PORT|$SMTP_PORT|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_SMTP_SECURE|$SMTP_SECURE|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SMTP_USER|$SMTP_USER|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SMTP_PASS|$SMTP_PASS|g" .env.local
     sed -i.bak "s|PLACEHOLDER_TIMEZONE|$TIMEZONE|g" .env.local
     rm -f .env.local.bak
 
     print_success "Environment configuration created"
+    
+    # Validate required fields
+    echo ""
+    print_step "Validating configuration..."
+    
+    VALIDATION_FAILED=false
+    MISSING_FIELDS=()
+    
+    # Check for placeholder values in REQUIRED fields
+    if grep -q "your-google-client-id" .env.local || grep -q "GOOGLE_CLIENT_ID=\s*$" .env.local 2>/dev/null; then
+        MISSING_FIELDS+=("Google OAuth Client ID")
+        VALIDATION_FAILED=true
+    fi
+    
+    if grep -q "your-google-client-secret" .env.local || grep -q "GOOGLE_CLIENT_SECRET=\s*$" .env.local 2>/dev/null; then
+        MISSING_FIELDS+=("Google OAuth Client Secret")
+        VALIDATION_FAILED=true
+    fi
+    
+    if grep -q "your-spotify-client-id" .env.local || grep -q "SPOTIFY_CLIENT_ID=\s*$" .env.local 2>/dev/null; then
+        MISSING_FIELDS+=("Spotify Client ID")
+        VALIDATION_FAILED=true
+    fi
+    
+    if grep -q "your-spotify-client-secret" .env.local || grep -q "SPOTIFY_CLIENT_SECRET=\s*$" .env.local 2>/dev/null; then
+        MISSING_FIELDS+=("Spotify Client Secret")
+        VALIDATION_FAILED=true
+    fi
+    
+    if [ "$VALIDATION_FAILED" = true ]; then
+        echo ""
+        print_warning "Some REQUIRED fields are not configured:"
+        for field in "${MISSING_FIELDS[@]}"; do
+            echo "  ❌ $field"
+        done
+        echo ""
+        print_info "These fields MUST be configured before the app will work properly"
+        print_info "Edit .env.local and add the missing credentials, then run:"
+        echo ""
+        echo "  npm run build"
+        echo "  pm2 restart fpp-control"
+        echo ""
+    else
+        print_success "All required fields validated!"
+    fi
 fi
 
 # ═══════════════════════════════════════════════════════════
@@ -796,6 +953,60 @@ print_step "Setting up auto-start on system boot..."
 pm2 startup
 echo ""
 print_info "If a command was shown above, run it to enable auto-start"
+
+# ═══════════════════════════════════════════════════════════
+# Configuration Summary
+# ═══════════════════════════════════════════════════════════
+echo ""
+print_header "📋 Configuration Summary"
+
+# Read .env.local to check what's configured
+if [ -f ".env.local" ]; then
+    echo ""
+    echo -e "${CYAN}Checking your configuration...${NC}"
+    echo ""
+    
+    # Check each required field
+    ADMIN_EMAILS_SET=$(grep "^ADMIN_EMAILS=" .env.local | grep -v "your-" | wc -l)
+    GOOGLE_OAUTH_SET=$(grep "^GOOGLE_CLIENT_ID=" .env.local | grep -v "your-" | wc -l)
+    SPOTIFY_SET=$(grep "^SPOTIFY_CLIENT_ID=" .env.local | grep -v "your-" | wc -l)
+    SMTP_SET=$(grep "^SMTP_USER=" .env.local | grep -v "your-" | wc -l)
+    
+    # Display status
+    if [ "$ADMIN_EMAILS_SET" -gt 0 ]; then
+        ADMIN_EMAIL_VALUE=$(grep "^ADMIN_EMAILS=" .env.local | cut -d'=' -f2)
+        echo -e "   ${GREEN}✅ Admin Email:${NC} $ADMIN_EMAIL_VALUE"
+    else
+        echo -e "   ${RED}❌ Admin Email:${NC} Not configured"
+    fi
+    
+    if [ "$GOOGLE_OAUTH_SET" -gt 0 ]; then
+        echo -e "   ${GREEN}✅ Google OAuth:${NC} Configured"
+    else
+        echo -e "   ${YELLOW}⚠️  Google OAuth:${NC} Not configured - Admin login won't work"
+    fi
+    
+    if [ "$SPOTIFY_SET" -gt 0 ]; then
+        echo -e "   ${GREEN}✅ Spotify API:${NC} Configured"
+    else
+        echo -e "   ${YELLOW}⚠️  Spotify API:${NC} Not configured - Jukebox won't show metadata"
+    fi
+    
+    if [ "$SMTP_SET" -gt 0 ]; then
+        echo -e "   ${GREEN}✅ Email (SMTP):${NC} Configured"
+    else
+        echo -e "   ${CYAN}ℹ  Email (SMTP):${NC} Not configured (optional)"
+    fi
+    
+    # Show NEXTAUTH_URL
+    NEXTAUTH_URL_VALUE=$(grep "^NEXTAUTH_URL=" .env.local | cut -d'=' -f2)
+    echo -e "   ${GREEN}✅ Access URL:${NC} $NEXTAUTH_URL_VALUE"
+    
+    FPP_URL_VALUE=$(grep "^FPP_URL=" .env.local | cut -d'=' -f2)
+    echo -e "   ${GREEN}✅ FPP Server:${NC} $FPP_URL_VALUE"
+    
+    echo ""
+fi
 
 # ═══════════════════════════════════════════════════════════
 # SUCCESS! Show Next Steps
