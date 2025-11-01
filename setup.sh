@@ -618,9 +618,13 @@ if [ "$CONFIGURE_ENV" = true ]; then
     
     print_success "Admin email(s) configured: $ADMIN_EMAIL"
     
-    # Get Google OAuth credentials
+    # Get Google OAuth credentials (only if not already updated earlier)
     echo ""
-    if [ "$OAUTH_READY" = true ]; then
+    if [ "$OAUTH_JUST_UPDATED" = true ]; then
+        # OAuth was already configured in the quick-update section above
+        print_success "Using Google OAuth credentials already configured"
+        SKIP_OAUTH=false
+    elif [ "$OAUTH_READY" = true ]; then
         # User already said they have OAuth ready in Step 5
         print_info "Google OAuth is required for admin authentication"
         echo ""
