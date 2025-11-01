@@ -48,8 +48,17 @@ async function setupWizard() {
 
   // FPP Configuration
   console.log('🎄 FPP Controller Configuration');
-  const fppUrl = await question('FPP Controller URL [http://192.168.5.2]: ');
-  config.FPP_URL = fppUrl || 'http://192.168.5.2';
+  console.log('Enter the IP address of your FPP controller');
+  console.log('Example: 192.168.1.100 or 192.168.0.50\n');
+  const fppUrl = await question('FPP Controller IP address: ');
+  
+  if (!fppUrl || fppUrl.trim() === '') {
+    console.log('❌ FPP IP address is required');
+    process.exit(1);
+  }
+  
+  // Add http:// if not present
+  config.FPP_URL = fppUrl.startsWith('http') ? fppUrl : `http://${fppUrl}`;
   console.log(`✅ FPP URL: ${config.FPP_URL}\n`);
 
   // Ollama Configuration
