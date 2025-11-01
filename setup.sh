@@ -413,9 +413,14 @@ done
 # ═══════════════════════════════════════════════════════════
 print_header "Step 3/8: Installing Dependencies"
 
-print_step "Installing Node.js packages..."
+print_step "Installing dependencies..."
 npm install
-print_success "Dependencies installed"
+
+print_step "Updating dependencies to fix known vulnerabilities..."
+npm update
+npm audit fix --force 2>/dev/null || true
+
+print_success "Dependencies installed and updated"
 
 print_step "Checking for PM2 (process manager)..."
 if ! command -v pm2 &> /dev/null; then

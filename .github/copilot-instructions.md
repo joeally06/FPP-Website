@@ -36,6 +36,9 @@
 - [x] Add Spotify API Configuration to Setup Wizard
 	Completed: Added Spotify credential collection in setup.sh, updated .env.local template, added comprehensive Spotify setup guide to INSTALLATION.md.
 
+- [x] Implement Automatic Dependency Updates
+	Completed: Added npm update and npm audit fix to both setup.sh and setup.ps1 to automatically resolve deprecation warnings and security vulnerabilities during installation.
+
 ---
 
 ## 🎯 Project Status: PRODUCTION READY

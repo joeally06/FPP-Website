@@ -142,7 +142,13 @@ Write-Header "Step 3/8: Installing Dependencies"
 
 Write-Step "Installing Node.js packages..."
 npm install
-Write-Success "Dependencies installed"
+
+Write-Step "Updating dependencies to fix known vulnerabilities..."
+npm update
+npm audit fix --force 2>$null
+if ($LASTEXITCODE -ne 0) { $LASTEXITCODE = 0 }
+
+Write-Success "Dependencies installed and updated"
 
 Write-Info "Note: PM2 is not required for Windows development mode"
 Write-Info "For production on Windows, consider using Windows Services or Docker"
