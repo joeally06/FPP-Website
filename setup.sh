@@ -862,7 +862,14 @@ ENV_FILE
 # ═══════════════════════════════════════════════════════════
 print_header "Step 7/8: Building Application"
 
-print_step "Building Next.js application (this may take a minute)..."
+# Clean previous build
+if [ -d ".next" ]; then
+    print_step "Cleaning previous build..."
+    rm -rf .next
+fi
+
+print_step "Building Next.js application for production..."
+print_info "This may take 1-2 minutes..."
 npm run build
 print_success "Application built successfully"
 
