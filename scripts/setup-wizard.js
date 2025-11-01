@@ -118,11 +118,39 @@ async function setupWizard() {
   config.NEXTAUTH_URL = 'http://localhost:3000';
   console.log('✅ Generated secure authentication secret\n');
 
-  // Generate .env.local
-  const envContent = Object.entries(config)
-    .filter(([key, value]) => value !== '') // Skip empty values
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
+  // Generate .env.local in new clean format
+  const envContent = `# NextAuth Configuration
+NEXTAUTH_URL=${config.NEXTAUTH_URL}
+NEXTAUTH_SECRET=${config.NEXTAUTH_SECRET}
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Admin Emails (comma-separated)
+ADMIN_EMAILS=your-email@example.com
+
+# FPP Server Configuration
+FPP_URL=${config.FPP_URL}
+
+# Spotify API
+SPOTIFY_CLIENT_ID=your-spotify-client-id
+SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
+
+# Ollama LLM Configuration
+OLLAMA_URL=${config.NEXT_PUBLIC_OLLAMA_URL || 'http://localhost:11434'}
+NEXT_PUBLIC_OLLAMA_URL=${config.NEXT_PUBLIC_OLLAMA_URL || 'http://localhost:11434'}
+
+# Email Configuration (SMTP)
+SMTP_HOST=${config.SMTP_HOST || 'smtp.gmail.com'}
+SMTP_PORT=${config.SMTP_PORT || '587'}
+SMTP_SECURE=false
+SMTP_USER=${config.SMTP_USER || ''}
+SMTP_PASS=${config.SMTP_PASS || ''}
+
+# Timezone Configuration
+NEXT_PUBLIC_TIMEZONE=${config.NEXT_PUBLIC_TIMEZONE}
+`;
 
   const envPath = path.join(process.cwd(), '.env.local');
   
@@ -130,6 +158,7 @@ async function setupWizard() {
     const overwrite = await question('\n⚠️  .env.local already exists. Overwrite? (y/n) [n]: ');
     if (overwrite.toLowerCase() !== 'y') {
       console.log('ℹ️  Keeping existing .env.local');
+      console.log('\n⚠️  WARNING: Using old .env.local format. Consider running setup.sh for new format.\n');
       rl.close();
       return;
     }
@@ -140,10 +169,14 @@ async function setupWizard() {
   console.log('\n📋 Summary:');
   console.log(`   Timezone: ${config.NEXT_PUBLIC_TIMEZONE}`);
   console.log(`   FPP URL: ${config.FPP_URL}`);
-  console.log(`   Ollama: ${config.NEXT_PUBLIC_OLLAMA_URL ? 'Enabled' : 'Disabled'}`);
+  console.log(`   Ollama: ${config.NEXT_PUBLIC_OLLAMA_URL || 'http://localhost:11434'}`);
   console.log(`   Email: ${config.SMTP_USER || 'Not configured'}`);
-  console.log(`   Monitoring: ${config.MONITORING_START_TIME} - ${config.MONITORING_END_TIME}`);
-  console.log('\nYou can edit .env.local manually later if needed.\n');
+  console.log('\n⚠️  IMPORTANT: You still need to configure:');
+  console.log('   • Google OAuth (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)');
+  console.log('   • Admin Emails (ADMIN_EMAILS)');
+  console.log('   • Spotify API (SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)');
+  console.log('\n💡 TIP: Run ./setup.sh for guided setup of all credentials\n');
+  console.log('You can also edit .env.local manually.\n');
 
   rl.close();
 }
