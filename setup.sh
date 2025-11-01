@@ -451,14 +451,13 @@ npm run setup
 print_success "Database initialized"
 
 # ═══════════════════════════════════════════════════════════
-# STEP 5: Google OAuth Setup
+# STEP 5: Google OAuth Information
 # ═══════════════════════════════════════════════════════════
-print_header "Step 5/8: Google OAuth Configuration"
+print_header "Step 5/8: Google OAuth Setup"
 
-echo "FPP Control Center uses Google OAuth for admin authentication."
-echo "This keeps your admin panel secure without managing passwords."
+echo "FPP Control Center uses Google OAuth for secure admin authentication."
 echo ""
-echo "You'll need to create a Google OAuth application:"
+echo "Before continuing, you'll need to create Google OAuth credentials:"
 echo ""
 echo "  1. Go to: https://console.cloud.google.com/apis/credentials"
 echo "  2. Create a new project (or select existing)"
@@ -474,113 +473,28 @@ else
 fi
 
 echo ""
-if ! confirm "Have you created your Google OAuth credentials?"; then
-    print_info "No problem! You can do this later."
-    print_info "The setup will continue, but admin login won't work until you configure OAuth."
-    SKIP_OAUTH=true
-    OAUTH_READY=false
-else
-    SKIP_OAUTH=false
-    OAUTH_READY=true
-fi
+print_info "Don't have credentials yet? No problem!"
+print_info "You can skip this and configure OAuth later by editing .env.local"
+echo ""
+
+# No questions here - just information
 
 # ═══════════════════════════════════════════════════════════
 # STEP 6: Environment Configuration
 # ═══════════════════════════════════════════════════════════
-print_header "Step 6/8: Configuring Environment Variables"
+print_header "Step 6/8: Configuration"
 
-CONFIGURE_ENV=false
-OAUTH_JUST_UPDATED=false
-
+# Backup existing .env.local if it exists
 if [ -f ".env.local" ]; then
-    print_warning "Existing .env.local found"
-    
-    # Check if Google OAuth is configured
-    if grep -q "your-google-client-id" .env.local 2>/dev/null || ! grep -q "GOOGLE_CLIENT_ID=.*[^=]$" .env.local 2>/dev/null; then
-        print_warning "Google OAuth credentials are not configured in your .env.local"
-        if confirm "Would you like to configure Google OAuth now?"; then
-            # Just update OAuth credentials
-            echo ""
-            read -p "Enter Google Client ID: " GOOGLE_CLIENT_ID
-            read -p "Enter Google Client Secret: " GOOGLE_CLIENT_SECRET
-            
-            # Update the .env.local file
-            if command -v sed &> /dev/null; then
-                # Check if the fields exist
-                if grep -q "GOOGLE_CLIENT_ID=" .env.local; then
-                    sed -i.bak "s|GOOGLE_CLIENT_ID=.*|GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID|" .env.local
-                    sed -i.bak "s|GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET|" .env.local
-                    rm -f .env.local.bak
-                else
-                    # Add the fields if they don't exist
-                    echo "" >> .env.local
-                    echo "# Google OAuth" >> .env.local
-                    echo "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" >> .env.local
-                    echo "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" >> .env.local
-                fi
-                print_success "Google OAuth credentials updated in .env.local"
-                OAUTH_JUST_UPDATED=true
-                SKIP_OAUTH=false
-            else
-                print_warning "Could not auto-update. Please manually edit .env.local:"
-                echo "  GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID"
-                echo "  GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET"
-                SKIP_OAUTH=true
-            fi
-        else
-            print_info "Skipping OAuth configuration"
-            SKIP_OAUTH=true
-        fi
-    else
-        print_success "Google OAuth appears to be configured"
-        SKIP_OAUTH=false
-    fi
-    
-    # Check if other critical fields are missing (even if OAuth was just updated)
-    if grep -q "your-" .env.local 2>/dev/null; then
-        print_warning "Some configuration values appear to be placeholders"
-        echo ""
-        echo "Current .env.local contains placeholder values like 'your-spotify-client-id'"
-        echo ""
-        if confirm "Review and update all configuration values?"; then
-            mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
-            print_info "Backed up old configuration"
-            CONFIGURE_ENV=true
-        else
-            print_info "Keeping existing configuration"
-            echo ""
-            print_warning "To manually update later, edit: .env.local"
-            CONFIGURE_ENV=false
-        fi
-    else
-        # No placeholders found - check if user wants to keep existing config
-        if [ "$OAUTH_JUST_UPDATED" = false ]; then
-            if confirm "Keep existing configuration?"; then
-                print_info "Using existing .env.local"
-                CONFIGURE_ENV=false
-            else
-                mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
-                print_info "Backed up old configuration"
-                CONFIGURE_ENV=true
-            fi
-        else
-            # OAuth was just updated and no other placeholders exist
-            print_success "Using existing configuration with updated OAuth credentials"
-            CONFIGURE_ENV=false
-        fi
-    fi
-else
-    CONFIGURE_ENV=true
-    SKIP_OAUTH=false
-    SKIP_SPOTIFY=false
+    mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
+    print_info "Backed up existing .env.local"
 fi
 
-if [ "$CONFIGURE_ENV" = true ]; then
-    echo "Let's configure your environment variables..."
-    echo ""
-    
-    # Generate secure random secret
-    NEXTAUTH_SECRET=$(openssl rand -hex 32)
+echo "Let's configure your FPP Control Center..."
+echo ""
+
+# Generate secure random secret
+NEXTAUTH_SECRET=$(openssl rand -hex 32)
     
     # Get admin email(s)
     echo ""
@@ -618,34 +532,21 @@ if [ "$CONFIGURE_ENV" = true ]; then
     
     print_success "Admin email(s) configured: $ADMIN_EMAIL"
     
-    # Get Google OAuth credentials (only if not already updated earlier)
+    # Get Google OAuth credentials
     echo ""
-    if [ "$OAUTH_JUST_UPDATED" = true ]; then
-        # OAuth was already configured in the quick-update section above
-        print_success "Using Google OAuth credentials already configured"
-        SKIP_OAUTH=false
-    elif [ "$OAUTH_READY" = true ]; then
-        # User already said they have OAuth ready in Step 5
-        print_info "Google OAuth is required for admin authentication"
-        echo ""
+    print_info "Google OAuth is required for admin authentication"
+    echo ""
+    if confirm "Do you have your Google OAuth credentials ready?"; then
         read -p "Enter Google Client ID: " GOOGLE_CLIENT_ID
         read -p "Enter Google Client Secret: " GOOGLE_CLIENT_SECRET
+        print_success "OAuth credentials configured"
         SKIP_OAUTH=false
     else
-        # User said OAuth not ready in Step 5, but give them another chance
-        print_info "Google OAuth is required for admin authentication"
-        if confirm "Do you have your Google OAuth credentials ready now?"; then
-            echo ""
-            read -p "Enter Google Client ID: " GOOGLE_CLIENT_ID
-            read -p "Enter Google Client Secret: " GOOGLE_CLIENT_SECRET
-            SKIP_OAUTH=false
-        else
-            print_warning "Google OAuth setup will be skipped"
-            print_info "Admin login will NOT work until you configure OAuth"
-            GOOGLE_CLIENT_ID="your-google-client-id"
-            GOOGLE_CLIENT_SECRET="your-google-client-secret"
-            SKIP_OAUTH=true
-        fi
+        print_warning "Skipping OAuth - you can configure this later"
+        print_info "Admin login will NOT work until you add OAuth credentials to .env.local"
+        GOOGLE_CLIENT_ID="your-google-client-id"
+        GOOGLE_CLIENT_SECRET="your-google-client-secret"
+        SKIP_OAUTH=true
     fi
     
     # Get Spotify API credentials
@@ -955,7 +856,6 @@ ENV_FILE
     else
         print_success "All required fields validated!"
     fi
-fi
 
 # ═══════════════════════════════════════════════════════════
 # STEP 7: Build Application
