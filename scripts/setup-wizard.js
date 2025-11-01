@@ -84,15 +84,22 @@ async function setupWizard() {
   const useEmail = await question('Configure email? (y/n) [y]: ');
   
   if (useEmail.toLowerCase() !== 'n') {
-    config.SMTP_HOST = await question('SMTP Host (e.g., smtp.gmail.com): ');
+    console.log('\nFor Gmail users:');
+    console.log('  1. Enable 2-Factor Authentication');
+    console.log('  2. Generate App Password: https://myaccount.google.com/apppasswords');
+    console.log('  3. Use the App Password below (not your regular password)\n');
+    console.log('For other email providers, use their SMTP settings\n');
+    
+    const smtpHost = await question('SMTP Host [smtp.gmail.com]: ');
+    config.SMTP_HOST = smtpHost || 'smtp.gmail.com';
     
     const smtpPort = await question('SMTP Port [587]: ');
     config.SMTP_PORT = smtpPort || '587';
     
-    config.SMTP_USER = await question('SMTP Username/Email: ');
-    config.SMTP_PASS = await question('SMTP Password: ');
+    config.SMTP_USER = await question('SMTP Email: ');
+    config.SMTP_PASS = await question('SMTP App Password: ');
     
-    console.log('✅ Email configured\n');
+    console.log(`✅ Email configured: ${config.SMTP_HOST}:${config.SMTP_PORT}\n`);
   } else {
     config.SMTP_HOST = '';
     config.SMTP_PORT = '587';
