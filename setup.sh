@@ -565,6 +565,7 @@ if [ -f ".env.local" ]; then
 else
     CONFIGURE_ENV=true
     SKIP_OAUTH=false
+    SKIP_SPOTIFY=false
 fi
 
 if [ "$CONFIGURE_ENV" = true ]; then
@@ -596,6 +597,35 @@ if [ "$CONFIGURE_ENV" = true ]; then
         GOOGLE_CLIENT_ID="your-google-client-id"
         GOOGLE_CLIENT_SECRET="your-google-client-secret"
         SKIP_OAUTH=true
+    fi
+    
+    # Get Spotify API credentials
+    echo ""
+    print_info "Spotify API is REQUIRED for jukebox song metadata (artist, album, artwork)"
+    echo ""
+    echo "To get Spotify API credentials:"
+    echo "  1. Go to: https://developer.spotify.com/dashboard"
+    echo "  2. Log in with your Spotify account (free account works)"
+    echo "  3. Click 'Create App'"
+    echo "  4. Fill in app details:"
+    echo "     - App name: FPP Control Center"
+    echo "     - App description: Christmas light show jukebox"
+    echo "     - Redirect URI: http://localhost:3000"
+    echo "     - API: Web API"
+    echo "  5. Click Settings → Copy Client ID and Client Secret"
+    echo ""
+    
+    if confirm "Do you have your Spotify API credentials ready?"; then
+        echo ""
+        read -p "Enter Spotify Client ID: " SPOTIFY_CLIENT_ID
+        read -p "Enter Spotify Client Secret: " SPOTIFY_CLIENT_SECRET
+        SKIP_SPOTIFY=false
+    else
+        print_warning "Spotify API setup will be skipped"
+        print_info "Jukebox won't show song metadata until you configure this"
+        SPOTIFY_CLIENT_ID="your-spotify-client-id"
+        SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
+        SKIP_SPOTIFY=true
     fi
     
     # Get FPP server IP
@@ -664,9 +694,9 @@ ADMIN_EMAILS=PLACEHOLDER_ADMIN_EMAIL
 # FPP Server Configuration
 FPP_URL=PLACEHOLDER_FPP_URL
 
-# Spotify API (optional - configure later if needed)
-SPOTIFY_CLIENT_ID=your-spotify-client-id
-SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
+# Spotify API (REQUIRED for jukebox metadata)
+SPOTIFY_CLIENT_ID=PLACEHOLDER_SPOTIFY_CLIENT_ID
+SPOTIFY_CLIENT_SECRET=PLACEHOLDER_SPOTIFY_CLIENT_SECRET
 
 # Ollama LLM Configuration (optional - configure later if needed)
 OLLAMA_URL=http://localhost:11434
@@ -693,6 +723,8 @@ ENV_FILE
     sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_SECRET|$GOOGLE_CLIENT_SECRET|g" .env.local
     sed -i.bak "s|PLACEHOLDER_ADMIN_EMAIL|$ADMIN_EMAIL|g" .env.local
     sed -i.bak "s|PLACEHOLDER_FPP_URL|http://$FPP_IP:80|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_ID|$SPOTIFY_CLIENT_ID|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_SECRET|$SPOTIFY_CLIENT_SECRET|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SMTP_HOST|$SMTP_HOST|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SMTP_PORT|$SMTP_PORT|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SMTP_USER|$SMTP_USER|g" .env.local
@@ -795,12 +827,24 @@ echo "   • Stop:            pm2 stop fpp-control"
 echo "   • Status:          pm2 status"
 echo ""
 
-if [ "$SKIP_OAUTH" = true ]; then
+if [ "$SKIP_OAUTH" = true ] || [ "$SKIP_SPOTIFY" = true ]; then
     echo -e "${YELLOW}⚠️  Action Required:${NC}"
     echo ""
-    echo "   You skipped Google OAuth setup. Admin login won't work until you:"
-    echo "   1. Create OAuth credentials at: https://console.cloud.google.com/apis/credentials"
-    echo "   2. Update .env.local with your Client ID and Secret"
+    
+    if [ "$SKIP_OAUTH" = true ]; then
+        echo "   ❌ Google OAuth (Admin Login):"
+        echo "      1. Create OAuth credentials at: https://console.cloud.google.com/apis/credentials"
+        echo "      2. Update .env.local with your Client ID and Secret"
+        echo ""
+    fi
+    
+    if [ "$SKIP_SPOTIFY" = true ]; then
+        echo "   ❌ Spotify API (Jukebox Metadata - REQUIRED):"
+        echo "      1. Create app at: https://developer.spotify.com/dashboard"
+        echo "      2. Update .env.local with your Client ID and Secret"
+        echo ""
+    fi
+    
     echo "   3. Restart: pm2 restart fpp-control"
     echo ""
 fi

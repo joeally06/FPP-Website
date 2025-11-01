@@ -33,6 +33,9 @@
 - [x] Fix .env.local Creation Bug
 	Completed: Replaced direct heredoc variable expansion with placeholder/sed approach to prevent corruption of GOOGLE_CLIENT_SECRET.
 
+- [x] Add Spotify API Configuration to Setup Wizard
+	Completed: Added Spotify credential collection in setup.sh, updated .env.local template, added comprehensive Spotify setup guide to INSTALLATION.md.
+
 ---
 
 ## 🎯 Project Status: PRODUCTION READY

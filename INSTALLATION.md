@@ -8,17 +8,18 @@ This guide walks you through **every step** of installing and configuring FPP Co
 
 ---
 
-##  Table of Contents
+## 📑 Table of Contents
 
 1. [Prerequisites](#-prerequisites)
 2. [Installation Methods](#-installation-methods)
 3. [Step-by-Step Setup](#-step-by-step-setup)
 4. [Google OAuth Configuration](#-google-oauth-configuration)
-5. [Email Configuration](#-email-configuration-optional)
-6. [Cloudflare Tunnel Setup](#-cloudflare-tunnel-setup-public-access)
-7. [Post-Installation](#-post-installation)
-8. [Troubleshooting](#-troubleshooting)
-9. [Advanced Configuration](#-advanced-configuration)
+5. [Spotify API Configuration](#-spotify-api-configuration)
+6. [Email Configuration](#-email-configuration-optional)
+7. [Cloudflare Tunnel Setup](#-cloudflare-tunnel-setup-public-access)
+8. [Post-Installation](#-post-installation)
+9. [Troubleshooting](#-troubleshooting)
+10. [Advanced Configuration](#-advanced-configuration)
 
 ---
 
@@ -827,7 +828,152 @@ This warning only appears the first time and is safe to ignore for personal proj
 
 ---
 
-## ? Email Configuration (Optional)
+## 🎵 Spotify API Configuration
+
+Spotify API is **REQUIRED** for the jukebox feature to fetch song metadata (artist, album, cover art, etc.).
+
+### **Why Spotify API?**
+
+- ✅ **Rich Metadata** - Artist names, album info, cover art
+- ✅ **Free Tier** - No cost for API usage
+- ✅ **No Limits** - Sufficient quota for personal use
+- ✅ **Fast Lookup** - Quick song information retrieval
+
+### **Step-by-Step Setup**
+
+#### **Step 1: Create Spotify Developer Account**
+
+1. **Go to Spotify Developer Dashboard:**  
+   [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+
+2. **Log in:**
+   - Use your existing Spotify account (Free or Premium)
+   - Or create a new Spotify account (free)
+
+---
+
+#### **Step 2: Create an App**
+
+1. **Click "Create App"**
+
+2. **Fill in App Information:**
+   - **App name:** `FPP Control Center`
+   - **App description:** `Christmas light show jukebox and control system`
+   - **Redirect URI:** `http://localhost:3000` (required but not used)
+   - **Which API/SDKs are you planning to use?** Select **Web API**
+
+3. **Agree to Terms:** Check the boxes
+
+4. **Click "Save"**
+
+---
+
+#### **Step 3: Get Your Credentials**
+
+1. **Click "Settings"** (top right of your app page)
+
+2. **Copy Your Credentials:**
+   - **Client ID:** `e18f418eb4b94dce909022ffea242dcf` (example)
+   - **Client Secret:** Click "View client secret" → Copy the value
+
+⚠️ **Keep your Client Secret private!** Don't share it publicly.
+
+---
+
+#### **Step 4: Update .env.local**
+
+Add your Spotify credentials to `.env.local`:
+
+```env
+# Spotify API
+SPOTIFY_CLIENT_ID=e18f418eb4b94dce909022ffea242dcf
+SPOTIFY_CLIENT_SECRET=f84316021d314effb08f637972994ccd
+```
+
+---
+
+#### **Step 5: Restart Application**
+
+```bash
+# If using PM2:
+pm2 restart fpp-control
+
+# If using npm run dev:
+# Press Ctrl+C, then:
+npm run dev
+```
+
+---
+
+#### **Step 6: Test Spotify Integration**
+
+1. Visit your jukebox page: `http://localhost:3000/jukebox`
+2. Browse sequences
+3. Song metadata (artist, album, artwork) should appear
+4. If you see placeholder images or "Unknown Artist", check your credentials
+
+✅ **Spotify is now configured!**
+
+---
+
+### **Troubleshooting Spotify**
+
+<details>
+<summary><strong>No song metadata appearing</strong></summary>
+
+**Cause:** Invalid or missing Spotify credentials.
+
+**Solution:**
+1. Verify credentials in `.env.local`
+2. Check for typos in Client ID/Secret
+3. Ensure no extra spaces or quotes
+4. Restart application
+5. Check logs: `pm2 logs fpp-control | grep -i spotify`
+</details>
+
+<details>
+<summary><strong>Rate limit errors</strong></summary>
+
+**Cause:** Too many API requests (unlikely for personal use).
+
+**Solution:**
+- Spotify API has generous limits (thousands of requests per day)
+- If you hit limits, caching is already built-in
+- Check for infinite loops in code
+</details>
+
+<details>
+<summary><strong>"Invalid client" error</strong></summary>
+
+**Cause:** Client Secret is incorrect.
+
+**Solution:**
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+2. Click your app → Settings
+3. Click "View client secret"
+4. Copy the ENTIRE secret (including any = signs at the end)
+5. Update `.env.local`
+6. Restart application
+</details>
+
+---
+
+### **Spotify API Limits**
+
+**Free Tier Limits:**
+- ✅ **Rate Limit:** Extended Mode (default)
+- ✅ **Requests:** Unlimited for Web API
+- ✅ **Cost:** Free forever
+
+**Your Usage:**
+- ~1 API call per song lookup
+- Cached after first lookup
+- Typical usage: 10-50 requests per day
+- **Well within free limits** 🎉
+
+---
+
+## 📧 Email Configuration (Optional)
 
 Email enables Santa letter delivery and device alerts.
 
@@ -1246,7 +1392,7 @@ crontab -e
 
 Complete list:
 
-``env
+```env
 # === REQUIRED ===
 
 # Admin access (comma-separated, no spaces)
@@ -1266,6 +1412,10 @@ NEXTAUTH_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 
+# Spotify API (REQUIRED for jukebox metadata)
+SPOTIFY_CLIENT_ID=your-spotify-client-id
+SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
+
 
 # === OPTIONAL ===
 
@@ -1283,7 +1433,7 @@ MONITORING_END_TIME=22:00
 # Ollama AI (for Santa letters)
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
-``
+```
 
 ---
 
