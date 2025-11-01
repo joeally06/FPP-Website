@@ -534,25 +534,25 @@ if [ -f ".env.local" ]; then
         SKIP_OAUTH=false
     fi
     
-    # Only ask about full reconfiguration if OAuth wasn't just updated
-    if [ "$OAUTH_JUST_UPDATED" = false ]; then
-        # Check if other critical fields are missing
-        if grep -q "your-" .env.local 2>/dev/null; then
-            print_warning "Some configuration values appear to be placeholders"
-            echo ""
-            echo "Current .env.local contains placeholder values like 'your-spotify-client-id'"
-            echo ""
-            if confirm "Review and update all configuration values?"; then
-                mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
-                print_info "Backed up old configuration"
-                CONFIGURE_ENV=true
-            else
-                print_info "Keeping existing configuration"
-                echo ""
-                print_warning "To manually update later, edit: .env.local"
-                CONFIGURE_ENV=false
-            fi
+    # Check if other critical fields are missing (even if OAuth was just updated)
+    if grep -q "your-" .env.local 2>/dev/null; then
+        print_warning "Some configuration values appear to be placeholders"
+        echo ""
+        echo "Current .env.local contains placeholder values like 'your-spotify-client-id'"
+        echo ""
+        if confirm "Review and update all configuration values?"; then
+            mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
+            print_info "Backed up old configuration"
+            CONFIGURE_ENV=true
         else
+            print_info "Keeping existing configuration"
+            echo ""
+            print_warning "To manually update later, edit: .env.local"
+            CONFIGURE_ENV=false
+        fi
+    else
+        # No placeholders found - check if user wants to keep existing config
+        if [ "$OAUTH_JUST_UPDATED" = false ]; then
             if confirm "Keep existing configuration?"; then
                 print_info "Using existing .env.local"
                 CONFIGURE_ENV=false
@@ -561,11 +561,11 @@ if [ -f ".env.local" ]; then
                 print_info "Backed up old configuration"
                 CONFIGURE_ENV=true
             fi
+        else
+            # OAuth was just updated and no other placeholders exist
+            print_success "Using existing configuration with updated OAuth credentials"
+            CONFIGURE_ENV=false
         fi
-    else
-        # OAuth was just updated, keep the rest of the config
-        print_success "Using existing configuration with updated OAuth credentials"
-        CONFIGURE_ENV=false
     fi
 else
     CONFIGURE_ENV=true
