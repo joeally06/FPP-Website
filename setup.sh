@@ -663,7 +663,10 @@ if [ "$CONFIGURE_ENV" = true ]; then
     
     # Get FPP server IP
     echo ""
-    read -p "Enter your FPP server IP (e.g., 192.168.1.100): " FPP_IP
+    echo "Enter the local IP address of your FPP controller"
+    echo "You can find this in FPP's web interface or your router's DHCP table"
+    echo ""
+    read -p "FPP Controller IP address: " FPP_IP
     
     # Get timezone
     echo ""
@@ -717,12 +720,27 @@ if [ "$CONFIGURE_ENV" = true ]; then
         echo "  2. Generate an App Password: https://myaccount.google.com/apppasswords"
         echo "  3. Use the App Password below (not your regular password)"
         echo ""
+        echo "For other email providers, use their SMTP settings"
+        echo ""
+        
+        read -p "SMTP Host [smtp.gmail.com]: " SMTP_HOST_INPUT
+        SMTP_HOST=${SMTP_HOST_INPUT:-smtp.gmail.com}
+        
+        read -p "SMTP Port [587]: " SMTP_PORT_INPUT
+        SMTP_PORT=${SMTP_PORT_INPUT:-587}
+        
+        # Determine SMTP_SECURE based on port
+        if [[ "$SMTP_PORT" == "465" ]]; then
+            SMTP_SECURE="true"
+        else
+            SMTP_SECURE="false"
+        fi
+        
         read -p "SMTP Email: " SMTP_USER
         read -sp "SMTP App Password: " SMTP_PASS
         echo ""
-        SMTP_HOST="smtp.gmail.com"
-        SMTP_PORT="587"
-        SMTP_SECURE="false"
+        
+        print_success "SMTP configured: $SMTP_HOST:$SMTP_PORT"
     else
         SMTP_USER="your-email@gmail.com"
         SMTP_PASS="your-app-password"
