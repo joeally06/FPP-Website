@@ -22,10 +22,16 @@
 	Completed: Created setup.sh (Linux/Mac) and setup.ps1 (Windows) with full installation automation.
 
 - [x] Update Documentation for Public Release
-	Completed: Added QUICKSTART.md, INSTALLATION.md, updated README.md with Quick Start section.
+	Completed: Comprehensive README.md (features overview) and INSTALLATION.md (complete setup guide). Removed QUICKSTART.md to avoid redundancy.
 
 - [x] Implement Cloudflare Tunnel Headless Server Support
 	Completed: Enhanced setup-cloudflare-tunnel.sh with URL extraction, cross-device authentication, and comprehensive documentation.
+
+- [x] Implement Automatic Node.js Installation in setup.sh
+	Completed: Added auto-install functions for Node.js 20+ and Git on Linux (Debian/Ubuntu, RHEL/CentOS) and macOS (Homebrew).
+
+- [x] Fix .env.local Creation Bug
+	Completed: Replaced direct heredoc variable expansion with placeholder/sed approach to prevent corruption of GOOGLE_CLIENT_SECRET.
 
 ---
 

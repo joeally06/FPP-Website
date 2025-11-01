@@ -1,358 +1,331 @@
-# 🎄 FPP Control Center - Installation Guide
+#  FPP Control Center - Complete Installation Guide
 
-Complete installation guide for setting up your FPP Control Center.
+This guide walks you through **every step** of installing and configuring FPP Control Center, from a fresh system to a fully working deployment.
+
+**Estimated Time:**
+- **Local Network Setup:** 15-20 minutes
+- **Public Internet Setup:** 30-40 minutes (includes Cloudflare Tunnel)
 
 ---
 
-## 🚀 Quick Install (Recommended)
+##  Table of Contents
 
-**The fastest and easiest way to get started:**
+1. [Prerequisites](#-prerequisites)
+2. [Installation Methods](#-installation-methods)
+3. [Step-by-Step Setup](#-step-by-step-setup)
+4. [Google OAuth Configuration](#-google-oauth-configuration)
+5. [Email Configuration](#-email-configuration-optional)
+6. [Cloudflare Tunnel Setup](#-cloudflare-tunnel-setup-public-access)
+7. [Post-Installation](#-post-installation)
+8. [Troubleshooting](#-troubleshooting)
+9. [Advanced Configuration](#-advanced-configuration)
 
-### Linux/Mac:
+---
+
+##  Prerequisites
+
+Before installing FPP Control Center, ensure you have the required software installed.
+
+### Required Software
+
+#### 1 **Node.js 20+ and npm**
+
+Node.js is the runtime environment. npm (Node Package Manager) is included automatically.
+
+**Check if already installed:**
 ```bash
-git clone https://github.com/joeally06/FPP-Website.git
-cd FPP-Website
-chmod +x setup.sh
-./setup.sh
+node --version   # Should show v20.0.0 or higher
+npm --version    # Should show 10.0.0 or higher
 ```
 
-### Windows:
+**Installation by Platform:**
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+1. Download from [nodejs.org](https://nodejs.org/) (LTS version)
+2. Run the installer
+3.  Check "Automatically install necessary tools"
+4.  Check "Add to PATH"
+5. Complete installation
+6. **Restart terminal/PowerShell**
+
+**Verify:**
 ```powershell
-git clone https://github.com/joeally06/FPP-Website.git
-cd FPP-Website
-powershell -ExecutionPolicy Bypass -File setup.ps1
+node --version
+npm --version
+```
+</details>
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+**Option 1: Homebrew (Recommended)**
+```bash
+# Install Homebrew if not installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Node.js 20
+brew install node@20
+brew link --overwrite node@20
 ```
 
-The interactive wizard handles everything automatically! ✨
+**Option 2: Official Installer**
+1. Download from [nodejs.org](https://nodejs.org/) (LTS version)
+2. Run the installer
+3. Follow prompts
+
+**Verify:**
+```bash
+node --version
+npm --version
+```
+</details>
+
+<details>
+<summary><strong>Linux (Ubuntu/Debian)</strong></summary>
+
+> ** The setup wizard can install this automatically!** Just run `./setup.sh` and it will detect missing Node.js and offer to install it.
+
+**Manual installation:**
+```bash
+# Remove old versions
+sudo apt-get remove -y nodejs npm
+
+# Add NodeSource repository for Node.js 20.x
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+
+# Install Node.js
+sudo apt-get install -y nodejs
+
+# Verify
+node --version
+npm --version
+```
+</details>
+
+<details>
+<summary><strong>Linux (CentOS/RHEL/Fedora)</strong></summary>
+
+> ** The setup wizard can install this automatically!** Just run `./setup.sh` and it will detect missing Node.js and offer to install it.
+
+**Manual installation:**
+```bash
+# Remove old versions
+sudo yum remove -y nodejs npm
+
+# Add NodeSource repository
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+
+# Install Node.js
+sudo yum install -y nodejs
+
+# Verify
+node --version
+npm --version
+```
+</details>
 
 ---
 
-## 📋 What the Setup Wizard Does
+#### 2 **Git**
 
-The setup wizard is a friendly, step-by-step installer that:
+Git is used to download the code and receive updates.
 
-### **1. System Check** ✅
-- Verifies Node.js 20+ is installed
-- Checks for npm and Git
-- Confirms your operating system
+**Check if already installed:**
+```bash
+git --version
+```
 
-### **2. Installation Type** 🌐
-Asks whether you want:
-- **Local Network Only** - Simple setup, access from home network
-- **Public Internet** - Access from anywhere via Cloudflare Tunnel
+**Installation by Platform:**
 
-### **3. Dependencies** 📦
-- Installs all npm packages automatically
-- Sets up PM2 process manager (Linux/Mac)
-- Prepares the environment
+<details>
+<summary><strong>Windows</strong></summary>
 
-### **4. Database Setup** 🗄️
-- Creates SQLite database
-- Runs all migrations
-- Optimizes with indexes and WAL mode
-- Backs up existing database if found
+1. Download from [git-scm.com](https://git-scm.com/download/win)
+2. Run installer
+3. **Recommended settings:**
+   -  Use Git from command line
+   -  Use bundled OpenSSH
+   -  Checkout Windows-style, commit Unix-style
+   -  Use MinTTY terminal
+4. Complete installation
+5. **Restart terminal/PowerShell**
 
-### **5. Google OAuth** 🔐
-- Guides you through creating OAuth credentials
-- Option to skip and configure later
-- Shows exact redirect URIs to use
+**Verify:**
+```powershell
+git --version
+```
+</details>
 
-### **6. Environment Configuration** ⚙️
-Walks you through configuring:
-- Admin email address
-- Google OAuth credentials
-- FPP server IP address
-- Timezone (with common options)
-- Email notifications (optional)
-- Domain name (for public installations)
+<details>
+<summary><strong>macOS</strong></summary>
 
-### **7. Build Application** 🔨
-- Compiles Next.js for production
-- Optimizes code and assets
-- Generates static pages
+**Option 1: Homebrew**
+```bash
+brew install git
+```
 
-### **8. Start Application** 🚀
-- Launches with PM2 (keeps running)
-- Configures auto-restart on crash
-- Sets up auto-start on reboot
-- Shows access URLs
+**Option 2: Xcode Command Line Tools**
+```bash
+xcode-select --install
+```
+
+**Verify:**
+```bash
+git --version
+```
+</details>
+
+<details>
+<summary><strong>Linux (Ubuntu/Debian)</strong></summary>
+
+> ** The setup wizard can install this automatically!**
+
+**Manual installation:**
+```bash
+sudo apt-get update
+sudo apt-get install -y git
+git --version
+```
+</details>
+
+<details>
+<summary><strong>Linux (CentOS/RHEL/Fedora)</strong></summary>
+
+> ** The setup wizard can install this automatically!**
+
+**Manual installation:**
+```bash
+sudo yum install -y git
+git --version
+```
+</details>
 
 ---
 
-## 🎯 Installation Types
+### Optional Software
 
-### Local Network Installation
+#### 3 **PM2 (Production - Linux/Mac Only)**
 
-**Best for:**
-- Displaying to visitors at your home
-- Testing and development
-- No need for public access
+PM2 keeps your application running 24/7, auto-restarts on crashes, and starts on system boot.
 
-**You get:**
-- Access via `http://localhost:3000`
-- Access from other devices via `http://YOUR_IP:3000`
-- No domain name required
-- Simpler OAuth setup
+**When needed:** Production Linux/Mac servers only. Not needed for Windows or development.
 
-**Example URLs:**
-```
-From this computer: http://localhost:3000
-From phone/tablet:  http://192.168.1.100:3000
-```
-
-### Public Internet Installation
-
-**Best for:**
-- Sharing with friends/family anywhere
-- Remote monitoring when away
-- Public Christmas display
-
-**You get:**
-- Access via `https://yourdomain.com`
-- Secure Cloudflare Tunnel (no port forwarding!)
-- SSL/HTTPS automatically
-- Protected by Cloudflare's global network
-
-**Requires:**
-- Domain name (can use free options like afraid.org)
-- Cloudflare account (free tier works)
-
----
-
-## ⚙️ Prerequisites
-
-The setup wizard will check for these, but you can install them first:
-
-### Required:
-
-**Node.js 20+ and npm:**
-- Download from [nodejs.org](https://nodejs.org/) (LTS version)
-- Includes npm automatically
-
-**Git:**
-- Windows: [git-scm.com](https://git-scm.com/download/win)
-- Mac: `brew install git` or Xcode Command Line Tools
-- Linux: `sudo apt-get install git` or `sudo yum install git`
-
-### Optional (for production):
-
-**PM2** (Linux/Mac only):
+**Installation:**
 ```bash
 sudo npm install -g pm2
+pm2 --version
 ```
-
-**Cloudflare account** (for public access):
-- Sign up free at [cloudflare.com](https://www.cloudflare.com/)
 
 ---
 
-## 🔧 Configuration Guide
+#### 4 **Ollama (AI Santa Letters - Optional)**
 
-### Google OAuth Setup
+Ollama provides local AI for generating personalized Santa letter responses.
 
-The setup wizard will guide you, but here's the full process:
+**When needed:** Only if you want AI-powered Santa letters.
 
-1. **Go to Google Cloud Console**
-   - Visit: https://console.cloud.google.com/apis/credentials
+**Installation:**
 
-2. **Create a Project** (or select existing)
-   - Click "Select a project" → "New Project"
-   - Name it "FPP Control Center"
-   - Click "Create"
+<details>
+<summary><strong>Windows/macOS</strong></summary>
 
-3. **Configure OAuth Consent Screen**
-   - Click "OAuth consent screen"
-   - Choose "External"
-   - Fill in app name: "FPP Control Center"
-   - Add your email
-   - Save and continue
-
-4. **Create OAuth Credentials**
-   - Click "Create Credentials" → "OAuth 2.0 Client ID"
-   - Application type: "Web application"
-   - Name: "FPP Control"
-   
-5. **Add Redirect URIs**
-   
-   **For local network:**
-   ```
-   http://localhost:3000/api/auth/callback/google
-   http://YOUR_SERVER_IP:3000/api/auth/callback/google
-   ```
-   
-   **For public access:**
-   ```
-   https://yourdomain.com/api/auth/callback/google
-   ```
-
-6. **Copy Credentials**
-   - Save your Client ID and Client Secret
-   - Enter them when the wizard asks
-
-### Email Configuration (Optional)
-
-For Santa letter delivery and device alerts:
-
-**Gmail Setup:**
-1. Enable 2-Factor Authentication on your Google account
-2. Go to: https://myaccount.google.com/apppasswords
-3. Create an app password named "FPP Control"
-4. Copy the 16-character password
-5. Use this password (not your regular Gmail password)
-
-**Other Email Providers:**
-- SMTP Host: Your provider's SMTP server
-- SMTP Port: Usually 587 (TLS) or 465 (SSL)
-- Username: Your full email address
-- Password: Your email password or app password
-
----
-
-## 🌐 Cloudflare Tunnel Setup (Public Access)
-
-If you selected **Public Internet** installation, you'll need to set up Cloudflare Tunnel.
-
-### Why Cloudflare Tunnel?
-
-- ✅ **No Port Forwarding** - No router configuration needed
-- ✅ **Free HTTPS** - Automatic SSL certificates
-- ✅ **DDoS Protection** - Built-in security
-- ✅ **Hide Your IP** - Your home IP stays private
-
-### Quick Setup
-
-The setup wizard guides you through Cloudflare Tunnel automatically, but you can also run it separately:
-
-**Linux/Mac:**
-```bash
-./scripts/setup-cloudflare-tunnel.sh
-```
-
-**Windows:**
-```powershell
-.\scripts\setup-cloudflare-tunnel.ps1
-```
-
-### ⚠️ Headless Server (SSH/No GUI)?
-
-If you're setting up on a server accessed via SSH (no web browser available):
-
-**The script automatically handles this!** When it reaches authentication:
-
-1. An authentication URL will be displayed prominently
-2. Copy the URL and paste it into a browser on **ANY device** (phone, laptop, etc.)
-3. Log in to Cloudflare (or create free account)
-4. Authorize the connection
-5. Return to your terminal - setup continues automatically
-
-**For complete details**, see the [Cloudflare Tunnel Guide](./docs/CLOUDFLARE-TUNNEL.md).
-
-### Post-Setup Steps
-
-After Cloudflare Tunnel is configured:
-
-1. **Update .env.local** (done automatically by script)
-   ```env
-   NEXTAUTH_URL=https://yourdomain.com
-   ```
-
-2. **Update Google OAuth** redirect URIs:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-   - Add: `https://yourdomain.com/api/auth/callback/google`
-
-3. **Restart your application**:
+1. Download from [ollama.ai](https://ollama.ai/)
+2. Install and run Ollama
+3. Download model:
    ```bash
-   pm2 restart fpp-control
+   ollama pull llama3.2
    ```
+</details>
 
-4. **Test** by visiting `https://yourdomain.com`
+<details>
+<summary><strong>Linux</strong></summary>
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Download model
+ollama pull llama3.2
+
+# Start service
+ollama serve
+```
+</details>
 
 ---
 
-## 🖥️ After Installation
+###  Verify Prerequisites
 
-### Access Your Control Center
+Before continuing, verify everything is ready:
 
-**Local Network:**
-```
-http://localhost:3000        # From the server
-http://192.168.1.100:3000    # From other devices
-```
-
-**Public Access:**
-```
-https://yourdomain.com
-```
-
-### Useful Commands
-
-**View Application Status:**
 ```bash
-pm2 status
+# Required
+node --version   # Must be v20.0.0+
+npm --version    # Must be 10.0.0+
+git --version    # Any version
+
+# Optional
+pm2 --version    # Production only
+ollama --version # AI letters only
 ```
 
-**View Live Logs:**
-```bash
-pm2 logs fpp-control
-```
-
-**Restart Application:**
-```bash
-pm2 restart fpp-control
-```
-
-**Stop Application:**
-```bash
-pm2 stop fpp-control
-```
-
-**Start Application:**
-```bash
-pm2 start fpp-control
-```
-
-### Admin Access
-
-1. Visit your control center URL
-2. Click "Admin Login"
-3. Sign in with Google
-4. Your email (configured during setup) grants admin access
+**All commands should return version numbers.** If "command not found", revisit that section above.
 
 ---
 
-## 🔄 Updating
+##  Installation Methods
 
-To update to the latest version:
+Choose your preferred installation method:
 
-**Linux/Mac:**
+### **Method 1: Automated Setup Wizard**  **Recommended**
+
+**Best for:** Everyone, especially first-time users
+
+**Pros:**
+-  Fastest (10-15 minutes)
+-  Walks through each step
+-  Auto-installs missing dependencies (Linux/Mac)
+-  Validates configuration
+
+**Continue to:** [Automated Setup](#method-1-automated-setup-wizard-1)
+
+---
+
+### **Method 2: Manual Installation**
+
+**Best for:** Developers, advanced users, custom configurations
+
+**Pros:**
+-  Full control
+-  Understand each step
+-  Easier troubleshooting
+
+**Continue to:** [Manual Installation](#method-2-manual-installation-1)
+
+---
+
+##  Step-by-Step Setup
+
+### Method 1: Automated Setup Wizard
+
+#### **Step 1: Clone Repository**
+
 ```bash
+# Navigate to install location
+cd ~
+
+# Clone repository
+git clone https://github.com/joeally06/FPP-Website.git
+
+# Enter directory
 cd FPP-Website
-git pull
-npm install
-npm run build
-pm2 restart fpp-control
-```
-
-**Windows:**
-```powershell
-cd FPP-Website
-git pull
-npm install
-npm run build
-# Restart the server (Ctrl+C then npm run dev)
-```
-
-Or use the update script (if available):
-```bash
-./update.sh           # Linux/Mac
-.\update.ps1          # Windows
 ```
 
 ---
 
-## 🆘 Troubleshooting
-
-### Setup Wizard Won't Run
+#### **Step 2: Run Setup Wizard**
 
 **Linux/Mac:**
 ```bash
@@ -360,110 +333,978 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-**Windows:**
+**Windows (PowerShell):**
 ```powershell
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-### Node.js Version Error
+---
 
-The wizard requires Node.js 20+:
-```bash
-node --version    # Should show v20.x.x or higher
+#### **Step 3: Follow Wizard Prompts**
+
+The wizard guides you through 8 steps. Here's what to expect:
+
+<details>
+<summary><strong>Step 1/8: System Check</strong></summary>
+
+```
+Step 1/8: System Requirements
+
+
+ Operating system: linux 
+ Node.js v20.11.0 
+ npm 10.2.4 
+ git 2.39.2 
 ```
 
-If outdated, install Node.js 20 LTS from [nodejs.org](https://nodejs.org/)
+**If dependencies missing:**
+- The wizard detects them
+- Offers automatic installation (Linux/Mac)
+- You can decline and install manually
 
-### Database Errors
+**Action:** Press Enter to continue
+</details>
 
-If you see database errors:
+<details>
+<summary><strong>Step 2/8: Installation Type</strong></summary>
+
+```
+Step 2/8: Choose Installation Type
+
+
+How do you plan to access FPP Control Center?
+
+1) Local Network Only (home network)
+2) Public Internet (Cloudflare Tunnel)
+
+Enter choice (1 or 2):
+```
+
+**Choose:**
+- `1` for home displays (access from local network)
+- `2` for public displays (access from anywhere)
+
+**Action:** Enter `1` or `2`
+</details>
+
+<details>
+<summary><strong>Step 3/8: Dependencies</strong></summary>
+
+```
+Step 3/8: Installing Dependencies
+
+
+ Installing npm packages...
+```
+
+Automatically installs ~200MB of packages (2-3 minutes).
+
+**Action:** Wait for completion
+</details>
+
+<details>
+<summary><strong>Step 4/8: Database Setup</strong></summary>
+
+```
+Step 4/8: Database Setup
+
+
+ Initializing SQLite database...
+ Database created
+ Migrations applied
+ Indexes optimized
+```
+
+Automatic - no input needed.
+
+**Action:** Wait for completion
+</details>
+
+<details>
+<summary><strong>Step 5/8: Google OAuth</strong></summary>
+
+```
+Step 5/8: Google OAuth Configuration
+
+
+Google OAuth is required for admin authentication.
+
+Do you want to configure OAuth now? (y/n):
+```
+
+**Recommended:** Choose `y` and configure now  
+**Alternative:** Choose `n` to skip (configure later)
+
+See [Google OAuth Configuration](#-google-oauth-configuration) for detailed setup.
+
+**Action:** Enter `y` or `n`
+</details>
+
+<details>
+<summary><strong>Step 6/8: Environment Variables</strong></summary>
+
+The wizard asks for:
+
+**Admin Email:**
+```
+Enter your admin email (for admin access):
+```
+Example: `yourname@gmail.com`
+
+**Google OAuth (if Step 5 was Yes):**
+```
+Enter Google Client ID:
+Enter Google Client Secret:
+```
+Paste the credentials from Google Console.
+
+**FPP Server IP:**
+```
+Enter your FPP server IP address:
+```
+Example: `192.168.1.100`
+
+**Timezone:**
+```
+Select timezone:
+1) America/New_York (Eastern)
+2) America/Chicago (Central)
+3) America/Denver (Mountain)
+4) America/Los_Angeles (Pacific)
+...
+```
+Choose your number.
+
+**Email (Optional):**
+```
+Configure email for Santa letters and alerts? (y/n):
+```
+
+If Yes, provide:
+- SMTP host (e.g., `smtp.gmail.com`)
+- SMTP port (e.g., `587`)
+- Email address
+- App password (see [Email Configuration](#-email-configuration-optional))
+
+**Domain (Public Only):**
+```
+Enter your domain name:
+```
+Example: `lightshow.example.com`
+
+**Action:** Answer each prompt carefully
+</details>
+
+<details>
+<summary><strong>Step 7/8: Build Application</strong></summary>
+
+```
+Step 7/8: Building Application
+
+
+ Compiling Next.js for production...
+```
+
+Creates optimized production build (2-5 minutes).
+
+**Action:** Wait for completion
+</details>
+
+<details>
+<summary><strong>Step 8/8: Start Application</strong></summary>
+
+```
+Step 8/8: Starting Application
+
+
+ Starting with PM2...
+ Application started
+
+Access your FPP Control Center:
+  Local:   http://localhost:3000
+  Network: http://192.168.1.100:3000
+```
+
+**Action:** Note the URLs
+</details>
+
+---
+
+#### **Step 4: Access Your Site**
+
+Open browser and visit:
+- **This computer:** `http://localhost:3000`
+- **Other devices:** `http://YOUR_IP:3000`
+
+ **Setup complete!**
+
+---
+
+### Method 2: Manual Installation
+
+<details>
+<summary><strong>Click to expand manual installation steps</strong></summary>
+
+#### **Step 1: Clone Repository**
+
 ```bash
-# Backup existing database
-mv fpp-control.db fpp-control-backup.db
+cd ~
+git clone https://github.com/joeally06/FPP-Website.git
+cd FPP-Website
+```
 
-# Reinitialize
+#### **Step 2: Install Dependencies**
+
+```bash
+npm install
+```
+
+#### **Step 3: Create Configuration**
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local`:
+
+```env
+# Admin email
+ADMIN_EMAILS=yourname@gmail.com
+
+# FPP server
+FPP_URL=http://192.168.1.100
+
+# Timezone
+NEXT_PUBLIC_TIMEZONE=America/Chicago
+
+# Google OAuth (see OAuth section)
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# NextAuth secret (generate with: openssl rand -base64 32)
+NEXTAUTH_SECRET=your-random-secret
+NEXTAUTH_URL=http://localhost:3000
+
+# Email (optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=yourname@gmail.com
+SMTP_PASS=your-app-password
+```
+
+**Generate NEXTAUTH_SECRET:**
+```bash
+# Linux/Mac:
+openssl rand -base64 32
+
+# Windows (PowerShell):
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+```
+
+#### **Step 4: Initialize Database**
+
+```bash
 npm run setup
 ```
 
-### Port 3000 Already in Use
+#### **Step 5: Build Application**
 
-**Find and stop the process:**
-
-Linux/Mac:
 ```bash
+npm run build
+```
+
+#### **Step 6: Start Application**
+
+**Development:**
+```bash
+npm run dev
+```
+
+**Production (Linux/Mac with PM2):**
+```bash
+pm2 start npm --name "fpp-control" -- start
+pm2 save
+pm2 startup
+```
+
+**Production (Windows):**
+```powershell
+npm start
+```
+
+</details>
+
+---
+
+##  Google OAuth Configuration
+
+Google OAuth provides secure admin authentication without managing passwords.
+
+### **Why Google OAuth?**
+
+-  **Secure** - Industry-standard authentication
+-  **No Passwords** - No need to store or manage credentials  
+-  **Email Whitelist** - Only approved admins can access
+-  **Free** - No cost for personal use
+
+### **Step-by-Step Setup**
+
+#### **Step 1: Create Google Cloud Project**
+
+1. **Go to Google Cloud Console:**  
+   [console.cloud.google.com](https://console.cloud.google.com/)
+
+2. **Create a new project:**
+   - Click "Select a project"  "New Project"
+   - **Project name:** `FPP Control Center`
+   - **Organization:** Leave as "No organization"
+   - Click **Create**
+   - Wait for project creation (~30 seconds)
+
+3. **Select your project:**
+   - Click "Select a project"
+   - Choose "FPP Control Center"
+
+---
+
+#### **Step 2: Configure OAuth Consent Screen**
+
+1. **Navigate to OAuth consent screen:**
+   - Left sidebar  **APIs & Services**  **OAuth consent screen**
+
+2. **Choose user type:**
+   - Select **External**
+   - Click **Create**
+
+3. **Fill in App Information:**
+   - **App name:** `FPP Control Center`
+   - **User support email:** Your email address
+   - **App logo:** (Optional - skip for now)
+   - **Application home page:** `http://localhost:3000` (or your domain if public)
+   - **Developer contact information:** Your email address
+
+4. **Click Save and Continue**
+
+5. **Scopes (Step 2):**
+   - Click **Save and Continue** (no changes needed)
+
+6. **Test users (Step 3):**
+   - Click **+ Add Users**
+   - Add your admin email address(es)
+   - Click **Save and Continue**
+
+7. **Summary (Step 4):**
+   - Review and click **Back to Dashboard**
+
+---
+
+#### **Step 3: Create OAuth Credentials**
+
+1. **Navigate to Credentials:**
+   - Left sidebar  **Credentials**
+
+2. **Create OAuth Client ID:**
+   - Click **+ Create Credentials**  **OAuth client ID**
+
+3. **Configure OAuth Client:**
+   - **Application type:** Web application
+   - **Name:** `FPP Control`
+
+4. **Add Authorized Redirect URIs:**
+
+   **For Local Network Installation:**
+   ``
+   http://localhost:3000/api/auth/callback/google
+   http://YOUR_SERVER_IP:3000/api/auth/callback/google
+   ``
+   
+   Replace `YOUR_SERVER_IP` with your actual IP (e.g., `192.168.1.100`)
+
+   **For Public Installation (Cloudflare Tunnel):**
+   ``
+   https://yourdomain.com/api/auth/callback/google
+   ``
+   
+   Replace `yourdomain.com` with your actual domain
+
+5. **Click Create**
+
+---
+
+#### **Step 4: Copy Credentials**
+
+After creation, you'll see a dialog with:
+
+- **Client ID:** `414031818307-xxxxxxxx.apps.googleusercontent.com`
+- **Client Secret:** `GOCSPX-xxxxxxxxxxxxxxxxx`
+
+** Copy both values** - you'll need them for configuration.
+
+---
+
+#### **Step 5: Update .env.local**
+
+Add your OAuth credentials to `.env.local`:
+
+``env
+# Google OAuth
+GOOGLE_CLIENT_ID=414031818307-xxxxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxxxx
+
+# Admin email(s) - comma-separated
+ADMIN_EMAILS=yourname@gmail.com,othername@gmail.com
+``
+
+---
+
+#### **Step 6: Restart Application**
+
+``bash
+# If using PM2:
+pm2 restart fpp-control
+
+# If using npm run dev:
+# Press Ctrl+C, then:
+npm run dev
+``
+
+---
+
+#### **Step 7: Test OAuth Login**
+
+1. Visit your site
+2. Click **Admin Login**
+3. You should be redirected to Google
+4. Sign in with an email from `ADMIN_EMAILS`
+5. Grant permissions
+6. You should be redirected back and logged in as admin
+
+ **OAuth is now configured!**
+
+---
+
+### **Troubleshooting OAuth**
+
+<details>
+<summary><strong>Error: Redirect URI mismatch</strong></summary>
+
+**Cause:** The redirect URI doesn't match what you configured.
+
+**Solution:**
+1. Go to Google Cloud Console  Credentials
+2. Edit your OAuth client
+3. Verify redirect URIs match exactly:
+   - For local: `http://localhost:3000/api/auth/callback/google`
+   - For public: `https://yourdomain.com/api/auth/callback/google`
+4. Save changes
+5. Clear browser cookies and try again
+</details>
+
+<details>
+<summary><strong>Error: Access blocked</strong></summary>
+
+**Cause:** Your email is not in the `ADMIN_EMAILS` list.
+
+**Solution:**
+1. Edit `.env.local`
+2. Add your email to `ADMIN_EMAILS`
+3. Restart application
+4. Try logging in again
+</details>
+
+<details>
+<summary><strong>Error: This app hasn't been verified</strong></summary>
+
+**Cause:** App is in testing mode (normal for personal use).
+
+**Solution:**
+1. Click **Advanced**
+2. Click **Go to FPP Control Center (unsafe)**
+3. Grant permissions
+
+This warning only appears the first time and is safe to ignore for personal projects.
+</details>
+
+---
+
+## ? Email Configuration (Optional)
+
+Email enables Santa letter delivery and device alerts.
+
+### **Gmail Setup (Recommended)**
+
+#### **Step 1: Enable 2-Factor Authentication**
+
+1. Go to [myaccount.google.com/security](https://myaccount.google.com/security)
+2. Find **2-Step Verification**
+3. Click **Get Started**
+4. Follow the prompts to enable 2FA
+
+---
+
+#### **Step 2: Create App Password**
+
+1. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. **Select app:** Other (custom name)
+3. **Name:** `FPP Control Center`
+4. Click **Generate**
+5. **Copy the 16-character password** (looks like: `abcd efgh ijkl mnop`)
+
+ **This password is shown only once!** Save it somewhere safe.
+
+---
+
+#### **Step 3: Update .env.local**
+
+Add email configuration to `.env.local`:
+
+``env
+# Gmail SMTP
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=yourname@gmail.com
+SMTP_PASS=abcdefghijklmnop    # App password (no spaces)
+``
+
+---
+
+#### **Step 4: Test Email**
+
+``bash
+# Restart application
+pm2 restart fpp-control
+
+# Test from admin panel:
+# Settings  Email  Send Test Email
+``
+
+---
+
+### **Other Email Providers**
+
+<details>
+<summary><strong>Outlook / Office 365</strong></summary>
+
+``env
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=yourname@outlook.com
+SMTP_PASS=your-password
+``
+
+No app password needed - use your regular password.
+</details>
+
+<details>
+<summary><strong>Yahoo Mail</strong></summary>
+
+``env
+SMTP_HOST=smtp.mail.yahoo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=yourname@yahoo.com
+SMTP_PASS=your-app-password
+``
+
+Create app password at [login.yahoo.com/account/security](https://login.yahoo.com/account/security)
+</details>
+
+---
+
+##  Cloudflare Tunnel Setup (Public Access)
+
+Cloudflare Tunnel allows public internet access **without port forwarding**.
+
+### **Benefits:**
+
+-  **Free HTTPS** - Automatic SSL/TLS certificates
+-  **No Port Forwarding** - No router configuration needed
+-  **DDoS Protection** - Built-in security
+-  **Hide Your IP** - Your home IP stays private
+
+### **Prerequisites:**
+
+1. **Domain Name** - Must be pointed to Cloudflare DNS
+2. **Cloudflare Account** - Free at [cloudflare.com](https://www.cloudflare.com/)
+
+---
+
+### **Quick Setup**
+
+Run the automated script:
+
+**Linux/Mac:**
+``bash
+./scripts/setup-cloudflare-tunnel.sh
+``
+
+**Windows:**
+``powershell
+.\scripts\setup-cloudflare-tunnel.ps1
+``
+
+The script will:
+1. Install `cloudflared`
+2. Authenticate with Cloudflare
+3. Create a tunnel
+4. Configure DNS routing
+5. Install as a system service
+
+---
+
+### **Headless Server Setup (SSH/No GUI)**
+
+If setting up via SSH without a browser:
+
+The script **automatically detects** this and displays an authentication URL:
+
+``
+
+  IMPORTANT: Authentication URL Coming Up!                
+                                                           
+  1. Copy the URL that appears below                      
+  2. Paste it into a browser on ANY device                
+     (your phone, laptop, etc.)                            
+  3. Log in to Cloudflare                                  
+  4. Authorize the connection                              
+  5. Come back here - setup continues automatically       
+
+
+ COPY THIS URL:
+https://dash.cloudflare.com/argotunnel?callback=...
+
+ Open this URL on your phone or laptop
+``
+
+**Full documentation:** [CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md)
+
+---
+
+### **Post-Setup Configuration**
+
+After tunnel is set up:
+
+#### **1. Update .env.local**
+
+``env
+# Change from localhost to your domain
+NEXTAUTH_URL=https://yourdomain.com
+``
+
+---
+
+#### **2. Update Google OAuth Redirect URIs**
+
+1. Go to [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
+2. Select your OAuth Client ID
+3. Add redirect URI:
+   ``
+   https://yourdomain.com/api/auth/callback/google
+   ``
+4. Save changes
+
+---
+
+#### **3. Restart Application**
+
+``bash
+pm2 restart fpp-control
+``
+
+---
+
+#### **4. Verify Deployment**
+
+``bash
+# Test HTTPS access
+curl https://yourdomain.com
+
+# Check tunnel status
+cloudflared tunnel list
+``
+
+ **Your site is now publicly accessible!**
+
+---
+
+##  Post-Installation
+
+### **Access Your Control Center**
+
+**Local Network:**
+``
+http://localhost:3000        # From the server
+http://192.168.1.100:3000    # From other devices
+``
+
+**Public (Cloudflare):**
+``
+https://yourdomain.com
+``
+
+---
+
+### **Admin Login**
+
+1. Visit your site
+2. Click **Admin Login** (top right)
+3. Sign in with Google using an admin email
+4. Grant permissions
+5. You're now logged in! 
+
+---
+
+### **Useful Commands**
+
+**Application Management:**
+``bash
+pm2 status                 # Check status
+pm2 logs fpp-control       # View logs
+pm2 restart fpp-control    # Restart
+pm2 stop fpp-control       # Stop
+pm2 start fpp-control      # Start
+``
+
+**Database:**
+``bash
+npm run backup    # Manual backup
+npm run db:stats  # View statistics
+``
+
+---
+
+### **Next Steps**
+
+1.  **Configure Your Display**
+   - Admin Panel  Settings  FPP Configuration
+   - Verify FPP server IP
+
+2.  **Add Sequences**
+   - Admin Panel  Sequences
+   - Import from FPP or add manually
+
+3.  **Customize Theme**
+   - Admin Panel  Settings  Theme
+   - Choose colors, logo, display name
+
+4.  **Set Monitoring Hours**
+   - Admin Panel  Settings  Monitoring
+   - Configure when to check FPP status
+
+5.  **Test Features**
+   - Visit `/jukebox` - Request a song
+   - Visit `/santa` - Submit a test letter
+   - Check admin dashboard analytics
+
+---
+
+##  Troubleshooting
+
+### **Common Issues**
+
+<details>
+<summary><strong>Setup wizard won't run</strong></summary>
+
+**Linux/Mac:**
+``bash
+chmod +x setup.sh
+./setup.sh
+
+# If still fails:
+bash setup.sh
+``
+
+**Windows:**
+``powershell
+powershell -ExecutionPolicy Bypass -File setup.ps1
+``
+</details>
+
+<details>
+<summary><strong>Node.js version too old</strong></summary>
+
+``bash
+node --version
+
+# If less than v20.0.0:
+# Uninstall old Node.js
+# Install Node.js 20+ from nodejs.org
+# Restart terminal
+``
+</details>
+
+<details>
+<summary><strong>Port 3000 already in use</strong></summary>
+
+**Linux/Mac:**
+``bash
 lsof -i :3000
 kill -9 <PID>
-```
+``
 
-Windows:
-```powershell
-Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process
-```
+**Windows:**
+``powershell
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+``
+</details>
 
-### OAuth Not Working
+<details>
+<summary><strong>Database errors</strong></summary>
 
-1. Double-check your redirect URIs in Google Cloud Console
-2. Make sure your domain matches exactly
-3. For local network, use your actual IP (not `localhost` from other devices)
-4. Clear browser cookies and try again
+``bash
+# Backup and reinitialize
+cp fpp-control.db fpp-control-backup.db
+rm fpp-control.db
+npm run setup
+``
+</details>
 
-### PM2 Command Not Found
+<details>
+<summary><strong>FPP connection failed</strong></summary>
 
-Install PM2 globally:
-```bash
-sudo npm install -g pm2
-```
+``bash
+# Test FPP API
+curl http://YOUR_FPP_IP/api/playlists
 
----
+# Check:
+# 1. FPP is powered on
+# 2. IP address is correct in .env.local
+# 3. Both on same network
+# 4. Firewall isn't blocking
+``
+</details>
 
-## 📚 Next Steps
+<details>
+<summary><strong>Email not sending</strong></summary>
 
-After successful installation:
+**Check:**
+1.  Wrong app password (not regular password for Gmail)
+2.  2FA not enabled (required for Gmail app passwords)
+3.  Incorrect SMTP port (587 for TLS)
+4.  Firewall blocking outbound SMTP
 
-1. **✅ Test the Application**
-   - Visit your control center URL
-   - Try logging in as admin
-   - Check that FPP device shows connected
-
-2. **✅ Configure Features**
-   - Add your FPP sequences in the admin panel
-   - Set up device monitoring schedule
-   - Configure Santa letter templates (optional)
-
-3. **✅ Set Up Backups**
-   - Enable automatic database backups:
-     ```bash
-     crontab -e
-     # Add: 0 2 * * * cd /path/to/FPP-Website && npm run backup
-     ```
-
-4. **✅ Security Hardening**
-   - Review [SECURITY-IMPLEMENTATION.md](./SECURITY-IMPLEMENTATION.md)
-   - Set up [Cloudflare Tunnel](./docs/CLOUDFLARE-TUNNEL.md) (if public)
-     - **Headless Servers (SSH):** See special instructions in the guide
-   - Configure firewall rules
-
-5. **✅ Customize**
-   - Choose a theme in admin panel
-   - Add custom branding (optional)
-   - Set your monitoring hours
+**Test from admin panel:**
+Settings  Email  Send Test Email
+</details>
 
 ---
 
-## 🎉 You're Ready!
+##  Advanced Configuration
 
-Your FPP Control Center is now installed and running!
+### **Custom Port**
 
-**Enjoy features like:**
-- 🎵 Interactive jukebox for song requests
-- 🎅 AI-powered Santa letter responses
-- 📊 Real-time device monitoring
-- 🗳️ Community sequence voting
-- 📈 Visitor analytics
+Edit `package.json`:
 
-**Need help?** Check out:
-- [README.md](README.md) - Full documentation
-- [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md) - Security guide
-- [GitHub Issues](https://github.com/joeally06/FPP-Website/issues) - Community support
+``json
+{
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "start": "next start -p 3001"
+  }
+}
+``
 
-**Happy holidays! 🎄✨**
+Update `.env.local`:
+
+``env
+NEXTAUTH_URL=http://localhost:3001
+``
+
+---
+
+### **Multiple Admin Emails**
+
+``env
+ADMIN_EMAILS=admin1@gmail.com,admin2@gmail.com,admin3@yahoo.com
+``
+
+**No spaces between emails!**
+
+---
+
+### **Automatic Backups**
+
+Set up daily backups with cron:
+
+``bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 2 AM
+0 2 * * * cd /path/to/FPP-Website && npm run backup
+
+# Add weekly cleanup (keep only 30 days)
+0 3 * * 0 find /path/to/FPP-Website/backups/ -name "*.db" -mtime +30 -delete
+``
+
+---
+
+### **Environment Variables Reference**
+
+Complete list:
+
+``env
+# === REQUIRED ===
+
+# Admin access (comma-separated, no spaces)
+ADMIN_EMAILS=admin@example.com
+
+# FPP device
+FPP_URL=http://192.168.1.100
+
+# Timezone (IANA format)
+NEXT_PUBLIC_TIMEZONE=America/Chicago
+
+# NextAuth (generate with: openssl rand -base64 32)
+NEXTAUTH_SECRET=your-random-secret
+NEXTAUTH_URL=http://localhost:3000
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+
+# === OPTIONAL ===
+
+# Email (for Santa letters and alerts)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=yourname@gmail.com
+SMTP_PASS=your-app-password
+
+# Monitoring schedule (24-hour format)
+MONITORING_START_TIME=16:00
+MONITORING_END_TIME=22:00
+
+# Ollama AI (for Santa letters)
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+``
+
+---
+
+##  Congratulations!
+
+Your FPP Control Center is now fully installed and configured!
+
+### **What's Next?**
+
+-  **Add Sequences** - Import your light show sequences
+-  **Customize Theme** - Make it match your display
+-  **Monitor Analytics** - Track visitor engagement
+-  **Enable Santa Letters** - Set up Ollama for AI responses
+-  **Go Public** - Set up Cloudflare Tunnel for internet access
+
+### **Need Help?**
+
+-  [README.md](README.md) - Feature documentation
+-  [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md) - Security guide
+-  [CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md) - Public deployment
+-  [GitHub Issues](https://github.com/joeally06/FPP-Website/issues) - Report bugs
+-  [Discussions](https://github.com/joeally06/FPP-Website/discussions) - Ask questions
+
+**Happy holidays! **
