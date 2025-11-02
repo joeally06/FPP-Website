@@ -21,7 +21,9 @@ async function pingDevice(ip: string): Promise<boolean> {
     }
     
     return true; // Success - device is online
-  } catch (error) {
+  } catch (error: any) {
+    // Log ping failure for debugging
+    console.log(`[Device Monitor] Ping failed for ${ip}: ${error.message || 'Unknown error'}`);
     return false; // Failed - device is offline
   }
 }
