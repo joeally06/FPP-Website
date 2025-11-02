@@ -33,7 +33,8 @@
     "react-dom": "19.2.0",
     "recharts": "^3.3.0",
     "spotify-web-api-node": "^5.0.2",
-    "validator": "^13.15.20"
+    "validator": "^13.15.20",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

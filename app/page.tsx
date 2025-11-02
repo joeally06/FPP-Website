@@ -205,7 +205,7 @@ export default function Home() {
           <span>⚡</span> Quick Actions
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <button
             onClick={() => router.push('/sequences')}
             className="backdrop-blur-sm bg-blue-500/80 hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3"
@@ -220,6 +220,14 @@ export default function Home() {
           >
             <span className="text-2xl">📋</span>
             <span>Playlists</span>
+          </button>
+          
+          <button
+            onClick={() => router.push('/models')}
+            className="backdrop-blur-sm bg-amber-500/80 hover:bg-amber-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3"
+          >
+            <span className="text-2xl">🎄</span>
+            <span>Models</span>
           </button>
           
           <button

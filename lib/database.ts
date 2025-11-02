@@ -290,6 +290,75 @@ db.exec(`
 `);
 
 // ========================================
+// FPP Models Configuration Tables
+// ========================================
+
+// Create FPP models table for yearly setup reference
+db.exec(`
+  CREATE TABLE IF NOT EXISTS fpp_models (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_name TEXT NOT NULL,
+    display_as TEXT,
+    description TEXT,
+    string_type TEXT,
+    string_count INTEGER,
+    node_count INTEGER,
+    light_count INTEGER,
+    channels_per_node INTEGER,
+    channel_count INTEGER,
+    start_channel TEXT,
+    start_channel_no INTEGER,
+    end_channel_no INTEGER,
+    universe_start_channel TEXT,
+    controller_name TEXT,
+    controller_type TEXT,
+    controller_ip TEXT,
+    controller_ports TEXT,
+    protocol TEXT,
+    universe_id TEXT,
+    universe_channel INTEGER,
+    controller_channel INTEGER,
+    connection_protocol TEXT,
+    connection_attributes TEXT,
+    est_current_amps REAL,
+    buffer_dimensions TEXT,
+    notes TEXT,
+    physical_location TEXT,
+    last_tested DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Create model photos table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS model_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_id INTEGER NOT NULL,
+    photo_url TEXT NOT NULL,
+    caption TEXT,
+    photo_type TEXT CHECK (photo_type IN ('setup', 'wiring', 'controller', 'installed')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (model_id) REFERENCES fpp_models(id) ON DELETE CASCADE
+  );
+`);
+
+// Create setup checklist table for yearly setup tracking
+db.exec(`
+  CREATE TABLE IF NOT EXISTS setup_checklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_id INTEGER NOT NULL,
+    task TEXT NOT NULL,
+    completed BOOLEAN DEFAULT 0,
+    completed_at DATETIME,
+    notes TEXT,
+    year INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (model_id) REFERENCES fpp_models(id) ON DELETE CASCADE
+  );
+`);
+
+// ========================================
 // Database Indexes for Performance
 // ========================================
 
@@ -404,6 +473,33 @@ db.exec(`
   
   CREATE INDEX IF NOT EXISTS idx_devices_type 
   ON devices(type);
+`);
+
+// FPP Models indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_models_name 
+  ON fpp_models(model_name);
+  
+  CREATE INDEX IF NOT EXISTS idx_models_controller 
+  ON fpp_models(controller_name);
+  
+  CREATE INDEX IF NOT EXISTS idx_models_display_as 
+  ON fpp_models(display_as);
+  
+  CREATE INDEX IF NOT EXISTS idx_models_channel_range 
+  ON fpp_models(start_channel_no, end_channel_no);
+`);
+
+// Setup checklist indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_checklist_year 
+  ON setup_checklist(year);
+  
+  CREATE INDEX IF NOT EXISTS idx_checklist_model 
+  ON setup_checklist(model_id);
+  
+  CREATE INDEX IF NOT EXISTS idx_checklist_completed 
+  ON setup_checklist(completed, year);
 `);
 
 console.log('✅ All database indexes created successfully');
