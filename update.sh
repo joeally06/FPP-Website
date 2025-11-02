@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # FPP Control Center - Update Script
-# Version: 2.0.0 (API-compatible)
+# Version: 2.1.0 (API-compatible with auto-stash)
 
 set -e
 
@@ -28,11 +28,28 @@ if [ ! -d ".git" ]; then
     exit 1
 fi
 
-# Check for uncommitted changes
+# Stop PM2 FIRST to prevent database conflicts
+PM2_WAS_RUNNING=false
+if command -v pm2 &> /dev/null; then
+    if pm2 list 2>/dev/null | grep -q "fpp-control"; then
+        log "⏸️  Stopping server to prevent database conflicts..."
+        pm2 stop fpp-control
+        PM2_WAS_RUNNING=true
+        
+        # Wait for database to close cleanly
+        sleep 2
+        
+        log "✅ Server stopped safely"
+    fi
+fi
+
+# Handle uncommitted changes (auto-stash for production)
+STASHED=false
 if ! git diff-index --quiet HEAD -- 2>/dev/null; then
-    echo "❌ Uncommitted changes detected!" >&2
-    echo "Please commit or stash your changes first." >&2
-    exit 1
+    log "📦 Stashing local changes..."
+    git stash push -m "Auto-stash before update $(date +%Y%m%d_%H%M%S)"
+    STASHED=true
+    log "✅ Local changes stashed"
 fi
 
 # Backup current version
@@ -66,6 +83,19 @@ REMOTE=$(git rev-parse origin/master)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
     log "✅ Already up to date!"
+    
+    # Restore stashed changes if any
+    if [ "$STASHED" = true ]; then
+        log "📦 Restoring stashed changes..."
+        git stash pop --quiet
+    fi
+    
+    # Restart PM2 if it was running
+    if [ "$PM2_WAS_RUNNING" = true ]; then
+        log "🔄 Restarting server..."
+        pm2 start fpp-control
+    fi
+    
     log ""
     exit 0
 fi
@@ -81,11 +111,22 @@ if [ "$SILENT" = false ]; then
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "❌ Update cancelled"
+        
+        # Restore stashed changes
+        if [ "$STASHED" = true ]; then
+            git stash pop --quiet
+        fi
+        
+        # Restart PM2 if it was running
+        if [ "$PM2_WAS_RUNNING" = true ]; then
+            pm2 start fpp-control
+        fi
+        
         exit 1
     fi
 fi
 
-# Pull changes (no stashing needed since we validated no uncommitted changes)
+# Pull changes
 log "📥 Pulling updates..."
 git pull origin master --quiet
 
@@ -103,7 +144,7 @@ if [ -f "scripts/migrate-database.js" ]; then
     node scripts/migrate-database.js
 fi
 
-# Rebuild application
+# Rebuild application (PM2 is stopped, no database conflicts)
 log "🔨 Building application..."
 if [ "$SILENT" = true ]; then
     npm run build 2>&1 | grep -E "(Creating|Compiled|Error|Warning)" || true
@@ -116,21 +157,33 @@ log "✅ Update complete!"
 log ""
 log "📋 Backup location: $BACKUP_DIR"
 
-# Restart PM2 if running
-if command -v pm2 &> /dev/null; then
-    if pm2 list 2>/dev/null | grep -q "fpp-control"; then
-        log "🔄 Restarting server..."
-        pm2 restart fpp-control --update-env
-        log "✅ Server restarted successfully"
+# Restore stashed changes if any (merge with new code)
+if [ "$STASHED" = true ]; then
+    log "📦 Restoring stashed changes..."
+    if git stash pop --quiet 2>/dev/null; then
+        log "✅ Local changes restored"
+    else
+        log "⚠️  Conflict detected - local changes kept in stash"
+        log "   Run 'git stash list' to see stashed changes"
     fi
+fi
+
+# Restart PM2 if it was running
+if [ "$PM2_WAS_RUNNING" = true ]; then
+    log "🔄 Restarting server..."
+    pm2 restart fpp-control --update-env
+    log "✅ Server restarted successfully"
 fi
 
 if [ "$SILENT" = false ]; then
     echo ""
-    echo "To start the updated server manually:"
-    echo "  npm start"
+    echo "To view stashed changes:"
+    echo "  git stash list"
     echo ""
     echo "To rollback if needed:"
-    echo "  ./rollback.sh $BACKUP_DIR"
+    echo "  git reset --hard HEAD@{1}"
+    echo "  npm install"
+    echo "  npm run build"
+    echo "  pm2 restart fpp-control"
     echo ""
 fi
