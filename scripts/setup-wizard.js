@@ -66,7 +66,8 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 ADMIN_EMAILS=your-email@example.com
 
 # FPP Server Configuration
-FPP_URL=http://your-fpp-ip
+# Note: Configure FPP connection in Settings > FPP Server after setup
+FPP_URL=http://localhost:80
 
 # Spotify API
 SPOTIFY_CLIENT_ID=your-spotify-client-id

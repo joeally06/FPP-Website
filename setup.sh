@@ -578,13 +578,6 @@ NEXTAUTH_SECRET=$(openssl rand -hex 32)
         SKIP_SPOTIFY=true
     fi
     
-    # Get FPP server IP
-    echo ""
-    echo "Enter the local IP address of your FPP controller"
-    echo "You can find this in FPP's web interface or your router's DHCP table"
-    echo ""
-    read -p "FPP Controller IP address: " FPP_IP
-    
     # Get timezone
     echo ""
     echo "Common US timezones:"
@@ -797,7 +790,7 @@ ENV_FILE
     sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_ID|$GOOGLE_CLIENT_ID|g" .env.local
     sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_SECRET|$GOOGLE_CLIENT_SECRET|g" .env.local
     sed -i.bak "s|PLACEHOLDER_ADMIN_EMAIL|$ADMIN_EMAIL|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_FPP_URL|http://$FPP_IP:80|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_FPP_URL|http://localhost:80|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_ID|$SPOTIFY_CLIENT_ID|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_SECRET|$SPOTIFY_CLIENT_SECRET|g" .env.local
     sed -i.bak "s|PLACEHOLDER_OLLAMA_URL|$OLLAMA_URL|g" .env.local
