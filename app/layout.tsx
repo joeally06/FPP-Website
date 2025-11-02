@@ -5,7 +5,6 @@ import { Providers } from "./providers";
 
 // Initialize Santa letter queue processor (server-side only)
 if (typeof window === 'undefined') {
-  import('@/lib/migrate-devices');
   import('@/lib/santa-queue-processor');
   import('@/lib/device-monitor');
   import('@/lib/db-scheduler'); // Database maintenance scheduler
