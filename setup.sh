@@ -623,6 +623,52 @@ NEXTAUTH_SECRET=$(openssl rand -hex 32)
     
     # SMTP configuration (optional)
     echo ""
+    # FPP Server IP Configuration
+    echo ""
+    print_header "FPP Server Configuration"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo "Enter your FPP (Falcon Player) server details."
+    echo "Default FPP web interface runs on port 80."
+    echo ""
+    echo -e "${GREEN}Examples:${NC}"
+    echo "  • 192.168.1.2:80 (most common)"
+    echo "  • 192.168.5.2:80"
+    echo "  • 10.0.0.5:8080 (custom port)"
+    echo ""
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    while true; do
+        read -p "FPP Server IP:Port [192.168.1.2:80]: " FPP_INPUT
+        FPP_INPUT=${FPP_INPUT:-192.168.1.2:80}
+        
+        # Validate format
+        if [[ $FPP_INPUT =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]+$ ]]; then
+            echo ""
+            print_step "Testing connection to FPP at http://$FPP_INPUT..."
+            
+            # Test connection
+            if curl -s -f -m 5 "http://$FPP_INPUT/api/system/status" > /dev/null 2>&1; then
+                print_success "FPP server found and responding!"
+                FPP_URL="http://$FPP_INPUT"
+                break
+            else
+                print_warning "Could not connect to FPP server at http://$FPP_INPUT"
+                echo ""
+                if confirm "Continue anyway? (You can update FPP_URL in .env.local later)"; then
+                    FPP_URL="http://$FPP_INPUT"
+                    break
+                fi
+            fi
+        else
+            print_error "Invalid format. Please use: xxx.xxx.xxx.xxx:port"
+            echo ""
+        fi
+    done
+    
+    echo ""
+    
     if confirm "Do you want to configure email notifications? (for Santa letters & alerts)"; then
         echo ""
         echo "For Gmail users:"
@@ -647,8 +693,34 @@ NEXTAUTH_SECRET=$(openssl rand -hex 32)
         fi
         
         read -p "SMTP Email: " SMTP_USER
-        read -sp "SMTP App Password: " SMTP_PASS
+        
+        # SMTP Password with better UX
         echo ""
+        echo -e "${YELLOW}Enter your SMTP App Password:${NC}"
+        echo "(Your input will be hidden for security)"
+        echo ""
+        
+        while true; do
+            read -s -p "SMTP Password: " SMTP_PASS
+            echo ""
+            
+            if [ -z "$SMTP_PASS" ]; then
+                print_error "Password cannot be empty"
+                continue
+            fi
+            
+            # Remove spaces (Gmail app passwords often have spaces)
+            SMTP_PASS="${SMTP_PASS// /}"
+            
+            print_success "Password entered (${#SMTP_PASS} characters)"
+            echo ""
+            
+            # Confirm
+            if confirm "Is this correct?"; then
+                break
+            fi
+            echo ""
+        done
         
         print_success "SMTP configured: $SMTP_HOST:$SMTP_PORT"
     else
@@ -790,7 +862,7 @@ ENV_FILE
     sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_ID|$GOOGLE_CLIENT_ID|g" .env.local
     sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_SECRET|$GOOGLE_CLIENT_SECRET|g" .env.local
     sed -i.bak "s|PLACEHOLDER_ADMIN_EMAIL|$ADMIN_EMAIL|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_FPP_URL|http://localhost:80|g" .env.local
+    sed -i.bak "s|PLACEHOLDER_FPP_URL|$FPP_URL|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_ID|$SPOTIFY_CLIENT_ID|g" .env.local
     sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_SECRET|$SPOTIFY_CLIENT_SECRET|g" .env.local
     sed -i.bak "s|PLACEHOLDER_OLLAMA_URL|$OLLAMA_URL|g" .env.local
