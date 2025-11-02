@@ -1,17 +1,25 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getEnabledDevices, upsertDeviceStatus, getDeviceStatus } from '@/lib/database';
 import { sendAlertEmail } from '@/lib/email-service';
 import { isMonitoringActive, getSchedule, formatTime } from '@/lib/monitoring-schedule';
 
-const execPromise = promisify(exec);
+const execFileAsync = promisify(execFile);
 
-// Ping a device using Windows ping command
+// Ping a device using platform-specific ping command
 async function pingDevice(ip: string): Promise<boolean> {
   try {
-    // Windows: ping -n 1 -w 1000 (1 packet, 1 second timeout)
-    await execPromise(`ping -n 1 -w 1000 ${ip}`);
+    const isWindows = process.platform === 'win32';
+    
+    if (isWindows) {
+      // Windows: ping -n 1 -w 1000 (1 packet, 1 second timeout)
+      await execFileAsync('ping', ['-n', '1', '-w', '1000', ip]);
+    } else {
+      // Linux/Mac: ping -c 1 -W 1 (1 packet, 1 second timeout)
+      await execFileAsync('ping', ['-c', '1', '-W', '1', ip]);
+    }
+    
     return true; // Success - device is online
   } catch (error) {
     return false; // Failed - device is offline
