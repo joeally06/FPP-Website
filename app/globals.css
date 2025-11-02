@@ -3,6 +3,19 @@
 :root {
   --background: #ffffff;
   --foreground: #000000;
+  
+  /* Admin Panel Design System */
+  --admin-bg-primary: #1a1a2e;
+  --admin-bg-secondary: rgba(255, 255, 255, 0.1);
+  --admin-bg-tertiary: rgba(255, 255, 255, 0.05);
+  
+  --admin-text-primary: #ffffff;
+  --admin-text-secondary: rgba(255, 255, 255, 0.8);
+  --admin-text-muted: rgba(255, 255, 255, 0.6);
+  --admin-text-accent: #3b82f6;
+  
+  --admin-border-primary: rgba(255, 255, 255, 0.2);
+  --admin-border-secondary: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
@@ -54,5 +67,51 @@ body {
   .bg-indigo-900 *,
   .bg-gray-900 * {
     @apply text-white;
+  }
+}
+
+/* Admin Panel Component Utilities */
+@layer components {
+  /* Typography */
+  .admin-h1 {
+    @apply text-4xl font-bold mb-4;
+    color: var(--admin-text-primary);
+  }
+  
+  .admin-h2 {
+    @apply text-2xl font-bold mb-6;
+    color: var(--admin-text-primary);
+  }
+  
+  .admin-h3 {
+    @apply text-xl font-semibold mb-3;
+    color: var(--admin-text-primary);
+  }
+  
+  .admin-text {
+    @apply text-base;
+    color: var(--admin-text-secondary);
+  }
+  
+  .admin-text-muted {
+    @apply text-sm;
+    color: var(--admin-text-muted);
+  }
+  
+  .admin-label {
+    @apply text-sm font-medium mb-2 block;
+    color: var(--admin-text-primary);
+  }
+  
+  /* Cards & Containers */
+  .admin-card {
+    @apply rounded-xl p-6 border;
+    background-color: var(--admin-bg-secondary);
+    border-color: var(--admin-border-primary);
+    backdrop-filter: blur(10px);
+  }
+  
+  .admin-section {
+    @apply mb-6;
   }
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import UpdateChecker from '@/components/UpdateChecker';
+import { AdminH1, AdminH2, AdminText } from '@/components/admin/Typography';
 import Link from 'next/link';
 
 type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database' | 'updates';
@@ -16,10 +17,10 @@ export default function SettingsPage() {
       
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">⚙️ Settings</h1>
-          <p className="text-white/80">
+          <AdminH1>⚙️ Settings</AdminH1>
+          <AdminText>
             Configure your light show system settings and preferences
-          </p>
+          </AdminText>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -104,11 +105,11 @@ function UpdateSettings() {
 function ThemeSettings() {
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-      <h2 className="text-2xl font-bold text-white mb-6">🎨 Theme Configuration</h2>
+      <AdminH2>🎨 Theme Configuration</AdminH2>
       
-      <p className="text-white/80 mb-6">
+      <AdminText className="mb-6">
         Customize the visual appearance of your jukebox page with different particle effects and color schemes.
-      </p>
+      </AdminText>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="p-4 bg-white/5 rounded-lg border border-white/10">
@@ -145,7 +146,7 @@ function ThemeSettings() {
 function SantaLetterSettings() {
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-      <h2 className="text-2xl font-bold text-white mb-6">🎅 Santa Letter Configuration</h2>
+      <AdminH2>🎅 Santa Letter Configuration</AdminH2>
       
       <div className="space-y-6">
         <div className="flex items-start gap-3">
@@ -208,7 +209,7 @@ function SantaLetterSettings() {
 function MonitoringSettings() {
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-      <h2 className="text-2xl font-bold text-white mb-6">📡 Device Monitoring Settings</h2>
+      <AdminH2>📡 Device Monitoring Settings</AdminH2>
       
       <div className="space-y-6">
         <div>
@@ -313,7 +314,7 @@ function DatabaseSettings() {
 
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-      <h2 className="text-2xl font-bold text-white mb-6">💾 Database Management</h2>
+      <AdminH2>💾 Database Management</AdminH2>
       
       {message && (
         <div className="mb-6 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
