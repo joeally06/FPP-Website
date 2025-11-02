@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # FPP Control Center - Update Script
-# Version: 2.1.0 (API-compatible with auto-stash)
+# Version: 2.2.0 (Fixed: Stop PM2 before checking git status)
 
 set -e
 
@@ -28,7 +28,8 @@ if [ ! -d ".git" ]; then
     exit 1
 fi
 
-# Stop PM2 FIRST to prevent database conflicts
+# Stop PM2 FIRST (before checking git status)
+# This closes the database and prevents .db-shm/.db-wal from appearing as uncommitted changes
 PM2_WAS_RUNNING=false
 if command -v pm2 &> /dev/null; then
     if pm2 list 2>/dev/null | grep -q "fpp-control"; then
@@ -43,7 +44,7 @@ if command -v pm2 &> /dev/null; then
     fi
 fi
 
-# Handle uncommitted changes (auto-stash for production)
+# NOW check for uncommitted changes (after PM2 stopped)
 STASHED=false
 if ! git diff-index --quiet HEAD -- 2>/dev/null; then
     log "📦 Stashing local changes..."
