@@ -3,12 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-// Initialize Santa letter queue processor (server-side only)
-if (typeof window === 'undefined') {
-  import('@/lib/santa-queue-processor');
-  import('@/lib/device-monitor');
-  import('@/lib/db-scheduler'); // Database maintenance scheduler
-}
+// Initialize background services (server-side only)
+import '@/lib/server-init';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
