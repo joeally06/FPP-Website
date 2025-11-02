@@ -4,12 +4,18 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
+import Toast from '@/components/Toast';
 
 export default function Playlists() {
   const [playlists, setPlaylists] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
   const { data: session, status: sessionStatus } = useSession();
   const isAdmin = session?.user?.role === 'admin';
   const router = useRouter();
@@ -83,9 +89,19 @@ export default function Playlists() {
         data = { Status: response.ok ? 'OK' : 'ERROR' };
       }
       if (data.Status !== 'OK') throw new Error(data.Message || 'Failed to start playlist');
-      // Success feedback without alert
+      
+      // Show success toast
+      setToast({
+        message: `🎵 ${name} has started!`,
+        type: 'success',
+        isVisible: true
+      });
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setToast({
+        message: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        type: 'error',
+        isVisible: true
+      });
     }
   };
 
@@ -99,8 +115,19 @@ export default function Playlists() {
         data = { Status: response.ok ? 'OK' : 'ERROR' };
       }
       if (data.Status !== 'OK') throw new Error(data.Message || 'Failed to stop playlist');
+      
+      // Show success toast
+      setToast({
+        message: '⏹️ All playlists have stopped!',
+        type: 'success',
+        isVisible: true
+      });
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setToast({
+        message: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        type: 'error',
+        isVisible: true
+      });
     }
   };
 
@@ -113,6 +140,13 @@ export default function Playlists() {
       title="📋 Playlist Control" 
       subtitle="Manage and control your playlists"
     >
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+      />
+      
       {error && (
         <div className="mb-6 backdrop-blur-md bg-red-500/20 border border-red-500/50 text-white px-6 py-4 rounded-xl shadow-lg">
           <div className="flex items-center gap-3">
