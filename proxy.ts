@@ -53,12 +53,23 @@ export async function proxy(request: NextRequest) {
         referer.startsWith(allowed.split(':').slice(0, -1).join(':'))
       );
 
-      if (!isValidOrigin && !isValidReferer) {
+      // Check if this is a request proxied through Cloudflare Tunnel
+      // Cloudflare sets the correct Host header via httpHostHeader config
+      // even though origin might be localhost
+      const isTrustedProxy = host && (
+        host === 'lewisfamilylightshow.com' || 
+        host === 'www.lewisfamilylightshow.com' ||
+        (process.env.NEXTAUTH_URL?.includes(host) && process.env.NEXTAUTH_URL?.startsWith('https://'))
+      );
+
+      // Allow request if: valid origin/referer OR trusted proxy (cloudflared)
+      if (!isValidOrigin && !isValidReferer && !isTrustedProxy) {
         console.warn('[SECURITY] CSRF detected:', {
           path: pathname,
           method,
           origin: origin || 'none',
           referer: referer || 'none',
+          host: host || 'none',
           allowed: allowedOrigins.join(', '),
           ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
         });
