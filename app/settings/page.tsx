@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
+import UpdateChecker from '@/components/UpdateChecker';
 import Link from 'next/link';
 
-type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database';
+type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database' | 'updates';
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>('themes');
@@ -25,6 +26,16 @@ export default function SettingsPage() {
           {/* Settings Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 space-y-2">
+              <button
+                onClick={() => setActiveSection('updates')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-all font-semibold ${
+                  activeSection === 'updates'
+                    ? 'bg-white text-black shadow-lg'
+                    : 'text-white hover:bg-white/10'
+                }`}
+              >
+                🔄 System Updates
+              </button>
               <button
                 onClick={() => setActiveSection('themes')}
                 className={`w-full text-left px-4 py-3 rounded-lg transition-all font-semibold ${
@@ -70,6 +81,7 @@ export default function SettingsPage() {
 
           {/* Settings Content */}
           <div className="lg:col-span-3">
+            {activeSection === 'updates' && <UpdateSettings />}
             {activeSection === 'themes' && <ThemeSettings />}
             {activeSection === 'santa' && <SantaLetterSettings />}
             {activeSection === 'monitoring' && <MonitoringSettings />}
@@ -77,6 +89,14 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function UpdateSettings() {
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+      <UpdateChecker />
     </div>
   );
 }
