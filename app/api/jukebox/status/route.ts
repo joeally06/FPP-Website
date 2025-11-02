@@ -12,7 +12,7 @@ export async function GET() {
 
     // If nothing in database, check FPP's current status
     try {
-      const fppResponse = await fetch('http://192.168.5.2/api/fppd/status');
+      const fppResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/fppd/status`);
       if (fppResponse.ok) {
         const fppStatus = await fppResponse.json();
 

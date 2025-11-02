@@ -3,11 +3,23 @@ import { requireAdmin } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;
-  const url = `http://192.168.5.2/api/${slug.map(encodeURIComponent).join('/')}`;
+  
+  // Require admin authentication for ALL FPP web API access
+  try {
+    await requireAdmin();
+  } catch (error) {
+    console.error('[Security] Unauthorized FPP web API access attempt:', error);
+    return NextResponse.json(
+      { error: 'Unauthorized - Admin access required' },
+      { status: 401 }
+    );
+  }
+  
+  const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/${slug.map(encodeURIComponent).join('/')}`;
   try {
     const response = await fetch(url);
     const data = await response.text();
-    console.log('FPP API call:', url, 'status:', response.status, 'body:', data);
+    console.log('FPP API call:', url, 'status:', response.status);
     return new NextResponse(data, {
       status: response.status,
       headers: {
@@ -27,14 +39,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     await requireAdmin();
   } catch (error) {
-    console.error('Unauthorized API access attempt:', error);
+    console.error('[Security] Unauthorized FPP web API access attempt:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unauthorized' },
+      { error: 'Unauthorized - Admin access required' },
       { status: 401 }
     );
   }
   
-  const url = `http://192.168.5.2/api/${slug.map(encodeURIComponent).join('/')}`;
+  const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/${slug.map(encodeURIComponent).join('/')}`;
   try {
     const body = await request.text();
     const response = await fetch(url, {
@@ -45,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
     const data = await response.text();
-    console.log('FPP API call:', url, 'status:', response.status, 'body:', data);
+    console.log('FPP API call:', url, 'status:', response.status);
     return new NextResponse(data, {
       status: response.status,
       headers: {
