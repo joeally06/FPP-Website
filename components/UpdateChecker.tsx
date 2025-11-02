@@ -18,7 +18,6 @@ export default function UpdateChecker() {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updateLog, setUpdateLog] = useState<string>('');
-  const [showLog, setShowLog] = useState(false);
 
   // Check for updates on mount
   useEffect(() => {
@@ -31,15 +30,11 @@ export default function UpdateChecker() {
     
     try {
       const response = await fetch('/api/system/check-updates');
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.details || 'Failed to check for updates');
-      }
+      if (!response.ok) throw new Error('Failed to check for updates');
       
       const data = await response.json();
       setUpdateInfo(data);
     } catch (err: any) {
-      console.error('Update check error:', err);
       setError(err.message);
     } finally {
       setChecking(false);
@@ -54,7 +49,6 @@ export default function UpdateChecker() {
     setUpdating(true);
     setError(null);
     setUpdateLog('Starting update process...\n');
-    setShowLog(true);
     
     try {
       const response = await fetch('/api/system/update', {
@@ -65,19 +59,17 @@ export default function UpdateChecker() {
       
       if (data.success) {
         setUpdateLog((prev) => prev + '\n✅ Update completed successfully!\n');
-        setUpdateLog((prev) => prev + (data.output || ''));
-        setUpdateLog((prev) => prev + '\n🔄 Server will restart in 5 seconds...\n');
+        setUpdateLog((prev) => prev + '🔄 Server will restart in 5 seconds...\n');
         
         // Reload page after 5 seconds
         setTimeout(() => {
           window.location.reload();
         }, 5000);
       } else {
-        throw new Error(data.details || data.error || 'Update failed');
+        throw new Error(data.details || 'Update failed');
       }
       
     } catch (err: any) {
-      console.error('Update error:', err);
       setError(err.message);
       setUpdateLog((prev) => prev + `\n❌ Error: ${err.message}\n`);
     } finally {
@@ -89,9 +81,9 @@ export default function UpdateChecker() {
     <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-xl font-semibold text-white">System Updates</h3>
+          <h3 className="text-xl font-semibold text-white">System Updates 🚀</h3>
           <p className="text-gray-400 text-sm mt-1">
-            Check for and install updates from GitHub
+            Automatically check for and install updates from GitHub
           </p>
         </div>
         <button
@@ -106,7 +98,7 @@ export default function UpdateChecker() {
               Checking...
             </>
           ) : (
-            'Check for Updates'
+            '🔍 Check for Updates'
           )}
         </button>
       </div>
@@ -117,11 +109,11 @@ export default function UpdateChecker() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-400">Current Version:</span>
-              <span className="ml-2 text-white font-mono">{updateInfo.currentVersion}</span>
+              <span className="ml-2 text-green-400 font-mono font-semibold">{updateInfo.currentVersion}</span>
             </div>
             <div>
               <span className="text-gray-400">Branch:</span>
-              <span className="ml-2 text-white font-mono">{updateInfo.currentBranch}</span>
+              <span className="ml-2 text-blue-400 font-mono">{updateInfo.currentBranch}</span>
             </div>
             <div className="col-span-2">
               <span className="text-gray-400">Last Checked:</span>
@@ -135,7 +127,7 @@ export default function UpdateChecker() {
 
       {/* Update Available Banner */}
       <AnimatePresence>
-        {updateInfo?.updateAvailable && !updating && (
+        {updateInfo?.updateAvailable && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -151,14 +143,14 @@ export default function UpdateChecker() {
                   </h4>
                 </div>
                 <p className="text-gray-300 mb-3">
-                  Version <span className="font-mono">{updateInfo.latestVersion}</span> is available
+                  Version <span className="font-mono text-green-400">{updateInfo.latestVersion}</span> is available
                 </p>
                 
                 {/* Changelog */}
                 {updateInfo.changelog.length > 0 && (
                   <div className="mb-4">
-                    <h5 className="text-sm font-semibold text-gray-400 mb-2">What's New:</h5>
-                    <ul className="space-y-1 max-h-48 overflow-y-auto">
+                    <h5 className="text-sm font-semibold text-gray-400 mb-2">📋 What's New:</h5>
+                    <ul className="space-y-1">
                       {updateInfo.changelog.map((change, idx) => (
                         <li key={idx} className="text-sm text-gray-300 font-mono">
                           • {change}
@@ -182,7 +174,7 @@ export default function UpdateChecker() {
                     Updating...
                   </>
                 ) : (
-                  'Install Update'
+                  '⬇️ Install Update'
                 )}
               </button>
             </div>
@@ -191,14 +183,14 @@ export default function UpdateChecker() {
       </AnimatePresence>
 
       {/* Up to Date */}
-      {updateInfo && !updateInfo.updateAvailable && !updating && (
-        <div className="mb-4 p-4 bg-gray-900 border border-gray-700 rounded-lg">
+      {updateInfo && !updateInfo.updateAvailable && (
+        <div className="mb-4 p-4 bg-green-900/10 border border-green-800 rounded-lg">
           <div className="flex items-center">
-            <span className="text-2xl mr-3">✅</span>
+            <span className="text-3xl mr-3">✅</span>
             <div>
-              <h4 className="font-semibold text-white">You're up to date!</h4>
+              <h4 className="font-semibold text-green-400">You're up to date!</h4>
               <p className="text-sm text-gray-400">
-                Running the latest version ({updateInfo.currentVersion})
+                Running the latest version <span className="font-mono text-green-400">({updateInfo.currentVersion})</span>
               </p>
             </div>
           </div>
@@ -206,30 +198,18 @@ export default function UpdateChecker() {
       )}
 
       {/* Update Log */}
-      {showLog && updateLog && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="mb-4 p-4 bg-black rounded-lg overflow-hidden"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <h5 className="text-sm font-semibold text-gray-400">Update Log:</h5>
-            <button
-              onClick={() => setShowLog(false)}
-              className="text-gray-500 hover:text-gray-300"
-            >
-              ✕
-            </button>
-          </div>
-          <pre className="text-sm text-green-400 font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+      {updateLog && (
+        <div className="mb-4 p-4 bg-black rounded-lg border border-gray-700">
+          <h5 className="text-sm font-semibold text-gray-400 mb-2">📜 Update Log:</h5>
+          <pre className="text-sm text-green-400 font-mono whitespace-pre-wrap">
             {updateLog}
           </pre>
-        </motion.div>
+        </div>
       )}
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-900/20 border border-red-700 rounded-lg">
+        <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg">
           <div className="flex items-start">
             <span className="text-2xl mr-2">⚠️</span>
             <div>
@@ -242,9 +222,9 @@ export default function UpdateChecker() {
 
       {/* Manual Update Instructions */}
       <div className="mt-6 p-4 bg-gray-900 rounded-lg border border-gray-700">
-        <h5 className="text-sm font-semibold text-gray-400 mb-2">Manual Update</h5>
+        <h5 className="text-sm font-semibold text-gray-400 mb-2">🛠️ Manual Update</h5>
         <p className="text-sm text-gray-400 mb-3">
-          If automatic update fails, run this command on your server:
+          If automatic update fails, SSH into your server and run:
         </p>
         <code className="block p-3 bg-black rounded text-sm text-green-400 font-mono">
           ./update.sh
