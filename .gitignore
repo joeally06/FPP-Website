@@ -43,3 +43,6 @@ next-env.d.ts
 # database files
 *.db
 votes.db
+*.db-shm
+*.db-wal
+*.db-journal
