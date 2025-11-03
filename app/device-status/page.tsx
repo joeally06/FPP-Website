@@ -3,6 +3,20 @@
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import { formatDateTime } from '@/lib/time-utils';
+import { 
+  AdminH1, 
+  AdminH2, 
+  AdminH3,
+  AdminText, 
+  AdminTextSmall,
+  AdminTextTiny,
+  AdminLabel,
+  AdminValue,
+  AdminValueMedium,
+  AdminSuccess,
+  AdminError,
+  AdminWarning
+} from '@/components/admin/Typography';
 
 interface Device {
   id: string;
@@ -303,8 +317,8 @@ export default function DeviceStatusPage() {
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
         <AdminNavigation />
         <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-white">
-            <div className="text-2xl">Loading device status...</div>
+          <div className="text-center">
+            <AdminH2>Loading device status...</AdminH2>
           </div>
         </div>
       </div>
@@ -319,9 +333,9 @@ export default function DeviceStatusPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-4xl font-bold text-white flex items-center gap-3">
+            <AdminH1 className="flex items-center gap-3">
               📡 Device Monitor
-            </h1>
+            </AdminH1>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowScheduleModal(true)}
@@ -354,18 +368,18 @@ export default function DeviceStatusPage() {
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <p className="text-white/80">
+            <AdminText>
               Real-time monitoring of network devices. Auto-refreshes every 30 seconds.
-            </p>
+            </AdminText>
             {schedule && (
               <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${schedule.enabled ? 'bg-green-500/20 border border-green-500/30' : 'bg-gray-500/20 border border-gray-500/30'}`}>
-                <span className="text-white/80 text-sm">
+                <AdminTextSmall>
                   {schedule.enabled ? (
                     <>⏰ Monitoring Hours: {formatTime12Hour(schedule.start_time)} - {formatTime12Hour(schedule.end_time)}</>
                   ) : (
                     <>🔕 Schedule Disabled - Monitoring 24/7</>
                   )}
-                </span>
+                </AdminTextSmall>
               </div>
             )}
           </div>
@@ -374,18 +388,18 @@ export default function DeviceStatusPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/20">
-            <div className="text-white/60 text-sm mb-2">Total Devices</div>
-            <div className="text-4xl font-bold text-white">{totalDevices}</div>
+            <AdminTextSmall className="mb-2">Total Devices</AdminTextSmall>
+            <AdminValue>{totalDevices}</AdminValue>
           </div>
           
           <div className="bg-green-500/20 backdrop-blur-md rounded-lg p-6 border border-green-500/30">
-            <div className="text-green-200 text-sm mb-2">Online</div>
-            <div className="text-4xl font-bold text-green-400">{onlineDevices}</div>
+            <AdminTextSmall className="text-green-200 mb-2">Online</AdminTextSmall>
+            <AdminValue className="text-green-400">{onlineDevices}</AdminValue>
           </div>
           
           <div className="bg-red-500/20 backdrop-blur-md rounded-lg p-6 border border-red-500/30">
-            <div className="text-red-200 text-sm mb-2">Offline</div>
-            <div className="text-4xl font-bold text-red-400">{offlineDevices}</div>
+            <AdminTextSmall className="text-red-200 mb-2">Offline</AdminTextSmall>
+            <AdminValue className="text-red-400">{offlineDevices}</AdminValue>
           </div>
         </div>
 
@@ -428,10 +442,10 @@ export default function DeviceStatusPage() {
                 {/* Device Header */}
                 <div className="flex items-start justify-between mb-4 pr-20">
                   <div>
-                    <h3 className="text-xl font-bold text-white mb-1">
+                    <AdminH3 className="mb-1">
                       {device.name}
-                    </h3>
-                    <p className="text-white/60 text-sm">{device.description}</p>
+                    </AdminH3>
+                    <AdminTextSmall>{device.description}</AdminTextSmall>
                   </div>
                   <div className="text-3xl">
                     {getStatusIcon(device.id)}
@@ -440,13 +454,13 @@ export default function DeviceStatusPage() {
 
                 {/* Device Info */}
                 <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/60">Type:</span>
-                    <span className="text-white font-medium">{formatType(device.type)}</span>
+                  <div className="flex justify-between">
+                    <AdminTextSmall>Type:</AdminTextSmall>
+                    <AdminTextSmall className="font-medium text-white">{formatType(device.type)}</AdminTextSmall>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/60">IP Address:</span>
-                    <span className="text-white font-mono">{device.ip}</span>
+                  <div className="flex justify-between">
+                    <AdminTextSmall>IP Address:</AdminTextSmall>
+                    <AdminTextSmall className="font-mono text-white">{device.ip}</AdminTextSmall>
                   </div>
                 </div>
 
@@ -456,9 +470,9 @@ export default function DeviceStatusPage() {
                   ${!device.enabled ? 'bg-gray-500/20' : isOnline ? 'bg-green-500/20' : 'bg-red-500/20'}
                 `}>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-white/80">Status:</span>
+                    <AdminTextSmall>Status:</AdminTextSmall>
                     <span className={`
-                      font-bold
+                      font-bold text-sm
                       ${!device.enabled ? 'text-gray-400' : isOnline ? 'text-green-400' : 'text-red-400'}
                     `}>
                       {getStatusText(device.id)}
@@ -466,25 +480,25 @@ export default function DeviceStatusPage() {
                   </div>
 
                   {!isOnline && device.enabled && status && status.consecutive_failures > 0 && (
-                    <div className="text-sm text-red-300 mb-2">
+                    <AdminTextSmall className="text-red-300 mb-2">
                       ⚠️ {status.consecutive_failures} consecutive failure{status.consecutive_failures > 1 ? 's' : ''}
-                    </div>
+                    </AdminTextSmall>
                   )}
 
                   {status && (
                     <>
-                      <div className="text-xs text-white/60 mt-2">
+                      <AdminTextTiny className="mt-2">
                         Last Checked: {formatDateTime(status.last_checked, 'relative')}
-                      </div>
+                      </AdminTextTiny>
                       {status.last_seen_online && (
-                        <div className="text-xs text-white/60">
+                        <AdminTextTiny>
                           Last Online: {formatDateTime(status.last_seen_online, 'medium')}
-                        </div>
+                        </AdminTextTiny>
                       )}
                       {status.last_notified && (
-                        <div className="text-xs text-yellow-300 mt-1">
+                        <AdminTextTiny className="text-yellow-300 mt-1">
                           📧 Alerted: {formatDateTime(status.last_notified, 'relative')}
-                        </div>
+                        </AdminTextTiny>
                       )}
                     </>
                   )}

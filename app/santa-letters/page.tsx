@@ -4,6 +4,21 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
+import { 
+  AdminH1, 
+  AdminH2, 
+  AdminH3,
+  AdminText, 
+  AdminTextSmall,
+  AdminTextTiny,
+  AdminLabel,
+  AdminValue,
+  AdminValueMedium,
+  AdminSuccess,
+  AdminError,
+  AdminWarning,
+  AdminInfo
+} from '@/components/admin/Typography';
 
 interface SantaLetter {
   id: number;
@@ -198,7 +213,7 @@ export default function SantaLettersPage() {
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading Santa letters...</p>
+            <AdminText>Loading Santa letters...</AdminText>
           </div>
         </div>
       </AdminLayout>
@@ -209,65 +224,84 @@ export default function SantaLettersPage() {
     <AdminLayout>
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+          <AdminH1 className="flex items-center gap-2">
             🎅 Santa Letters Dashboard 🎄
-          </h1>
-          <p className="text-gray-600">Manage letters from children to Santa Claus</p>
+          </AdminH1>
+          <AdminText>Manage letters from children to Santa Claus</AdminText>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-lg border border-yellow-200 shadow-sm">
-            <div className="text-sm text-yellow-600 font-semibold">Pending</div>
-            <div className="text-2xl font-bold text-yellow-900">
-              {letters.filter(l => l.status === 'pending').length}
+        {/* Simplified Stats - Two Rows */}
+        <div className="space-y-4 mb-6">
+          {/* Letter Overview */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <AdminH3 className="mb-4">📊 Letter Overview</AdminH3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10">
+                <AdminTextSmall className="mb-2">Total Letters</AdminTextSmall>
+                <AdminValueMedium>{letters.length}</AdminValueMedium>
+              </div>
+              <div className="text-center p-4 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+                <AdminTextSmall className="mb-2 text-yellow-200">Pending Review</AdminTextSmall>
+                <AdminValueMedium className="text-yellow-100">
+                  {letters.filter(l => l.status === 'pending').length}
+                </AdminValueMedium>
+              </div>
+              <div className="text-center p-4 bg-green-500/20 rounded-lg border border-green-500/30">
+                <AdminTextSmall className="mb-2 text-green-200">Sent Successfully</AdminTextSmall>
+                <AdminValueMedium className="text-green-100">
+                  {letters.filter(l => l.status === 'sent').length}
+                </AdminValueMedium>
+              </div>
+              <div className="text-center p-4 bg-red-500/20 rounded-lg border border-red-500/30">
+                <AdminTextSmall className="mb-2 text-red-200">Failed/Rejected</AdminTextSmall>
+                <AdminValueMedium className="text-red-100">
+                  {letters.filter(l => l.status === 'rejected' || l.queue_status === 'failed').length}
+                </AdminValueMedium>
+              </div>
             </div>
           </div>
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200 shadow-sm">
-            <div className="text-sm text-blue-600 font-semibold">Approved</div>
-            <div className="text-2xl font-bold text-blue-900">
-              {letters.filter(l => l.status === 'approved').length}
+
+          {/* Queue Status */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <AdminH3 className="mb-4">⚡ Queue Status</AdminH3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+                <AdminTextSmall className="mb-2 text-blue-200">In Queue</AdminTextSmall>
+                <AdminValueMedium className="text-blue-100">
+                  {letters.filter(l => l.queue_status === 'queued').length}
+                </AdminValueMedium>
+              </div>
+              <div className="text-center p-4 bg-purple-500/20 rounded-lg border border-purple-500/30">
+                <AdminTextSmall className="mb-2 text-purple-200">Processing</AdminTextSmall>
+                <AdminValueMedium className="text-purple-100">
+                  {letters.filter(l => l.queue_status === 'processing').length}
+                </AdminValueMedium>
+              </div>
+              <div className="text-center p-4 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
+                <AdminTextSmall className="mb-2 text-emerald-200">Completed</AdminTextSmall>
+                <AdminValueMedium className="text-emerald-100">
+                  {letters.filter(l => l.queue_status === 'completed').length}
+                </AdminValueMedium>
+              </div>
             </div>
-          </div>
-          <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200 shadow-sm">
-            <div className="text-sm text-green-600 font-semibold">Sent</div>
-            <div className="text-2xl font-bold text-green-900">
-              {letters.filter(l => l.status === 'sent').length}
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200 shadow-sm">
-            <div className="text-sm text-red-600 font-semibold">Rejected</div>
-            <div className="text-2xl font-bold text-red-900">
-              {letters.filter(l => l.status === 'rejected').length}
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200 shadow-sm">
-            <div className="text-sm text-orange-600 font-semibold">In Queue</div>
-            <div className="text-2xl font-bold text-orange-900">
-              {letters.filter(l => l.queue_status === 'queued' || l.queue_status === 'processing').length}
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200 shadow-sm">
-            <div className="text-sm text-purple-600 font-semibold">Total</div>
-            <div className="text-2xl font-bold text-purple-900">{letters.length}</div>
           </div>
         </div>
 
         {/* Filters and Actions */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 mb-6 border border-white/20">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-semibold text-gray-700">Filter:</label>
+              <AdminLabel className="mb-0">Filter:</AdminLabel>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
-                <option value="all">All Letters</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="sent">Sent</option>
-                <option value="rejected">Rejected</option>
+                <option value="all" className="bg-gray-800">All Letters</option>
+                <option value="pending" className="bg-gray-800">Pending</option>
+                <option value="approved" className="bg-gray-800">Approved</option>
+                <option value="sent" className="bg-gray-800">Sent</option>
+                <option value="rejected" className="bg-gray-800">Rejected</option>
               </select>
             </div>
             <div className="flex gap-2">
@@ -295,7 +329,7 @@ export default function SantaLettersPage() {
         </div>
 
         {/* Letters Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-lg border border-white/20 overflow-hidden">
           {filteredLetters.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -311,32 +345,32 @@ export default function SantaLettersPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-white/10">
                   {filteredLetters.map((letter) => (
-                    <tr key={letter.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">{letter.id}</td>
-                      <td className="px-4 py-3 text-sm font-semibold">{letter.child_name}</td>
-                      <td className="px-4 py-3 text-sm">{letter.child_age || 'N/A'}</td>
-                      <td className="px-4 py-3 text-sm">{letter.parent_email}</td>
-                      <td className="px-4 py-3 text-sm">
+                    <tr key={letter.id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-3"><AdminTextSmall>{letter.id}</AdminTextSmall></td>
+                      <td className="px-4 py-3"><AdminTextSmall className="font-semibold text-white">{letter.child_name}</AdminTextSmall></td>
+                      <td className="px-4 py-3"><AdminTextSmall>{letter.child_age || 'N/A'}</AdminTextSmall></td>
+                      <td className="px-4 py-3"><AdminTextSmall>{letter.parent_email}</AdminTextSmall></td>
+                      <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusBadge(letter.status)}`}>
                           {letter.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getQueueBadge(letter.queue_status)}`}>
                             {letter.queue_status === 'processing' ? '⚙️ ' : ''}{letter.queue_status}
                           </span>
                           {letter.retry_count > 0 && (
-                            <span className="text-xs text-red-600">
+                            <AdminTextTiny className="text-red-300">
                               Retries: {letter.retry_count}
-                            </span>
+                            </AdminTextTiny>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm">{new Date(letter.created_at).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-4 py-3"><AdminTextSmall>{new Date(letter.created_at).toLocaleString()}</AdminTextSmall></td>
+                      <td className="px-4 py-3">
                         <button
                           onClick={() => {
                             setSelectedLetter(letter);
@@ -354,8 +388,8 @@ export default function SantaLettersPage() {
               </table>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              No letters found for the selected filter.
+            <div className="p-8 text-center">
+              <AdminText>No letters found for the selected filter.</AdminText>
             </div>
           )}
         </div>
@@ -363,10 +397,10 @@ export default function SantaLettersPage() {
         {/* Letter Detail Modal */}
         {selectedLetter && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/20">
               <div className="bg-gradient-to-r from-red-600 to-green-600 text-white p-6 rounded-t-xl">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Letter from {selectedLetter.child_name}</h2>
+                  <AdminH2 className="mb-0">Letter from {selectedLetter.child_name}</AdminH2>
                   <button
                     onClick={() => setSelectedLetter(null)}
                     className="text-white hover:text-gray-200 text-3xl font-bold"
@@ -374,39 +408,39 @@ export default function SantaLettersPage() {
                     ×
                   </button>
                 </div>
-                <p className="text-white/90 text-sm mt-1">
+                <AdminTextSmall className="mt-1">
                   Received: {new Date(selectedLetter.created_at).toLocaleString()}
-                </p>
+                </AdminTextSmall>
               </div>
 
               <div className="p-6 space-y-6">
                 {/* Letter Details */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Letter Details</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><strong>Child Name:</strong> {selectedLetter.child_name}</div>
-                    <div><strong>Age:</strong> {selectedLetter.child_age || 'Not provided'}</div>
-                    <div><strong>Parent Email:</strong> {selectedLetter.parent_email}</div>
-                    <div><strong>IP Address:</strong> {selectedLetter.ip_address || 'Unknown'}</div>
+                  <AdminH3>Letter Details</AdminH3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><AdminTextSmall><strong className="text-white">Child Name:</strong> {selectedLetter.child_name}</AdminTextSmall></div>
+                    <div><AdminTextSmall><strong className="text-white">Age:</strong> {selectedLetter.child_age || 'Not provided'}</AdminTextSmall></div>
+                    <div><AdminTextSmall><strong className="text-white">Parent Email:</strong> {selectedLetter.parent_email}</AdminTextSmall></div>
+                    <div><AdminTextSmall><strong className="text-white">IP Address:</strong> {selectedLetter.ip_address || 'Unknown'}</AdminTextSmall></div>
                   </div>
                 </div>
 
                 {/* Letter Content */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Letter Content</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 whitespace-pre-wrap">
-                    {selectedLetter.letter_content}
+                  <AdminH3>Letter Content</AdminH3>
+                  <div className="bg-white/5 p-4 rounded-lg border border-white/10 whitespace-pre-wrap">
+                    <AdminText>{selectedLetter.letter_content}</AdminText>
                   </div>
                 </div>
 
                 {/* Santa's Reply */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Santa's Reply</h3>
+                  <AdminH3>Santa's Reply</AdminH3>
                   <textarea
                     value={editReply}
                     onChange={(e) => setEditReply(e.target.value)}
                     rows={10}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-4 py-3 border border-white/20 bg-white/5 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-white/40"
                     placeholder="Edit Santa's reply..."
                   />
                   <button
@@ -420,18 +454,18 @@ export default function SantaLettersPage() {
 
                 {/* Admin Notes */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Admin Notes</h3>
+                  <AdminH3>Admin Notes</AdminH3>
                   <textarea
                     value={adminNotes}
                     onChange={(e) => setAdminNotes(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-4 py-3 border border-white/20 bg-white/5 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-white/40"
                     placeholder="Internal notes..."
                   />
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
+                <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
                   {selectedLetter.status === 'pending' && (
                     <>
                       <button
@@ -461,7 +495,7 @@ export default function SantaLettersPage() {
                   )}
                   <button
                     onClick={() => setSelectedLetter(null)}
-                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400 transition"
+                    className="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition"
                   >
                     Close
                   </button>
