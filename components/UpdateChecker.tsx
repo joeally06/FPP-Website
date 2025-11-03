@@ -1,234 +1,210 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-
-interface UpdateInfo {
-  updateAvailable: boolean;
-  currentVersion: string;
-  latestVersion: string;
-  currentBranch: string;
-  changelog: string[];
-  lastChecked: string;
-}
+import { AdminH2, AdminText, AdminWarning, AdminSuccess, AdminTextSmall } from './admin/Typography';
 
 export default function UpdateChecker() {
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [updateLog, setUpdateLog] = useState<string>('');
-
-  // Check for updates on mount
-  useEffect(() => {
-    checkForUpdates();
-  }, []);
+  const [hasUpdates, setHasUpdates] = useState(false);
+  const [commits, setCommits] = useState<string[]>([]);
+  const [message, setMessage] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const checkForUpdates = async () => {
     setChecking(true);
-    setError(null);
-    
+    setMessage('');
+
     try {
-      const response = await fetch('/api/system/check-updates');
-      if (!response.ok) throw new Error('Failed to check for updates');
-      
+      const response = await fetch('/api/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'check' }),
+      });
+
       const data = await response.json();
-      setUpdateInfo(data);
-    } catch (err: any) {
-      setError(err.message);
+
+      if (data.success) {
+        setHasUpdates(data.hasUpdates);
+        setCommits(data.commits || []);
+        
+        if (data.hasUpdates) {
+          setMessage('🎉 Updates available!');
+        } else {
+          setMessage('✅ You are running the latest version');
+        }
+      } else {
+        setMessage(`❌ Failed to check: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Update check error:', error);
+      setMessage('❌ Failed to check for updates');
     } finally {
       setChecking(false);
     }
   };
 
-  const performUpdate = async () => {
-    if (!confirm('This will update the application and restart the server. Continue?')) {
+  const triggerUpdate = async () => {
+    if (!confirm(
+      '⚠️ This will:\n\n' +
+      '1. Stop the server (brief downtime)\n' +
+      '2. Safely close database\n' +
+      '3. Backup database\n' +
+      '4. Pull latest code\n' +
+      '5. Update dependencies\n' +
+      '6. Run database migrations\n' +
+      '7. Restart the server\n\n' +
+      'Expected downtime: 2-3 minutes\n' +
+      'The page will reload automatically when complete.\n\n' +
+      'Continue?'
+    )) {
       return;
     }
-    
-    setUpdating(true);
-    setError(null);
-    setUpdateLog('Starting update process...\n');
-    
+
+    setIsUpdating(true);
+    setMessage('⏳ Update scheduled... Server will restart in ~30 seconds');
+
     try {
-      const response = await fetch('/api/system/update', {
+      const response = await fetch('/api/update', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'trigger' }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
-        setUpdateLog((prev) => prev + '\n✅ Update completed successfully!\n');
-        setUpdateLog((prev) => prev + '🔄 Server will restart in 5 seconds...\n');
+        setMessage('🔄 Update in progress... Server stopping in 30 seconds...');
+        setHasUpdates(false);
         
-        // Reload page after 5 seconds
+        // Start polling to detect when server is back
         setTimeout(() => {
-          window.location.reload();
-        }, 5000);
+          setMessage('🔄 Server updating... Checking for completion...');
+          
+          const pollInterval = setInterval(async () => {
+            try {
+              const pingResponse = await fetch('/api/health');
+              if (pingResponse.ok) {
+                clearInterval(pollInterval);
+                setMessage('✅ Update complete! Reloading page...');
+                setTimeout(() => window.location.reload(), 2000);
+              }
+            } catch {
+              // Server still down, keep polling
+              console.log('Server still updating...');
+            }
+          }, 5000); // Check every 5 seconds
+
+          // Timeout after 10 minutes
+          setTimeout(() => {
+            clearInterval(pollInterval);
+            setMessage('⚠️ Update taking longer than expected. Please refresh manually or check server logs.');
+            setIsUpdating(false);
+          }, 10 * 60 * 1000);
+          
+        }, 30000); // Start checking after 30 seconds
+        
       } else {
-        throw new Error(data.details || 'Update failed');
+        setMessage(`❌ Failed to trigger update: ${data.error}`);
+        setIsUpdating(false);
       }
-      
-    } catch (err: any) {
-      setError(err.message);
-      setUpdateLog((prev) => prev + `\n❌ Error: ${err.message}\n`);
-    } finally {
-      setUpdating(false);
+    } catch (error) {
+      console.error('Update trigger error:', error);
+      setMessage('❌ Failed to trigger update');
+      setIsUpdating(false);
     }
   };
 
+  useEffect(() => {
+    checkForUpdates();
+    const interval = setInterval(checkForUpdates, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-xl font-semibold text-white">System Updates 🚀</h3>
-          <p className="text-gray-400 text-sm mt-1">
-            Automatically check for and install updates from GitHub
-          </p>
+    <div className="space-y-4">
+      <AdminH2>🔄 System Updates</AdminH2>
+
+      {message && (
+        <div className={`p-4 rounded-lg border ${
+          message.includes('❌') 
+            ? 'bg-red-500/20 border-red-500/30' 
+            : message.includes('⏳') || message.includes('🔄')
+            ? 'bg-blue-500/20 border-blue-500/30'
+            : message.includes('⚠️')
+            ? 'bg-amber-500/20 border-amber-500/30'
+            : 'bg-green-500/20 border-green-500/30'
+        }`}>
+          <AdminText className="text-white">{message}</AdminText>
         </div>
-        <button
-          onClick={checkForUpdates}
-          disabled={checking || updating}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 
-                     rounded-lg text-white font-medium transition-colors"
-        >
-          {checking ? (
-            <>
-              <span className="inline-block animate-spin mr-2">⟳</span>
-              Checking...
-            </>
-          ) : (
-            '🔍 Check for Updates'
-          )}
-        </button>
+      )}
+
+      {hasUpdates && commits.length > 0 && (
+        <div className="p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <AdminText className="font-semibold text-white mb-2">Recent Changes:</AdminText>
+          <ul className="space-y-1">
+            {commits.map((commit, index) => (
+              <li key={index} className="text-sm text-white/80 font-mono">
+                • {commit}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Safety Warning */}
+      <div className="p-4 bg-amber-500/20 rounded-lg border border-amber-500/30">
+        <AdminWarning className="font-semibold mb-2">⚠️ Database-Safe Update Process</AdminWarning>
+        <ul className="space-y-1">
+          <li><AdminTextSmall className="text-amber-100">• Server stops completely (closes database safely)</AdminTextSmall></li>
+          <li><AdminTextSmall className="text-amber-100">• Database backed up before any changes</AdminTextSmall></li>
+          <li><AdminTextSmall className="text-amber-100">• No risk of corruption during update</AdminTextSmall></li>
+          <li><AdminTextSmall className="text-amber-100">• Automatic rollback on failure</AdminTextSmall></li>
+          <li><AdminTextSmall className="text-amber-100">• Expected downtime: 2-3 minutes</AdminTextSmall></li>
+        </ul>
       </div>
 
-      {/* Current Version Info */}
-      {updateInfo && (
-        <div className="mb-4 p-4 bg-gray-900 rounded-lg">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-400">Current Version:</span>
-              <span className="ml-2 text-green-400 font-mono font-semibold">{updateInfo.currentVersion}</span>
-            </div>
-            <div>
-              <span className="text-gray-400">Branch:</span>
-              <span className="ml-2 text-blue-400 font-mono">{updateInfo.currentBranch}</span>
-            </div>
-            <div className="col-span-2">
-              <span className="text-gray-400">Last Checked:</span>
-              <span className="ml-2 text-white">
-                {new Date(updateInfo.lastChecked).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={checkForUpdates}
+          disabled={checking || isUpdating}
+          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {checking ? '⏳ Checking...' : '🔍 Check for Updates'}
+        </button>
 
-      {/* Update Available Banner */}
-      <AnimatePresence>
-        {updateInfo?.updateAvailable && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-4 p-4 bg-green-900/20 border border-green-700 rounded-lg"
+        {hasUpdates && !isUpdating && (
+          <button
+            onClick={triggerUpdate}
+            className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold animate-pulse"
           >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center mb-2">
-                  <span className="text-2xl mr-2">🎉</span>
-                  <h4 className="text-lg font-semibold text-green-400">
-                    Update Available!
-                  </h4>
-                </div>
-                <p className="text-gray-300 mb-3">
-                  Version <span className="font-mono text-green-400">{updateInfo.latestVersion}</span> is available
-                </p>
-                
-                {/* Changelog */}
-                {updateInfo.changelog.length > 0 && (
-                  <div className="mb-4">
-                    <h5 className="text-sm font-semibold text-gray-400 mb-2">📋 What's New:</h5>
-                    <ul className="space-y-1">
-                      {updateInfo.changelog.map((change, idx) => (
-                        <li key={idx} className="text-sm text-gray-300 font-mono">
-                          • {change}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-              
-              <button
-                onClick={performUpdate}
-                disabled={updating}
-                className="ml-4 px-6 py-2 bg-green-600 hover:bg-green-700 
-                         disabled:bg-gray-600 rounded-lg text-white font-medium 
-                         transition-colors whitespace-nowrap"
-              >
-                {updating ? (
-                  <>
-                    <span className="inline-block animate-spin mr-2">⟳</span>
-                    Updating...
-                  </>
-                ) : (
-                  '⬇️ Install Update'
-                )}
-              </button>
-            </div>
-          </motion.div>
+            📥 Install Update
+          </button>
         )}
-      </AnimatePresence>
 
-      {/* Up to Date */}
-      {updateInfo && !updateInfo.updateAvailable && (
-        <div className="mb-4 p-4 bg-green-900/10 border border-green-800 rounded-lg">
-          <div className="flex items-center">
-            <span className="text-3xl mr-3">✅</span>
-            <div>
-              <h4 className="font-semibold text-green-400">You're up to date!</h4>
-              <p className="text-sm text-gray-400">
-                Running the latest version <span className="font-mono text-green-400">({updateInfo.currentVersion})</span>
-              </p>
-            </div>
+        {isUpdating && (
+          <div className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg font-semibold flex items-center gap-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+            Updating...
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Update Log */}
-      {updateLog && (
-        <div className="mb-4 p-4 bg-black rounded-lg border border-gray-700">
-          <h5 className="text-sm font-semibold text-gray-400 mb-2">📜 Update Log:</h5>
-          <pre className="text-sm text-green-400 font-mono whitespace-pre-wrap">
-            {updateLog}
-          </pre>
-        </div>
-      )}
+      {/* Manual fallback */}
+      <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+        <AdminText className="text-white/80 text-sm">
+          <strong>💡 Manual Update:</strong> SSH to server and run <code className="px-2 py-1 bg-black/30 rounded font-mono">./update.sh</code>
+        </AdminText>
+        <AdminTextSmall className="mt-2 text-white/60">
+          For the safest updates during busy periods, use manual SSH method.
+        </AdminTextSmall>
+      </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg">
-          <div className="flex items-start">
-            <span className="text-2xl mr-2">⚠️</span>
-            <div>
-              <h4 className="font-semibold text-red-400 mb-1">Error</h4>
-              <p className="text-sm text-red-300">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Manual Update Instructions */}
-      <div className="mt-6 p-4 bg-gray-900 rounded-lg border border-gray-700">
-        <h5 className="text-sm font-semibold text-gray-400 mb-2">🛠️ Manual Update</h5>
-        <p className="text-sm text-gray-400 mb-3">
-          If automatic update fails, SSH into your server and run:
-        </p>
-        <code className="block p-3 bg-black rounded text-sm text-green-400 font-mono">
-          ./update.sh
-        </code>
+      {/* Update Watcher Status */}
+      <div className="p-4 bg-green-500/20 rounded-lg border border-green-500/30">
+        <AdminSuccess className="font-semibold mb-2">✅ Update Watcher Service</AdminSuccess>
+        <AdminTextSmall className="text-green-100">
+          The update watcher monitors for update requests every 30 seconds. When you click "Install Update", the watcher safely stops the server, closes the database, and runs the full update process automatically.
+        </AdminTextSmall>
       </div>
     </div>
   );

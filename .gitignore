@@ -46,3 +46,7 @@ votes.db
 *.db-shm
 *.db-wal
 *.db-journal
+
+# update signals
+.update-requested
+.restart-signal
