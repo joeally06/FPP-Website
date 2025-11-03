@@ -15,7 +15,7 @@ export default function AdminNavigation() {
     { name: 'Dashboard', path: '/', icon: '🏠' },
     { name: 'Sequences', path: '/sequences', icon: '🎵' },
     { name: 'Playlists', path: '/playlists', icon: '📋' },
-    { name: 'Metrics', path: '/metrics', icon: '📊' },
+    { name: 'Analytics', path: '/analytics', icon: '📊' },
     { name: 'Devices', path: '/device-status', icon: '📡' },
     { name: 'Settings', path: '/settings', icon: '⚙️' },
     { name: 'Jukebox', path: '/jukebox', icon: '🎶', public: true }
