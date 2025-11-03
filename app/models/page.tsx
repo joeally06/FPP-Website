@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Search, Upload, Zap, Cable, Info, Power, File, X } from 'lucide-react';
+import { Search, Upload, Zap, Cable, Info, Power, File, X, Edit, Trash2 } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
 import StatCard from '@/components/ui/StatCard';
 import GlassCard from '@/components/ui/GlassCard';
+import EditModelModal from '@/components/EditModelModal';
 import { gradients, glassStyles } from '@/lib/theme';
 
 interface Model {
@@ -35,6 +36,7 @@ export default function ModelsPage() {
   const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [editingModel, setEditingModel] = useState<Model | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -100,6 +102,30 @@ export default function ModelsPage() {
       alert('❌ Import failed: Network error');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const deleteModel = async (id: number, name: string) => {
+    if (!confirm(`Delete "${name}"?\n\nThis cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/models/${id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        alert('✅ Model deleted successfully');
+        fetchModels();
+      } else {
+        alert(`❌ Delete failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('❌ Delete failed: Network error');
     }
   };
 
@@ -370,6 +396,24 @@ export default function ModelsPage() {
                 </div>
               )}
             </div>
+
+            {/* Edit/Delete Buttons */}
+            <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
+              <button
+                onClick={() => setEditingModel(model)}
+                className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </button>
+              <button
+                onClick={() => deleteModel(model.id, model.model_name)}
+                className="flex-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </div>
           </GlassCard>
         ))}
       </div>
@@ -389,6 +433,15 @@ export default function ModelsPage() {
               : 'Try adjusting your search or filters'}
           </p>
         </GlassCard>
+      )}
+
+      {/* Edit Modal */}
+      {editingModel && (
+        <EditModelModal
+          model={editingModel}
+          onClose={() => setEditingModel(null)}
+          onSave={fetchModels}
+        />
       )}
       </div>
     </AdminLayout>
