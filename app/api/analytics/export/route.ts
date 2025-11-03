@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     `).all(startDateStr);
 
     const votes = db.prepare(`
-      SELECT * FROM votes WHERE created_at >= ? ORDER BY created_at DESC
+      SELECT * FROM votes WHERE voted_at >= ? ORDER BY voted_at DESC
     `).all(startDateStr);
 
     const santaLetters = db.prepare(`
@@ -49,9 +49,9 @@ export async function GET(request: NextRequest) {
       });
 
       csv += '\n\nVOTES\n';
-      csv += 'IP,Sequence,Vote Type,Created At\n';
+      csv += 'IP,Sequence,Vote Type,Voted At\n';
       votes.forEach((vote: any) => {
-        csv += `"${vote.user_ip}","${vote.sequence_name}","${vote.vote_type}","${vote.created_at}"\n`;
+        csv += `"${vote.ip_address}","${vote.sequence_name}","${vote.vote_type}","${vote.voted_at}"\n`;
       });
 
       csv += '\n\nSANTA LETTERS\n';
@@ -113,8 +113,8 @@ export async function GET(request: NextRequest) {
             ${votes.slice(0, 50).map((vote: any) => `
               <tr>
                 <td>${vote.sequence_name}</td>
-                <td>${vote.vote_type === 'up' ? '👍 Up' : '👎 Down'}</td>
-                <td>${new Date(vote.created_at).toLocaleString()}</td>
+                <td>${vote.vote_type === 'up' ? '👍' : '👎'}</td>
+                <td>${new Date(vote.voted_at).toLocaleString()}</td>
               </tr>
             `).join('')}
           </table>

@@ -38,14 +38,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate request within 5 minutes
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    // SQLite datetime() function to get a datetime 5 minutes ago
     const duplicate = db.prepare(`
       SELECT id FROM jukebox_queue 
       WHERE requester_ip = ? 
         AND sequence_name = ? 
-        AND created_at > ?
+        AND created_at > datetime('now', '-5 minutes')
       LIMIT 1
-    `).get(requester_ip, sequence_name, fiveMinutesAgo);
+    `).get(requester_ip, sequence_name);
     
     if (duplicate) {
       console.warn(`[SECURITY] Duplicate request detected from ${requester_ip} for ${sequence_name}`);

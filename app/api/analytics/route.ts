@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         SUM(CASE WHEN vote_type = 'up' THEN 1 ELSE 0 END) as upvotes,
         SUM(CASE WHEN vote_type = 'down' THEN 1 ELSE 0 END) as downvotes
       FROM votes
-      WHERE created_at >= ?
+      WHERE voted_at >= ?
     `).get(startDateStr) as { upvotes: number; downvotes: number };
     
     // Calculate rating (0-5 scale based on upvote ratio)
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
         SUM(CASE WHEN vote_type = 'down' THEN 1 ELSE 0 END) as downvotes,
         COUNT(*) as votes
       FROM votes
-      WHERE created_at >= ?
+      WHERE voted_at >= ?
       GROUP BY sequence_name
       ORDER BY upvotes DESC
       LIMIT 10
