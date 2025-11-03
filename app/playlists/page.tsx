@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import Toast from '@/components/Toast';
+import GlassCard from '@/components/ui/GlassCard';
+import { glassStyles } from '@/lib/theme';
 
 export default function Playlists() {
   const [playlists, setPlaylists] = useState<string[]>([]);
@@ -148,19 +150,19 @@ export default function Playlists() {
       />
       
       {error && (
-        <div className="mb-6 backdrop-blur-md bg-red-500/20 border border-red-500/50 text-white px-6 py-4 rounded-xl shadow-lg">
+        <GlassCard className="mb-6 bg-red-500/20 border-red-500/50 px-6 py-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl">⚠️</span>
             <div>
-              <p className="font-semibold">Error</p>
+              <p className="font-semibold text-white">Error</p>
               <p className="text-sm text-white/80">{error}</p>
             </div>
           </div>
-        </div>
+        </GlassCard>
       )}
 
       {/* Controls Section */}
-      <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20 mb-6">
+      <GlassCard className="p-6 mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex-1 w-full md:w-auto">
             <div className="relative">
@@ -169,7 +171,7 @@ export default function Playlists() {
                 placeholder="🔍 Search playlists..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                className={glassStyles.input + " w-full px-4 py-3"}
               />
             </div>
           </div>
@@ -178,7 +180,7 @@ export default function Playlists() {
             <button
               onClick={fetchScheduledPlaylists}
               disabled={isRefreshing}
-              className="backdrop-blur-sm bg-blue-500/80 hover:bg-blue-600 disabled:bg-gray-500/50 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed flex items-center gap-2"
+              className={`${glassStyles.button} px-6 py-3 font-semibold flex items-center gap-2`}
             >
               <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
@@ -186,17 +188,17 @@ export default function Playlists() {
             
             <button
               onClick={stopPlaylist}
-              className="backdrop-blur-sm bg-red-500/80 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+              className="backdrop-blur-sm bg-red-500/80 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2 border border-white/20"
             >
               <span>⏹️</span>
               Stop All
             </button>
           </div>
         </div>
-      </div>
+      </GlassCard>
 
       {/* Playlists Grid */}
-      <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20">
+      <GlassCard className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
             <span>🎼</span>
@@ -220,9 +222,10 @@ export default function Playlists() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPlaylists.map((playlist) => (
-              <div
+              <GlassCard
                 key={playlist}
-                className="backdrop-blur-sm rounded-lg p-4 border-2 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/40 transition-all"
+                hover
+                className="p-4"
               >
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500/50 to-blue-500/50 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -241,11 +244,11 @@ export default function Playlists() {
                 >
                   ▶️ Start Playlist
                 </button>
-              </div>
+              </GlassCard>
             ))}
           </div>
         )}
-      </div>
+      </GlassCard>
     </AdminLayout>
   );
 }

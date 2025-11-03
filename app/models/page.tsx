@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { Search, Upload, Zap, Cable, Info, Power, File, X } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
+import StatCard from '@/components/ui/StatCard';
+import GlassCard from '@/components/ui/GlassCard';
+import { gradients, glassStyles } from '@/lib/theme';
 
 interface Model {
   id: number;
@@ -29,6 +33,9 @@ export default function ModelsPage() {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchModels();
@@ -38,59 +45,87 @@ export default function ModelsPage() {
     try {
       const res = await fetch('/api/models');
       const data = await res.json();
-      setModels(data);
+      setModels(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching models:', error);
+      setModels([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        alert('Please select an Excel file (.xlsx or .xls)');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
   const importModels = async () => {
-    if (!confirm('This will replace existing model data. Continue?')) return;
+    if (!selectedFile) {
+      alert('Please select a file first');
+      return;
+    }
+
+    if (!confirm(`Import ${selectedFile.name}? This will replace all existing model data.`)) {
+      return;
+    }
 
     setImporting(true);
     try {
-      const res = await fetch('/api/models/import', { method: 'POST' });
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const res = await fetch('/api/models/import', {
+        method: 'POST',
+        body: formData,
+      });
+
       const result = await res.json();
-      
+
       if (result.success) {
         alert(`✅ ${result.message}`);
+        setShowUploadModal(false);
+        setSelectedFile(null);
         fetchModels();
       } else {
         alert(`❌ Import failed: ${result.error}`);
       }
     } catch (error) {
-      alert('❌ Import failed');
+      console.error('Import error:', error);
+      alert('❌ Import failed: Network error');
     } finally {
       setImporting(false);
     }
   };
 
   const filteredModels = models.filter(model => {
-    const matchesSearch = 
+    const matchesSearch =
       model.model_name?.toLowerCase().includes(search.toLowerCase()) ||
       model.display_as?.toLowerCase().includes(search.toLowerCase()) ||
       model.controller_name?.toLowerCase().includes(search.toLowerCase());
-    
-    const matchesFilter = 
-      filter === 'all' || 
+
+    const matchesFilter =
+      filter === 'all' ||
       model.controller_name === filter;
-    
+
     return matchesSearch && matchesFilter;
   });
 
   const controllers = [...new Set(models.map(m => m.controller_name).filter(Boolean))];
-
   const totalChannels = models.reduce((sum, m) => sum + (m.channel_count || 0), 0);
   const totalAmps = models.reduce((sum, m) => sum + (m.est_current_amps || 0), 0);
 
   if (loading) {
     return (
-      <AdminLayout title="Model Configuration" subtitle="Loading your setup reference...">
-        <div className="flex items-center justify-center py-12">
+      <AdminLayout title="⚙️ Model Configuration">
+        <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
             <p className="text-white/70">Loading models...</p>
           </div>
         </div>
@@ -99,171 +134,263 @@ export default function ModelsPage() {
   }
 
   return (
-    <AdminLayout 
-      title="🎄 Model Configuration" 
+    <AdminLayout
+      title="⚙️ Model Configuration"
       subtitle="Your yearly setup reference guide - Never forget a connection again!"
     >
-      {/* Header Actions */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex gap-4 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="🔍 Search models, controllers..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-4 py-3 pl-10 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
-            />
-          </div>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/30 min-w-[200px]"
-          >
-            <option value="all">All Controllers</option>
-            {controllers.map(controller => (
-              <option key={controller} value={controller}>{controller}</option>
-            ))}
-          </select>
-        </div>
-        <button 
-          onClick={importModels} 
-          disabled={importing}
-          className="backdrop-blur-sm bg-green-500/80 hover:bg-green-600 disabled:bg-gray-500/50 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+      <div className="space-y-6">
+      
+      {/* Import Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className={`flex items-center gap-2 px-6 py-3 ${glassStyles.button}`}
         >
-          <span className="text-xl">📥</span>
-          {importing ? 'Importing...' : 'Import from Excel'}
+          <Upload className="w-5 h-5" />
+          Import Excel File
         </button>
       </div>
 
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50">
+          <GlassCard className="max-w-md w-full mx-4 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-white">Import Models from Excel</h2>
+              <button
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setSelectedFile(null);
+                }}
+                className="text-white/70 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-white/80">
+                Upload your <strong className="text-white">Export Models.xlsx</strong> file from xLights to import your model configuration.
+              </p>
+
+              {/* File Input */}
+              <div className="border-2 border-dashed border-white/20 rounded-lg p-6 text-center hover:border-white/30 transition-colors bg-white/5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                
+                {selectedFile ? (
+                  <div className="space-y-2">
+                    <File className="w-12 h-12 text-green-400 mx-auto" />
+                    <p className="font-medium text-white">{selectedFile.name}</p>
+                    <p className="text-sm text-white/60">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
+                    </p>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-blue-400 hover:text-blue-300 text-sm"
+                    >
+                      Choose different file
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload className="w-12 h-12 text-white/40 mx-auto mb-2" />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-blue-400 hover:text-blue-300 font-medium"
+                    >
+                      Click to select file
+                    </button>
+                    <p className="text-sm text-white/60 mt-1">
+                      Accepts .xlsx and .xls files
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Warning */}
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                <p className="text-sm text-amber-300">
+                  ⚠️ This will replace all existing model data
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setSelectedFile(null);
+                  }}
+                  className={`flex-1 px-4 py-2 ${glassStyles.button}`}
+                  disabled={importing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={importModels}
+                  disabled={!selectedFile || importing}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {importing ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Search & Filter */}
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search models, controllers..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={`w-full pl-10 pr-4 py-2 ${glassStyles.input}`}
+          />
+        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className={`px-4 py-2 min-w-[200px] ${glassStyles.input}`}
+        >
+          <option value="all">All Controllers</option>
+          {controllers.map(controller => (
+            <option key={controller} value={controller}>{controller}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Stats Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <div className="backdrop-blur-md bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6 shadow-xl border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/80 text-sm font-medium">Total Models</span>
-            <span className="text-3xl">🎄</span>
-          </div>
-          <p className="text-3xl font-bold text-white">{models.length}</p>
-        </div>
-        <div className="backdrop-blur-md bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl p-6 shadow-xl border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/80 text-sm font-medium">Total Channels</span>
-            <span className="text-3xl">🔌</span>
-          </div>
-          <p className="text-3xl font-bold text-white">{totalChannels.toLocaleString()}</p>
-        </div>
-        <div className="backdrop-blur-md bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-6 shadow-xl border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/80 text-sm font-medium">Total Nodes</span>
-            <span className="text-3xl">💡</span>
-          </div>
-          <p className="text-3xl font-bold text-white">
-            {models.reduce((sum, m) => sum + (m.node_count || 0), 0).toLocaleString()}
-          </p>
-        </div>
-        <div className="backdrop-blur-md bg-gradient-to-br from-red-500 to-rose-600 rounded-xl p-6 shadow-xl border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/80 text-sm font-medium">Est. Power</span>
-            <span className="text-3xl">⚡</span>
-          </div>
-          <p className="text-3xl font-bold text-white">{totalAmps.toFixed(1)}A</p>
-        </div>
-        <div className="backdrop-blur-md bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl p-6 shadow-xl border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/80 text-sm font-medium">Controllers</span>
-            <span className="text-3xl">🎛️</span>
-          </div>
-          <p className="text-3xl font-bold text-white">{controllers.length}</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard
+          icon={File}
+          label="Total Models"
+          value={models.length}
+          gradient={gradients.blue}
+        />
+        <StatCard
+          icon={Cable}
+          label="Total Channels"
+          value={totalChannels}
+          gradient={gradients.purple}
+        />
+        <StatCard
+          icon={Zap}
+          label="Total Nodes"
+          value={models.reduce((sum, m) => sum + (m.node_count || 0), 0)}
+          gradient={gradients.green}
+        />
+        <StatCard
+          icon={Power}
+          label="Est. Power"
+          value={`${totalAmps.toFixed(1)}A`}
+          gradient={gradients.orange}
+        />
+        <StatCard
+          icon={Info}
+          label="Controllers"
+          value={controllers.length}
+          gradient={gradients.indigo}
+        />
       </div>
 
       {/* Models Grid */}
-      {filteredModels.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredModels.map(model => (
-            <div key={model.id} className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-xl border border-white/20 hover:shadow-2xl hover:scale-105 transition-all">
-              {/* Header */}
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white">{model.model_name}</h3>
-                  <p className="text-white/70 text-sm">{model.display_as}</p>
-                </div>
-                <span className="px-3 py-1 bg-white/20 rounded-full text-xs text-white font-medium">
-                  {model.string_type}
-                </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredModels.map(model => (
+          <GlassCard key={model.id} hover className="p-4">
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white">{model.model_name}</h3>
+                <p className="text-sm text-white/70">{model.display_as}</p>
               </div>
+              <span className="px-2 py-1 bg-white/10 text-white/90 text-xs rounded ml-2 whitespace-nowrap border border-white/20">
+                {model.string_type}
+              </span>
+            </div>
 
+            <div className="space-y-2">
               {/* Channel Info */}
-              <div className="flex items-center gap-2 text-sm text-white mb-3 pb-3 border-b border-white/10">
-                <span className="text-blue-300">🔌</span>
+              <div className="flex items-center gap-2 text-sm text-white/90">
+                <Cable className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 <span className="font-medium">Ch {model.start_channel_no?.toLocaleString()}</span>
                 <span className="text-white/50">→</span>
                 <span className="font-medium">{model.end_channel_no?.toLocaleString()}</span>
-                <span className="ml-auto px-2 py-1 bg-blue-500/30 rounded text-xs">
+                <span className="ml-auto px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded border border-blue-500/30">
                   {model.channel_count} ch
                 </span>
               </div>
 
               {/* Controller Info */}
-              <div className="flex items-center gap-2 text-sm text-white mb-3">
-                <span className="text-amber-300">⚡</span>
-                <span className="font-medium">{model.controller_name}</span>
+              <div className="flex items-center gap-2 text-sm text-white/90">
+                <Zap className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span className="font-medium truncate">{model.controller_name}</span>
                 {model.controller_ports && (
-                  <span className="ml-auto px-2 py-1 bg-amber-500/30 rounded text-xs">
+                  <span className="px-2 py-0.5 bg-white/10 text-white/90 text-xs rounded flex-shrink-0 border border-white/20">
                     Port {model.controller_ports}
                   </span>
                 )}
               </div>
 
               {/* IP & Protocol */}
-              <div className="flex items-center gap-2 text-sm text-white/80 mb-3">
-                <span>ℹ️</span>
-                <span>{model.controller_ip}</span>
-                <span className="ml-auto px-2 py-1 bg-purple-500/30 rounded text-xs">
+              <div className="flex items-center gap-2 text-sm text-white/70">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{model.controller_ip}</span>
+                <span className="ml-auto px-2 py-0.5 bg-white/10 text-white/90 text-xs rounded flex-shrink-0 border border-white/20">
                   {model.protocol}
                 </span>
               </div>
 
               {/* Nodes & Strings */}
-              <div className="text-sm text-white/60 mb-3 pb-3 border-b border-white/10">
+              <div className="text-sm text-white/70 pt-2 border-t border-white/10">
                 {model.string_count} string{model.string_count > 1 ? 's' : ''} × {model.node_count} nodes
               </div>
 
-              {/* Power & Connection */}
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-red-400">🔋</span>
-                  <span className="text-white font-medium">{model.est_current_amps?.toFixed(2)}A</span>
-                </div>
-                <span className="text-white/60 text-xs">
-                  {model.connection_protocol}
+              {/* Power Consumption */}
+              <div className="flex items-center gap-2 text-sm text-white/90">
+                <Power className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span className="font-medium">{model.est_current_amps?.toFixed(2)}A</span>
+                <span className="text-white/60 text-xs ml-auto">
+                  @ {model.connection_protocol}
                 </span>
               </div>
 
               {/* Connection Attributes */}
               {model.connection_attributes && (
-                <div className="mt-3 pt-3 border-t border-white/10 text-xs text-white/50 font-mono">
+                <div className="text-xs text-white/50 pt-2 border-t border-white/10 font-mono overflow-hidden text-ellipsis whitespace-nowrap" title={model.connection_attributes}>
                   {model.connection_attributes}
                 </div>
               )}
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 backdrop-blur-md bg-white/5 rounded-xl border border-white/10">
-          <span className="text-6xl mb-4 block">📥</span>
-          <p className="text-xl font-medium text-white mb-2">
-            {models.length === 0 
-              ? 'No models imported yet' 
+          </GlassCard>
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {filteredModels.length === 0 && (
+        <GlassCard className="text-center py-12">
+          <Upload className="w-12 h-12 text-white/40 mx-auto mb-4" />
+          <p className="text-lg font-medium mb-2 text-white">
+            {models.length === 0
+              ? 'No models imported yet'
               : 'No models match your search'}
           </p>
           <p className="text-white/70">
-            {models.length === 0 
-              ? 'Click "Import from Excel" to load your Export Models.xlsx file'
+            {models.length === 0
+              ? 'Click "Import Excel File" to load your Export Models.xlsx file'
               : 'Try adjusting your search or filters'}
           </p>
-        </div>
+        </GlassCard>
       )}
+      </div>
     </AdminLayout>
   );
 }
