@@ -11,74 +11,44 @@ if (!fs.existsSync(dbPath)) {
   process.exit(1);
 }
 
-// Check for database corruption before opening
-const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
-
-async function checkDatabaseIntegrity() {
+// Simple database integrity check using better-sqlite3
+function checkDatabaseIntegrity(db) {
   try {
-    await execPromise(`sqlite3 "${dbPath}" "PRAGMA integrity_check;"`);
-    return true;
+    const result = db.pragma('integrity_check', { simple: true });
+    return result === 'ok';
   } catch (error) {
-    return false;
-  }
-}
-
-async function attemptDatabaseRepair() {
-  console.log('⚠️  Database corruption detected!');
-  console.log('🔧 Attempting to repair database...\n');
-  
-  const backupPath = dbPath + '.corrupt-' + Date.now();
-  
-  try {
-    // Backup corrupted database
-    fs.copyFileSync(dbPath, backupPath);
-    console.log(`💾 Corrupted database backed up to: ${backupPath}`);
-    
-    // Try to dump and restore
-    const dumpPath = dbPath + '.dump';
-    await execPromise(`sqlite3 "${dbPath}" .dump > "${dumpPath}"`);
-    
-    // Remove corrupted database
-    fs.unlinkSync(dbPath);
-    
-    // Restore from dump
-    await execPromise(`sqlite3 "${dbPath}" < "${dumpPath}"`);
-    
-    // Clean up dump file
-    fs.unlinkSync(dumpPath);
-    
-    console.log('✅ Database repaired successfully!\n');
-    return true;
-  } catch (error) {
-    console.error('❌ Automatic repair failed');
-    console.error('   Error:', error.message);
-    console.error('\n⚠️  Please restore from backup manually:');
-    console.error(`   cp backups/LATEST/votes.db.backup votes.db\n`);
     return false;
   }
 }
 
 (async () => {
-  // Check database integrity first
-  const isHealthy = await checkDatabaseIntegrity();
-  
-  if (!isHealthy) {
-    const repaired = await attemptDatabaseRepair();
-    if (!repaired) {
-      process.exit(1);
-    }
-  }
-
   let db;
   
   try {
+    // Try to open database
     db = new Database(dbPath);
+    
+    // Check integrity
+    const isHealthy = checkDatabaseIntegrity(db);
+    
+    if (!isHealthy) {
+      console.log('⚠️  Database corruption detected!');
+      console.log('❌ Please restore from backup:');
+      console.log('   1. Stop the server: pm2 stop fpp-control');
+      console.log('   2. Find latest backup: ls -lt backups/');
+      console.log('   3. Restore: cp backups/LATEST_FOLDER/votes.db.backup votes.db');
+      console.log('   4. Restart: pm2 start fpp-control\n');
+      db.close();
+      process.exit(1);
+    }
+    
   } catch (error) {
     console.error('❌ Failed to open database:', error.message);
     console.error('\n⚠️  Database is corrupted. Please restore from backup:');
-    console.error('   cp backups/LATEST/votes.db.backup votes.db\n');
+    console.error('   1. Stop the server: pm2 stop fpp-control');
+    console.error('   2. Find latest backup: ls -lt backups/');
+    console.error('   3. Restore: cp backups/LATEST_FOLDER/votes.db.backup votes.db');
+    console.error('   4. Restart: pm2 start fpp-control\n');
     process.exit(1);
   }
 
