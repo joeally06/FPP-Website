@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
+import { AdminH1, AdminH2, AdminText, AdminTextSmall, AdminTextTiny, AdminValue } from '@/components/admin/Typography';
 import Link from 'next/link';
 
 type TabType = 'analytics' | 'engagement';
@@ -15,10 +16,10 @@ export default function MetricsPage() {
       
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">📊 Metrics Dashboard</h1>
-          <p className="text-white/80">
+          <AdminH1>📊 Metrics Dashboard</AdminH1>
+          <AdminText>
             View analytics and engagement metrics for your light show
-          </p>
+          </AdminText>
         </div>
 
         {/* Tab Navigation */}
@@ -49,10 +50,10 @@ export default function MetricsPage() {
         <div className="space-y-6">
           {activeTab === 'analytics' ? (
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <h2 className="text-2xl font-bold text-white mb-4">📊 Page Views & Traffic</h2>
-              <p className="text-white/80 mb-6">
+              <AdminH2>📊 Page Views & Traffic</AdminH2>
+              <AdminText className="mb-6">
                 Detailed analytics including page views, visitor sessions, and traffic patterns
-              </p>
+              </AdminText>
               
               <Link
                 href="/admin"
@@ -63,10 +64,10 @@ export default function MetricsPage() {
             </div>
           ) : (
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <h2 className="text-2xl font-bold text-white mb-4">👥 User Engagement</h2>
-              <p className="text-white/80 mb-6">
+              <AdminH2>👥 User Engagement</AdminH2>
+              <AdminText className="mb-6">
                 Track user interactions, voting patterns, and jukebox requests
-              </p>
+              </AdminText>
               
               <Link
                 href="/engagement"
@@ -80,21 +81,21 @@ export default function MetricsPage() {
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <div className="text-white/60 text-sm mb-2">Total Visitors</div>
-              <div className="text-4xl font-bold text-white">---</div>
-              <div className="text-white/60 text-xs mt-2">Loading...</div>
+              <AdminTextSmall className="mb-2">Total Visitors</AdminTextSmall>
+              <AdminValue>---</AdminValue>
+              <AdminTextTiny className="mt-2">Loading...</AdminTextTiny>
             </div>
             
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <div className="text-white/60 text-sm mb-2">Page Views</div>
-              <div className="text-4xl font-bold text-white">---</div>
-              <div className="text-white/60 text-xs mt-2">Loading...</div>
+              <AdminTextSmall className="mb-2">Page Views</AdminTextSmall>
+              <AdminValue>---</AdminValue>
+              <AdminTextTiny className="mt-2">Loading...</AdminTextTiny>
             </div>
             
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <div className="text-white/60 text-sm mb-2">Song Requests</div>
-              <div className="text-4xl font-bold text-white">---</div>
-              <div className="text-white/60 text-xs mt-2">Loading...</div>
+              <AdminTextSmall className="mb-2">Song Requests</AdminTextSmall>
+              <AdminValue>---</AdminValue>
+              <AdminTextTiny className="mt-2">Loading...</AdminTextTiny>
             </div>
           </div>
         </div>

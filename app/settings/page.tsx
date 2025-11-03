@@ -3,7 +3,20 @@
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import UpdateChecker from '@/components/UpdateChecker';
-import { AdminH1, AdminH2, AdminText } from '@/components/admin/Typography';
+import { 
+  AdminH1, 
+  AdminH2, 
+  AdminH3,
+  AdminH4,
+  AdminText, 
+  AdminTextMuted,
+  AdminTextSmall,
+  AdminLabel,
+  AdminValue,
+  AdminSuccess,
+  AdminError,
+  AdminInfo
+} from '@/components/admin/Typography';
 import Link from 'next/link';
 
 type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database' | 'updates';
@@ -144,51 +157,148 @@ function ThemeSettings() {
 }
 
 function SantaLetterSettings() {
+  const [santaEnabled, setSantaEnabled] = useState(true);
+  const [dailyLimit, setDailyLimit] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch('/api/settings?category=santa');
+        const data = await response.json();
+        
+        if (data.settings) {
+          setSantaEnabled(data.settings.santa_letters_enabled === 'true');
+          setDailyLimit(parseInt(data.settings.santa_daily_limit || '1', 10));
+        }
+      } catch (error) {
+        console.error('Failed to load Santa settings:', error);
+        setMessage('❌ Failed to load settings');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadSettings();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setMessage('⏳ Saving settings...');
+      
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: {
+            santa_letters_enabled: santaEnabled.toString(),
+            santa_daily_limit: dailyLimit.toString(),
+          },
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage('✅ Settings saved successfully!');
+      } else {
+        setMessage(`❌ Failed to save: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      setMessage('❌ Failed to save settings');
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(''), 5000);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+        <AdminH2>🎅 Santa Letter Configuration</AdminH2>
+        <p className="text-white/60 mt-4">Loading settings...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
       <AdminH2>🎅 Santa Letter Configuration</AdminH2>
       
-      <div className="space-y-6">
+      {message && (
+        <div className="mb-6 mt-4 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <AdminInfo>{message}</AdminInfo>
+        </div>
+      )}
+      
+      <div className="space-y-6 mt-6">
         <div className="flex items-start gap-3">
           <input
             type="checkbox"
             id="santa-enabled"
-            defaultChecked
+            checked={santaEnabled}
+            onChange={(e) => setSantaEnabled(e.target.checked)}
             className="w-5 h-5 rounded mt-1"
           />
           <div>
-            <label htmlFor="santa-enabled" className="text-white font-semibold block">
+            <AdminLabel htmlFor="santa-enabled" className="cursor-pointer mb-0">
               Enable Santa Letter Submissions
-            </label>
-            <p className="text-white/60 text-sm mt-1">
+            </AdminLabel>
+            <AdminTextSmall className="mt-1">
               Allow visitors to submit letters to Santa via your website
-            </p>
+            </AdminTextSmall>
           </div>
         </div>
 
         <div>
-          <label className="block text-white font-semibold mb-2">Daily Letter Limit (per IP)</label>
+          <AdminLabel>Daily Letter Limit (per IP)</AdminLabel>
           <div className="flex items-center gap-4">
             <input
               type="number"
-              defaultValue={1}
+              value={dailyLimit}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  setDailyLimit(1);
+                } else {
+                  const num = parseInt(val, 10);
+                  if (!isNaN(num) && num >= 1) {
+                    setDailyLimit(num);
+                  }
+                }
+              }}
               min={1}
               max={10}
               className="w-32 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
             />
-            <span className="text-white/60 text-sm">letters per day</span>
+            <AdminTextSmall>letters per day</AdminTextSmall>
           </div>
-          <p className="text-white/60 text-sm mt-1">
+          <AdminTextSmall className="mt-1">
             Prevent spam while allowing genuine submissions
-          </p>
+          </AdminTextSmall>
+        </div>
+
+        <div className="pt-4 border-t border-white/10">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          >
+            {saving ? '⏳ Saving...' : '💾 Save Santa Settings'}
+          </button>
         </div>
 
         <div>
-          <label className="block text-white font-semibold mb-2">Queue Processing Status</label>
+          <AdminLabel>Queue Processing Status</AdminLabel>
           <div className="p-4 bg-green-500/20 rounded-lg border border-green-500/30">
             <div className="flex items-center gap-2">
               <span className="text-green-400 text-2xl">✅</span>
-              <span className="text-white">Queue processor active - checking every 90 seconds</span>
+              <AdminSuccess className="text-base">Queue processor active - checking every 90 seconds</AdminSuccess>
             </div>
           </div>
         </div>
@@ -207,42 +317,222 @@ function SantaLetterSettings() {
 }
 
 function MonitoringSettings() {
+  const [monitoringEnabled, setMonitoringEnabled] = useState(true);
+  const [startHour, setStartHour] = useState(16); // 4 PM
+  const [startMinute, setStartMinute] = useState(0);
+  const [endHour, setEndHour] = useState(22); // 10 PM
+  const [endMinute, setEndMinute] = useState(0);
+  const [intervalMinutes, setIntervalMinutes] = useState(5);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch('/api/settings?category=monitoring');
+        const data = await response.json();
+        
+        if (data.settings) {
+          setMonitoringEnabled(data.settings.monitoring_enabled === 'true');
+          setStartHour(parseInt(data.settings.monitoring_start_hour || '16', 10));
+          setStartMinute(parseInt(data.settings.monitoring_start_minute || '0', 10));
+          setEndHour(parseInt(data.settings.monitoring_end_hour || '22', 10));
+          setEndMinute(parseInt(data.settings.monitoring_end_minute || '0', 10));
+          setIntervalMinutes(parseInt(data.settings.monitoring_interval_minutes || '5', 10));
+        }
+      } catch (error) {
+        console.error('Failed to load monitoring settings:', error);
+        setMessage('❌ Failed to load settings');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadSettings();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setMessage('⏳ Saving settings...');
+      
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: {
+            monitoring_enabled: monitoringEnabled.toString(),
+            monitoring_start_hour: startHour.toString(),
+            monitoring_start_minute: startMinute.toString(),
+            monitoring_end_hour: endHour.toString(),
+            monitoring_end_minute: endMinute.toString(),
+            monitoring_interval_minutes: intervalMinutes.toString(),
+          },
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage('✅ Settings saved successfully! Changes will apply on next monitoring cycle.');
+      } else {
+        setMessage(`❌ Failed to save: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      setMessage('❌ Failed to save settings');
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(''), 5000);
+    }
+  };
+
+  const formatTime = (hour: number, minute: number) => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+        <AdminH2>📡 Device Monitoring Settings</AdminH2>
+        <p className="text-white/60 mt-4">Loading settings...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
       <AdminH2>📡 Device Monitoring Settings</AdminH2>
       
-      <div className="space-y-6">
-        <div>
-          <label className="block text-white font-semibold mb-2">Monitoring Schedule</label>
-          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-            <div className="text-white mb-2">Show Hours: 4:00 PM - 10:00 PM CST</div>
-            <div className="text-white/60 text-sm">
-              Email alerts only sent during these hours when devices go offline
-            </div>
+      {message && (
+        <div className="mb-6 mt-4 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <AdminInfo>{message}</AdminInfo>
+        </div>
+      )}
+      
+      <div className="space-y-6 mt-6">
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="monitoring-enabled"
+            checked={monitoringEnabled}
+            onChange={(e) => setMonitoringEnabled(e.target.checked)}
+            className="w-5 h-5 rounded mt-1"
+          />
+          <div>
+            <AdminLabel htmlFor="monitoring-enabled" className="cursor-pointer mb-0">
+              Enable Device Monitoring
+            </AdminLabel>
+            <AdminTextSmall className="mt-1">
+              Automatically check device status and send email alerts when offline
+            </AdminTextSmall>
           </div>
         </div>
 
         <div>
-          <label className="block text-white font-semibold mb-2">Check Interval</label>
-          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-            <div className="text-white mb-2">Every 5 minutes</div>
-            <div className="text-white/60 text-sm">
-              Devices are pinged every 5 minutes during monitoring hours
+          <AdminLabel>Monitoring Schedule</AdminLabel>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <AdminTextSmall className="mb-2">Start Time</AdminTextSmall>
+              <div className="flex gap-2">
+                <select
+                  value={startHour}
+                  onChange={(e) => setStartHour(parseInt(e.target.value, 10))}
+                  className="flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>{formatTime(i, 0).split(':')[0]} {formatTime(i, 0).split(' ')[1]}</option>
+                  ))}
+                </select>
+                <select
+                  value={startMinute}
+                  onChange={(e) => setStartMinute(parseInt(e.target.value, 10))}
+                  className="w-20 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
+                >
+                  <option value={0}>:00</option>
+                  <option value={15}>:15</option>
+                  <option value={30}>:30</option>
+                  <option value={45}>:45</option>
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <AdminTextSmall className="mb-2">End Time</AdminTextSmall>
+              <div className="flex gap-2">
+                <select
+                  value={endHour}
+                  onChange={(e) => setEndHour(parseInt(e.target.value, 10))}
+                  className="flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>{formatTime(i, 0).split(':')[0]} {formatTime(i, 0).split(' ')[1]}</option>
+                  ))}
+                </select>
+                <select
+                  value={endMinute}
+                  onChange={(e) => setEndMinute(parseInt(e.target.value, 10))}
+                  className="w-20 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
+                >
+                  <option value={0}>:00</option>
+                  <option value={15}>:15</option>
+                  <option value={30}>:30</option>
+                  <option value={45}>:45</option>
+                </select>
+              </div>
             </div>
           </div>
+          <AdminTextSmall className="mt-2">
+            Current schedule: {formatTime(startHour, startMinute)} - {formatTime(endHour, endMinute)} CST
+          </AdminTextSmall>
         </div>
 
         <div>
-          <label className="block text-white font-semibold mb-2">Alert Email</label>
+          <AdminLabel>Check Interval</AdminLabel>
+          <div className="flex items-center gap-4">
+            <select
+              value={intervalMinutes}
+              onChange={(e) => setIntervalMinutes(parseInt(e.target.value, 10))}
+              className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
+            >
+              <option value={1}>1 minute</option>
+              <option value={2}>2 minutes</option>
+              <option value={5}>5 minutes</option>
+              <option value={10}>10 minutes</option>
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+            </select>
+          </div>
+          <AdminTextSmall className="mt-1">
+            How often to ping devices during monitoring hours
+          </AdminTextSmall>
+        </div>
+
+        <div className="pt-4 border-t border-white/10">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          >
+            {saving ? '⏳ Saving...' : '💾 Save Monitoring Settings'}
+          </button>
+        </div>
+
+        <div>
+          <AdminLabel>Alert Email</AdminLabel>
           <input
             type="email"
             defaultValue="joeally5@gmail.com"
             disabled
             className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60"
           />
-          <p className="text-white/60 text-sm mt-1">
+          <AdminTextSmall className="mt-1">
             Configure in .env.local as SMTP_USER
-          </p>
+          </AdminTextSmall>
         </div>
 
         <div className="pt-4 border-t border-white/10">
@@ -318,70 +608,70 @@ function DatabaseSettings() {
       
       {message && (
         <div className="mb-6 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
-          <p className="text-white text-sm">{message}</p>
+          <AdminInfo>{message}</AdminInfo>
         </div>
       )}
 
       <div className="space-y-6">
         {/* Database Statistics */}
         <div>
-          <h3 className="text-lg font-semibold text-white mb-4">📊 Database Statistics</h3>
+          <AdminH3>📊 Database Statistics</AdminH3>
           {loading && !stats ? (
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-              <p className="text-white/60">Loading statistics...</p>
+              <AdminTextMuted>Loading statistics...</AdminTextMuted>
             </div>
           ) : stats ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <div className="text-white/60 text-sm mb-1">Database Size</div>
-                <div className="text-white text-2xl font-bold">
+                <AdminTextSmall className="mb-1">Database Size</AdminTextSmall>
+                <AdminValue>
                   {stats.approximateSizeMB?.toFixed(2) || '0'} MB
-                </div>
+                </AdminValue>
               </div>
               
               <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <div className="text-white/60 text-sm mb-1">Journal Mode</div>
-                <div className="text-white text-2xl font-bold">{stats.journalMode || 'Unknown'}</div>
+                <AdminTextSmall className="mb-1">Journal Mode</AdminTextSmall>
+                <AdminValue>{stats.journalMode || 'Unknown'}</AdminValue>
               </div>
               
               <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <div className="text-white/60 text-sm mb-1">Page Views</div>
-                <div className="text-white text-2xl font-bold">{stats.pageViews?.count?.toLocaleString() || '0'}</div>
+                <AdminTextSmall className="mb-1">Page Views</AdminTextSmall>
+                <AdminValue>{stats.pageViews?.count?.toLocaleString() || '0'}</AdminValue>
               </div>
               
               <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <div className="text-white/60 text-sm mb-1">Visitors</div>
-                <div className="text-white text-2xl font-bold">{stats.visitors?.count?.toLocaleString() || '0'}</div>
+                <AdminTextSmall className="mb-1">Visitors</AdminTextSmall>
+                <AdminValue>{stats.visitors?.count?.toLocaleString() || '0'}</AdminValue>
               </div>
               
               <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <div className="text-white/60 text-sm mb-1">Song Requests</div>
-                <div className="text-white text-2xl font-bold">{stats.jukeboxQueue?.count?.toLocaleString() || '0'}</div>
+                <AdminTextSmall className="mb-1">Song Requests</AdminTextSmall>
+                <AdminValue>{stats.jukeboxQueue?.count?.toLocaleString() || '0'}</AdminValue>
               </div>
               
               <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                <div className="text-white/60 text-sm mb-1">Santa Letters</div>
-                <div className="text-white text-2xl font-bold">{stats.santaLetters?.count?.toLocaleString() || '0'}</div>
+                <AdminTextSmall className="mb-1">Santa Letters</AdminTextSmall>
+                <AdminValue>{stats.santaLetters?.count?.toLocaleString() || '0'}</AdminValue>
               </div>
             </div>
           ) : (
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-              <p className="text-white/60">No statistics available</p>
+              <AdminTextMuted>No statistics available</AdminTextMuted>
             </div>
           )}
         </div>
 
         {/* Maintenance Actions */}
         <div>
-          <h3 className="text-lg font-semibold text-white mb-4">🔧 Maintenance Operations</h3>
+          <AdminH3>🔧 Maintenance Operations</AdminH3>
           <div className="space-y-3">
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="text-white font-semibold mb-1">Quick Maintenance</h4>
-                  <p className="text-white/60 text-sm">
+                  <AdminH4>Quick Maintenance</AdminH4>
+                  <AdminTextSmall>
                     Analyze database statistics for query optimization (fast, ~1 second)
-                  </p>
+                  </AdminTextSmall>
                 </div>
                 <button
                   onClick={() => runMaintenance('quick')}
@@ -396,10 +686,10 @@ function DatabaseSettings() {
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="text-white font-semibold mb-1">Full Maintenance</h4>
-                  <p className="text-white/60 text-sm">
+                  <AdminH4>Full Maintenance</AdminH4>
+                  <AdminTextSmall>
                     ANALYZE, REINDEX, and VACUUM database (slow, ~30-60 seconds)
-                  </p>
+                  </AdminTextSmall>
                 </div>
                 <button
                   onClick={() => runMaintenance('full')}
@@ -414,10 +704,10 @@ function DatabaseSettings() {
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="text-white font-semibold mb-1">Archive Old Data</h4>
-                  <p className="text-white/60 text-sm">
+                  <AdminH4>Archive Old Data</AdminH4>
+                  <AdminTextSmall>
                     Remove page views older than 1 year and device status older than 90 days
-                  </p>
+                  </AdminTextSmall>
                 </div>
                 <button
                   onClick={() => runMaintenance('archive')}
@@ -432,10 +722,10 @@ function DatabaseSettings() {
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="text-white font-semibold mb-1">Integrity Check</h4>
-                  <p className="text-white/60 text-sm">
+                  <AdminH4>Integrity Check</AdminH4>
+                  <AdminTextSmall>
                     Verify database integrity and check for corruption
-                  </p>
+                  </AdminTextSmall>
                 </div>
                 <button
                   onClick={() => runMaintenance('integrity')}
@@ -451,14 +741,14 @@ function DatabaseSettings() {
 
         {/* Automated Maintenance Info */}
         <div className="p-4 bg-green-500/20 rounded-lg border border-green-500/30">
-          <h4 className="text-white font-semibold mb-2">✅ Automated Maintenance Active</h4>
-          <ul className="text-white/80 text-sm space-y-1">
-            <li>• Quick maintenance runs daily (every 24 hours)</li>
-            <li>• Full maintenance runs weekly (every 7 days)</li>
-            <li>• Data archival is MANUAL ONLY (use button above)</li>
-            <li>• WAL mode enabled for better performance</li>
-            <li>• 64MB cache size for faster queries</li>
-            <li>• 30+ indexes created for optimal performance</li>
+          <AdminH4>✅ Automated Maintenance Active</AdminH4>
+          <ul className="space-y-1">
+            <li><AdminTextSmall>• Quick maintenance runs daily (every 24 hours)</AdminTextSmall></li>
+            <li><AdminTextSmall>• Full maintenance runs weekly (every 7 days)</AdminTextSmall></li>
+            <li><AdminTextSmall>• Data archival is MANUAL ONLY (use button above)</AdminTextSmall></li>
+            <li><AdminTextSmall>• WAL mode enabled for better performance</AdminTextSmall></li>
+            <li><AdminTextSmall>• 64MB cache size for faster queries</AdminTextSmall></li>
+            <li><AdminTextSmall>• 30+ indexes created for optimal performance</AdminTextSmall></li>
           </ul>
         </div>
 
