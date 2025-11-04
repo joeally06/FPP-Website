@@ -69,64 +69,25 @@ export async function GET(request: NextRequest) {
     }
 
     if (format === 'pdf') {
-      // For PDF, return a simple HTML that can be printed to PDF
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Analytics Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            h1 { color: #333; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #4CAF50; color: white; }
-            .summary { background: #f9f9f9; padding: 20px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <h1>FPP Show Analytics Report</h1>
-          <p>Generated: ${new Date().toLocaleString()}</p>
-          <p>Range: Last ${days} days</p>
-          
-          <div class="summary">
-            <h2>Summary</h2>
-            <p>Total Page Views: ${pageViews.length}</p>
-            <p>Total Votes: ${votes.length}</p>
-            <p>Total Santa Letters: ${santaLetters.length}</p>
-          </div>
+      // For PDF, return a properly formatted text file with print-ready content
+      // This will be handled by the client-side to generate a proper PDF
+      const reportData = {
+        generated: new Date().toISOString(),
+        range: `Last ${days} days`,
+        summary: {
+          totalPageViews: pageViews.length,
+          totalVotes: votes.length,
+          totalSantaLetters: santaLetters.length,
+        },
+        pageViews: pageViews.slice(0, 100),
+        votes: votes.slice(0, 100),
+        santaLetters: santaLetters.slice(0, 50),
+      };
 
-          <h2>Recent Page Views</h2>
-          <table>
-            <tr><th>Page</th><th>Date</th></tr>
-            ${pageViews.slice(0, 50).map((view: any) => `
-              <tr>
-                <td>${view.page_path}</td>
-                <td>${new Date(view.view_time).toLocaleString()}</td>
-              </tr>
-            `).join('')}
-          </table>
-
-          <h2>Recent Votes</h2>
-          <table>
-            <tr><th>Sequence</th><th>Vote Type</th><th>Date</th></tr>
-            ${votes.slice(0, 50).map((vote: any) => `
-              <tr>
-                <td>${vote.sequence_name}</td>
-                <td>${vote.vote_type === 'up' ? '👍' : '👎'}</td>
-                <td>${new Date(vote.created_at).toLocaleString()}</td>
-              </tr>
-            `).join('')}
-          </table>
-
-          <script>window.print();</script>
-        </body>
-        </html>
-      `;
-
-      return new NextResponse(html, {
+      return NextResponse.json(reportData, {
         headers: {
-          'Content-Type': 'text/html',
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="analytics-${range}-${new Date().toISOString().split('T')[0]}.json"`,
         },
       });
     }

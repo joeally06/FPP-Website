@@ -47,6 +47,12 @@ votes.db
 *.db-wal
 *.db-journal
 
-# update signals
+# backups
+backups/
+
+# update logs and signals
+logs/
+logs/*.log
+logs/*.pid
 .update-requested
 .restart-signal
