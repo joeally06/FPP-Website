@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     `).all(startDateStr);
 
     const votes = db.prepare(`
-      SELECT * FROM votes WHERE voted_at >= ? ORDER BY voted_at DESC
+      SELECT * FROM votes WHERE created_at >= ? ORDER BY created_at DESC
     `).all(startDateStr);
 
     const santaLetters = db.prepare(`
@@ -49,15 +49,15 @@ export async function GET(request: NextRequest) {
       });
 
       csv += '\n\nVOTES\n';
-      csv += 'IP,Sequence,Vote Type,Voted At\n';
+      csv += 'User IP,Sequence,Vote Type,Created At\n';
       votes.forEach((vote: any) => {
-        csv += `"${vote.ip_address}","${vote.sequence_name}","${vote.vote_type}","${vote.voted_at}"\n`;
+        csv += `"${vote.user_ip}","${vote.sequence_name}","${vote.vote_type}","${vote.created_at}"\n`;
       });
 
       csv += '\n\nSANTA LETTERS\n';
-      csv += 'Name,Email,Message,Status,Created At\n';
+      csv += 'Name,Age,Email,Letter Content,Status,Created At\n';
       santaLetters.forEach((letter: any) => {
-        csv += `"${letter.child_name}","${letter.parent_email}","${letter.letter_text.replace(/"/g, '""')}","${letter.status}","${letter.created_at}"\n`;
+        csv += `"${letter.child_name}","${letter.child_age || 'N/A'}","${letter.parent_email}","${letter.letter_content.replace(/"/g, '""')}","${letter.status}","${letter.created_at}"\n`;
       });
 
       return new NextResponse(csv, {
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
               <tr>
                 <td>${vote.sequence_name}</td>
                 <td>${vote.vote_type === 'up' ? '👍' : '👎'}</td>
-                <td>${new Date(vote.voted_at).toLocaleString()}</td>
+                <td>${new Date(vote.created_at).toLocaleString()}</td>
               </tr>
             `).join('')}
           </table>

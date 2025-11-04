@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
+import { useFPPConnection } from '@/contexts/FPPConnectionContext';
 
 interface Status {
   status_name: string;
@@ -17,6 +18,7 @@ export default function Home() {
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { data: session, status: sessionStatus } = useSession();
+  const { isOnline } = useFPPConnection();
   const isAdmin = session?.user?.role === 'admin';
   const router = useRouter();
 
@@ -29,11 +31,17 @@ export default function Home() {
 
   useEffect(() => {
     const fetchStatus = async () => {
+      // Skip if FPP is offline
+      if (!isOnline) {
+        return;
+      }
+
       try {
         const response = await fetch('/api/fppd/status');
         if (response.ok) {
           const data = await response.json();
           setStatus(data);
+          setError(null);
         } else {
           setError('Failed to fetch FPP status');
         }
@@ -47,7 +55,7 @@ export default function Home() {
       const interval = setInterval(fetchStatus, 5000);
       return () => clearInterval(interval);
     }
-  }, [isAdmin]);
+  }, [isAdmin, isOnline]);
 
   // Show loading while checking authentication
   if (sessionStatus === 'loading') {
@@ -78,31 +86,19 @@ export default function Home() {
       title="🎮 FPP Control Center" 
       subtitle="Monitor and control your Falcon Player"
     >
-      {error && (
-        <div className="mb-6 backdrop-blur-md bg-red-500/20 border border-red-500/50 text-white px-6 py-4 rounded-xl shadow-lg">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <p className="font-semibold">Connection Error</p>
-              <p className="text-sm text-white/80">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Status Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className={`backdrop-blur-md bg-gradient-to-br ${status ? getStatusColor(status.status_name) : 'from-gray-500 to-slate-600'} rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105`}>
+        <div className={`backdrop-blur-md bg-gradient-to-br ${status && isOnline ? getStatusColor(status.status_name) : 'from-gray-500 to-slate-600'} rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105`}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-white/80 text-sm font-medium">Status</span>
             <span className="text-3xl">🎯</span>
           </div>
           <p className="text-3xl font-bold text-white capitalize">
-            {status?.status_name || '...'}
+            {!isOnline ? 'Offline' : (status?.status_name || '...')}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${status?.status_name === 'playing' ? 'bg-green-400 animate-pulse' : 'bg-white/50'}`}></div>
-            <span className="text-xs text-white/70">Live Status</span>
+            <div className={`w-2 h-2 rounded-full ${!isOnline ? 'bg-amber-400 animate-pulse' : (status?.status_name === 'playing' ? 'bg-green-400 animate-pulse' : 'bg-white/50')}`}></div>
+            <span className="text-xs text-white/70">{!isOnline ? 'FPP Disconnected' : 'Live Status'}</span>
           </div>
         </div>
 
@@ -112,7 +108,7 @@ export default function Home() {
             <span className="text-3xl">⚙️</span>
           </div>
           <p className="text-2xl font-bold text-white">
-            {status?.mode_name || '...'}
+            {!isOnline ? 'N/A' : (status?.mode_name || '...')}
           </p>
         </div>
 
@@ -122,9 +118,9 @@ export default function Home() {
             <span className="text-3xl">📋</span>
           </div>
           <p className="text-xl font-bold text-white truncate">
-            {status?.current_playlist?.playlist || 'None'}
+            {!isOnline ? 'Offline' : (status?.current_playlist?.playlist || 'None')}
           </p>
-          {status?.current_playlist?.index && (
+          {status?.current_playlist?.index && isOnline && (
             <p className="text-sm text-white/70 mt-1">
               Track {status.current_playlist.index} of {status.current_playlist.count}
             </p>
@@ -137,7 +133,7 @@ export default function Home() {
             <span className="text-3xl">🔊</span>
           </div>
           <p className="text-3xl font-bold text-white">
-            {status?.volume || 0}%
+            {!isOnline ? '--' : (status?.volume || 0)}%
           </p>
         </div>
       </div>
@@ -164,7 +160,9 @@ export default function Home() {
             <span className="text-4xl">🎚️</span>
             <div>
               <h2 className="text-2xl font-bold text-white">Volume Control</h2>
-              <p className="text-white/70">Adjust the system volume</p>
+              <p className="text-white/70">
+                {!isOnline ? 'Unavailable - FPP Offline' : 'Adjust the system volume'}
+              </p>
             </div>
           </div>
           
@@ -175,7 +173,9 @@ export default function Home() {
               min="0"
               max="100"
               value={status.volume}
+              disabled={!isOnline}
               onChange={async (e) => {
+                if (!isOnline) return;
                 const vol = parseInt(e.target.value);
                 try {
                   await fetch(`/api/web/system/volume`, {
@@ -188,13 +188,19 @@ export default function Home() {
                   alert('Failed to set volume');
                 }
               }}
-              className="flex-1 h-3 bg-white/20 rounded-full appearance-none cursor-pointer slider"
+              className={`flex-1 h-3 bg-white/20 rounded-full appearance-none slider ${
+                !isOnline ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+              }`}
               style={{
-                background: `linear-gradient(to right, #10b981 0%, #10b981 ${status.volume}%, rgba(255,255,255,0.2) ${status.volume}%, rgba(255,255,255,0.2) 100%)`
+                background: isOnline 
+                  ? `linear-gradient(to right, #10b981 0%, #10b981 ${status.volume}%, rgba(255,255,255,0.2) ${status.volume}%, rgba(255,255,255,0.2) 100%)`
+                  : 'rgba(255,255,255,0.1)'
               }}
             />
             <span className="text-white/70">🔊</span>
-            <span className="text-2xl font-bold text-white w-16 text-right">{status.volume}%</span>
+            <span className="text-2xl font-bold text-white w-16 text-right">
+              {!isOnline ? '--' : status.volume}%
+            </span>
           </div>
         </div>
       )}
@@ -205,29 +211,29 @@ export default function Home() {
           <span>⚡</span> Quick Actions
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
-            onClick={() => router.push('/sequences')}
-            className="backdrop-blur-sm bg-blue-500/80 hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3"
+            onClick={() => router.push('/media')}
+            className="backdrop-blur-sm bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3 border-2 border-purple-300/50"
           >
-            <span className="text-2xl">🎵</span>
-            <span>Sequences</span>
-          </button>
-          
-          <button
-            onClick={() => router.push('/playlists')}
-            className="backdrop-blur-sm bg-purple-500/80 hover:bg-purple-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3"
-          >
-            <span className="text-2xl">📋</span>
-            <span>Playlists</span>
+            <span className="text-2xl">📚</span>
+            <span>Media Library</span>
           </button>
           
           <button
             onClick={() => router.push('/models')}
             className="backdrop-blur-sm bg-amber-500/80 hover:bg-amber-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3"
           >
-            <span className="text-2xl">🎄</span>
+            <span className="text-2xl">�</span>
             <span>Models</span>
+          </button>
+          
+          <button
+            onClick={() => router.push('/jukebox')}
+            className="backdrop-blur-sm bg-green-500/80 hover:bg-green-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3"
+          >
+            <span className="text-2xl">🎶</span>
+            <span>Jukebox</span>
           </button>
           
           <button
@@ -236,14 +242,6 @@ export default function Home() {
           >
             <span className="text-2xl">📊</span>
             <span>Analytics</span>
-          </button>
-          
-          <button
-            onClick={() => router.push('/jukebox')}
-            className="backdrop-blur-sm bg-green-500/80 hover:bg-green-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3 border-2 border-green-300/50"
-          >
-            <span className="text-2xl">🎶</span>
-            <span>Jukebox</span>
           </button>
         </div>
       </div>

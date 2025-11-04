@@ -90,9 +90,23 @@ export default function JukeboxPage() {
     // Background cache refresh every 10 minutes
     const cacheRefreshInterval = setInterval(async () => {
       try {
-        await fetch('/api/jukebox/refresh-cache', { method: 'POST' });
+        const response = await fetch('/api/jukebox/refresh-cache', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log(`[Jukebox] Background cache refresh: ${data.sequencesCached} sequences cached`);
+        } else {
+          // Only log if not offline (reduce console spam)
+          if (data.error !== 'FPP is offline') {
+            console.warn('[Jukebox] Background cache refresh failed:', data.error);
+          }
+        }
       } catch (error) {
-        console.error('Background cache refresh failed:', error);
+        // Silently fail for background refreshes to avoid console spam
+        // Only log if it's not a timeout/abort error
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('Background cache refresh failed:', error);
+        }
       }
     }, 10 * 60 * 1000); // 10 minutes
     
@@ -214,6 +228,9 @@ export default function JukeboxPage() {
   };
 
   const refreshSequenceCache = async () => {
+    setLoadingSequences(true);
+    setMessage('🔄 Refreshing sequence cache...');
+    
     try {
       const refreshResponse = await fetch('/api/jukebox/refresh-cache', {
         method: 'POST'
@@ -221,13 +238,21 @@ export default function JukeboxPage() {
       
       const refreshData = await refreshResponse.json();
       
-      if (refreshResponse.ok) {
+      if (refreshData.success) {
         setAvailableSequences(refreshData.sequences);
         setMessage(`✅ Cache refreshed with ${refreshData.sequencesCached} sequences`);
         setTimeout(() => setMessage(''), 3000); // Clear message after 3 seconds
       } else {
         // Show specific error message from API
-        setMessage(`❌ ${refreshData.error || 'Failed to refresh sequence cache'}`);
+        const errorMsg = refreshData.details || refreshData.error || 'Failed to refresh sequence cache';
+        
+        if (refreshData.error === 'FPP is offline') {
+          setMessage('⚠️ FPP is offline. Cannot refresh cache at this time.');
+        } else if (refreshData.error === 'FPP server timeout') {
+          setMessage('⏱️ FPP server timeout. The server may be offline or busy.');
+        } else {
+          setMessage(`❌ ${errorMsg}`);
+        }
       }
     } catch (error) {
       console.error('Error refreshing sequence cache:', error);

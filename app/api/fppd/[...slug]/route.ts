@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
 
+const FPP_REQUEST_TIMEOUT = 10000; // 10 seconds
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;
   
@@ -16,8 +18,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   
   const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/fppd/${slug.join('/')}`;
+  
   try {
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FPP_REQUEST_TIMEOUT);
+
+    const response = await fetch(url, {
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
     const data = await response.text();
     return new NextResponse(data, {
       status: response.status,
@@ -25,9 +36,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         'Content-Type': response.headers.get('Content-Type') || 'application/json',
       },
     });
-  } catch (error) {
-    console.error('Error fetching from FPPD:', error);
-    return NextResponse.json({ error: `Failed to fetch from FPPD: ${error instanceof Error ? error.message : 'Unknown error'}` }, { status: 500 });
+  } catch (error: any) {
+    console.error('[FPPD Proxy] Error:', error.message);
+
+    if (error.name === 'AbortError') {
+      return NextResponse.json(
+        { 
+          error: 'FPP request timeout',
+          offline: true,
+          message: 'The FPP server is not responding. Please check if it is online.'
+        },
+        { status: 504 }
+      );
+    }
+
+    return NextResponse.json(
+      { 
+        error: `Failed to fetch from FPPD: ${error.message}`,
+        offline: true,
+        message: 'Unable to connect to FPP server. It may be offline or unreachable.'
+      },
+      { status: 503 }
+    );
   }
 }
 
@@ -46,15 +76,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   
   const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/fppd/${slug.join('/')}`;
+  
   try {
     const body = await request.text();
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FPP_REQUEST_TIMEOUT);
+
     const response = await fetch(url, {
       method: 'POST',
       body,
+      signal: controller.signal,
       headers: {
         'Content-Type': request.headers.get('Content-Type') || 'application/json',
       },
     });
+
+    clearTimeout(timeoutId);
+
     const data = await response.text();
     return new NextResponse(data, {
       status: response.status,
@@ -62,8 +101,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         'Content-Type': response.headers.get('Content-Type') || 'application/json',
       },
     });
-  } catch (error) {
-    console.error('Error fetching from FPPD:', error);
-    return NextResponse.json({ error: `Failed to fetch from FPPD: ${error instanceof Error ? error.message : 'Unknown error'}` }, { status: 500 });
+  } catch (error: any) {
+    console.error('[FPPD Proxy] POST Error:', error.message);
+
+    if (error.name === 'AbortError') {
+      return NextResponse.json(
+        { 
+          error: 'FPP request timeout',
+          offline: true,
+          message: 'The FPP server is not responding. Please check if it is online.'
+        },
+        { status: 504 }
+      );
+    }
+
+    return NextResponse.json(
+      { 
+        error: `Failed to fetch from FPPD: ${error.message}`,
+        offline: true,
+        message: 'Unable to connect to FPP server. It may be offline or unreachable.'
+      },
+      { status: 503 }
+    );
   }
 }

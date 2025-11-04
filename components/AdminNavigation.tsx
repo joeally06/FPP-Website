@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useState } from 'react';
 import TimezoneIndicator from './TimezoneIndicator';
+import FPPStatusIndicator from './FPPStatusIndicator';
 
 export default function AdminNavigation() {
   const pathname = usePathname();
@@ -13,8 +14,8 @@ export default function AdminNavigation() {
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: '🏠' },
-    { name: 'Sequences', path: '/sequences', icon: '🎵' },
-    { name: 'Playlists', path: '/playlists', icon: '📋' },
+    { name: 'Media Library', path: '/media', icon: '📚' },
+    { name: 'Models', path: '/models', icon: '🎄' },
     { name: 'Analytics', path: '/analytics', icon: '📊' },
     { name: 'Devices', path: '/device-status', icon: '📡' },
     { name: 'Settings', path: '/settings', icon: '⚙️' },
@@ -61,6 +62,7 @@ export default function AdminNavigation() {
 
           {/* Desktop User Menu - Hidden on mobile */}
           <div className="hidden lg:flex items-center gap-4 ml-auto">
+            <FPPStatusIndicator />
             <TimezoneIndicator />
             
             {session?.user && (
@@ -137,7 +139,8 @@ export default function AdminNavigation() {
 
             {/* Mobile User Info & Logout */}
             <div className="mt-4 pt-4 border-t border-white/20 space-y-3">
-              <div className="px-4">
+              <div className="px-4 flex justify-between items-center">
+                <FPPStatusIndicator />
                 <TimezoneIndicator />
               </div>
               
