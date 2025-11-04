@@ -8,76 +8,104 @@ export async function POST() {
   try {
     await requireAdmin();
 
-    console.log('[System Update] Starting detached update process...');
+    console.log('[System Update] Starting upgrade system...');
 
     const projectRoot = process.cwd();
-    const wrapperScript = path.join(projectRoot, 'scripts', 'run-update.sh');
-    const logFile = path.join(projectRoot, 'logs', 'update.log');
-    const pidFile = path.join(projectRoot, 'logs', 'update.pid');
+    const upgradeScript = path.join(projectRoot, 'scripts', 'upgrade-system.sh');
+    const statusFile = '/tmp/fpp-control-upgrade/upgrade_status';
+    const logFile = '/tmp/fpp-control-upgrade/upgrade.log';
+    const pidFile = '/tmp/fpp-control-upgrade/upgrade.pid';
 
+    // Ensure scripts directory exists
     const scriptsDir = path.join(projectRoot, 'scripts');
     if (!fs.existsSync(scriptsDir)) {
       fs.mkdirSync(scriptsDir, { recursive: true });
     }
 
-    const logsDir = path.join(projectRoot, 'logs');
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
-    }
-
-    if (!fs.existsSync(wrapperScript)) {
+    // Check if upgrade script exists
+    if (!fs.existsSync(upgradeScript)) {
       return NextResponse.json({
         success: false,
-        error: 'Update wrapper script not found. Please run: git pull'
+        error: 'Upgrade script not found. Please run: git pull'
       }, { status: 500 });
     }
 
+    // Make script executable
     try {
-      fs.chmodSync(wrapperScript, '755');
+      fs.chmodSync(upgradeScript, '755');
     } catch (error) {
       console.warn('[System Update] Failed to set executable permission:', error);
     }
 
+    // Check if an upgrade is already running
     if (fs.existsSync(pidFile)) {
-      const pid = fs.readFileSync(pidFile, 'utf-8').trim();
-      console.log('[System Update] Update already running (PID:', pid, ')');
-      
-      return NextResponse.json({
-        success: false,
-        error: 'Update already in progress. Check logs/update.log for status.'
-      }, { status: 409 });
+      try {
+        const pid = fs.readFileSync(pidFile, 'utf-8').trim();
+        
+        // Check if process is actually running
+        try {
+          process.kill(parseInt(pid), 0);
+          // Process exists
+          return NextResponse.json({
+            success: false,
+            error: 'Upgrade already in progress',
+            statusFile,
+            logFile
+          }, { status: 409 });
+        } catch {
+          // Process doesn't exist, clean up stale PID file
+          fs.unlinkSync(pidFile);
+        }
+      } catch (error) {
+        // Can't read PID file, remove it
+        try {
+          fs.unlinkSync(pidFile);
+        } catch {}
+      }
     }
 
-    console.log('[System Update] Spawning detached update process...');
-    console.log('[System Update] This will:');
-    console.log('[System Update]   1. Stop PM2 (closes database safely)');
-    console.log('[System Update]   2. Backup database and config');
-    console.log('[System Update]   3. Pull latest code');
-    console.log('[System Update]   4. Install dependencies');
-    console.log('[System Update]   5. Build application');
-    console.log('[System Update]   6. Restart PM2');
+    // Clean up old status/log files
+    try {
+      if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
+      if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
+    } catch (error) {
+      console.warn('[System Update] Failed to clean up old files:', error);
+    }
+
+    console.log('[System Update] Spawning detached upgrade process...');
+    console.log('[System Update] Steps:');
+    console.log('[System Update]   1. STOPPING - Delete PM2 process (clean database shutdown)');
+    console.log('[System Update]   2. BACKING_UP - Backup database and config');
+    console.log('[System Update]   3. STASHING - Stash any local changes');
+    console.log('[System Update]   4. CHECKING - Fetch and check for updates');
+    console.log('[System Update]   5. UPDATING - Pull latest code');
+    console.log('[System Update]   6. INSTALLING - Install dependencies');
+    console.log('[System Update]   7. BUILDING - Build application');
+    console.log('[System Update]   8. MIGRATING - Run database migrations (if needed)');
+    console.log('[System Update]   9. RESTORING - Restore local changes');
+    console.log('[System Update]   10. RESTARTING - Restart PM2');
     
-    const updateProcess = spawn('nohup', ['bash', wrapperScript], {
+    // Spawn completely detached upgrade process
+    const upgradeProcess = spawn('nohup', ['bash', upgradeScript], {
       cwd: projectRoot,
       detached: true,
       stdio: 'ignore'
     });
 
-    updateProcess.unref();
+    upgradeProcess.unref();
 
-    console.log('[System Update] Update process spawned (PID:', updateProcess.pid, ')');
-    console.log('[System Update] The update will continue even after PM2 restart');
-    console.log('[System Update] Monitor progress: tail -f logs/update.log');
+    console.log('[System Update] Upgrade process spawned (PID:', upgradeProcess.pid, ')');
+    console.log('[System Update] Status file:', statusFile);
+    console.log('[System Update] Log file:', logFile);
 
     return NextResponse.json({
       success: true,
-      message: 'Update started in background. The application will restart automatically in 1-2 minutes.',
+      message: 'Upgrade started. Monitor status at /api/system/update-status',
       updated: true,
       requiresReload: true,
-      pid: updateProcess.pid,
-      logFile: 'logs/update.log',
-      note: 'Update is running independently and will survive PM2 restart',
-      timestamp: new Date().toISOString()
+      pid: upgradeProcess.pid,
+      statusFile,
+      logFile
     });
 
   } catch (error: any) {
@@ -86,7 +114,7 @@ export async function POST() {
     return NextResponse.json({
       success: false,
       error: error.message,
-      details: 'Failed to start update process. Check server logs.'
+      details: 'Failed to start upgrade process'
     }, { status: 500 });
   }
 }
