@@ -58,19 +58,27 @@ export default function MediaLibrary() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      console.log('[Media Library] Fetching playlists and sequences...');
+      
       const [playlistsRes, sequencesRes] = await Promise.all([
-        fetch('/api/fppd/playlists'),
-        fetch('/api/fppd/sequence')
+        fetch('/api/fpp/playlists'),
+        fetch('/api/fpp/sequences')
       ]);
 
       if (playlistsRes.ok) {
         const playlistsData = await playlistsRes.json();
+        console.log('[Media Library] Playlists received:', playlistsData);
         setPlaylists(Array.isArray(playlistsData) ? playlistsData : []);
+      } else {
+        console.error('[Media Library] Failed to fetch playlists:', playlistsRes.status);
       }
 
       if (sequencesRes.ok) {
         const sequencesData = await sequencesRes.json();
+        console.log('[Media Library] Sequences received:', sequencesData);
         setSequences(Array.isArray(sequencesData) ? sequencesData : []);
+      } else {
+        console.error('[Media Library] Failed to fetch sequences:', sequencesRes.status);
       }
     } catch (error) {
       console.error('Failed to fetch media:', error);
