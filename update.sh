@@ -34,11 +34,11 @@ PM2_WAS_RUNNING=false
 if command -v pm2 &> /dev/null; then
     if pm2 list 2>/dev/null | grep -q "fpp-control"; then
         log "⏸️  Stopping server to prevent database conflicts..."
-        pm2 stop fpp-control
+        pm2 delete fpp-control > /dev/null 2>&1 || pm2 stop fpp-control
         PM2_WAS_RUNNING=true
         
-        # Wait for database to close cleanly
-        sleep 2
+        # Wait for database to close cleanly and WAL file to flush
+        sleep 3
         
         log "✅ Server stopped safely"
     fi
@@ -94,7 +94,7 @@ if [ "$LOCAL" = "$REMOTE" ]; then
     # Restart PM2 if it was running
     if [ "$PM2_WAS_RUNNING" = true ]; then
         log "🔄 Restarting server..."
-        pm2 start fpp-control
+        pm2 start ecosystem.config.js
     fi
     
     log ""
@@ -120,7 +120,7 @@ if [ "$SILENT" = false ]; then
         
         # Restart PM2 if it was running
         if [ "$PM2_WAS_RUNNING" = true ]; then
-            pm2 start fpp-control
+            pm2 start ecosystem.config.js
         fi
         
         exit 1
@@ -172,7 +172,7 @@ fi
 # Restart PM2 if it was running
 if [ "$PM2_WAS_RUNNING" = true ]; then
     log "🔄 Restarting server..."
-    pm2 restart fpp-control --update-env
+    pm2 start ecosystem.config.js
     log "✅ Server restarted successfully"
 fi
 
