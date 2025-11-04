@@ -1,10 +1,7 @@
-import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkSantaRateLimit, getClientIP } from '@/lib/santa-rate-limit';
 
-const dbPath = path.join(process.cwd(), 'votes.db');
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
 
@@ -12,22 +9,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email required' }, { status: 400 });
     }
 
-    const db = new Database(dbPath);
+    // Get client IP address
+    const clientIP = getClientIP(request);
+    
+    // Check both email and IP rate limits
+    const result = checkSantaRateLimit(email, clientIP);
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
-
-    // Count letters sent today by this email
-    const result = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM santa_letters 
-      WHERE parent_email = ? 
-      AND DATE(created_at) = DATE(?)
-    `).get(email, today) as { count: number };
-
-    db.close();
-
-    return NextResponse.json({ count: result.count });
+    return NextResponse.json({
+      emailCount: result.emailCount,
+      ipCount: result.ipCount,
+      count: Math.max(result.emailCount, result.ipCount), // Show the higher count
+      limit: result.limit,
+      allowed: result.allowed,
+      reason: result.reason
+    });
   } catch (error) {
     console.error('Failed to check letter count:', error);
     return NextResponse.json({ error: 'Failed to check limit' }, { status: 500 });

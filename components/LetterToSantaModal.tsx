@@ -18,6 +18,8 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
     message: string;
   }>({ type: null, message: '' });
   const [letterCount, setLetterCount] = useState<number>(0);
+  const [emailCount, setEmailCount] = useState<number>(0);
+  const [ipCount, setIpCount] = useState<number>(0);
   const [dailyLimit, setDailyLimit] = useState<number>(1);
   const [loadingLimit, setLoadingLimit] = useState(true);
 
@@ -61,7 +63,9 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
 
       if (response.ok) {
         const data = await response.json();
-        setLetterCount(data.count || 0);
+        setEmailCount(data.emailCount || 0);
+        setIpCount(data.ipCount || 0);
+        setLetterCount(data.count || 0); // Use the max of email/IP counts
       }
     } catch (error) {
       console.error('Failed to check letter count:', error);
@@ -126,10 +130,19 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
           setSubmitStatus({ type: null, message: '' });
         }, 5000);
       } else {
-        setSubmitStatus({
-          type: 'error',
-          message: data.error || 'Failed to send letter. Please try again.',
-        });
+        // Handle rate limit errors with dual limit info
+        if (response.status === 429 && data.reason) {
+          const limitType = data.reason === 'email_limit' ? 'email address' : 'location';
+          setSubmitStatus({
+            type: 'error',
+            message: `${data.error}\n\nWe limit letters by both email address and location to ensure everyone gets a fair chance! 🎄`,
+          });
+        } else {
+          setSubmitStatus({
+            type: 'error',
+            message: data.error || 'Failed to send letter. Please try again.',
+          });
+        }
       }
     } catch (error) {
       setSubmitStatus({
@@ -325,6 +338,9 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
             </p>
             <p className="text-xs">
               ✉️ Your letter will be delivered to Santa's workshop, and he'll send a personalized reply to your email soon!
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              🔒 We track letters by both email address and location to ensure fair access for all children.
             </p>
           </div>
         </form>

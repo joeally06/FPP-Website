@@ -5,8 +5,7 @@ import {
   insertSantaLetter,
 } from '@/lib/database';
 import { validateAndSanitizeSantaLetter } from '@/lib/input-sanitization';
-import { santaLetterLimiter, getClientIP } from '@/lib/rate-limit';
-import db from '@/lib/database';
+import { checkSantaRateLimit, getClientIP } from '@/lib/santa-rate-limit';
 
 interface SendLetterRequest {
   childName: string;
@@ -31,39 +30,27 @@ export async function POST(request: NextRequest) {
     // Get client IP for rate limiting
     const clientIP = getClientIP(request);
     
-    // Rate limiting check using database-backed limiter
-    const rateLimitResult = santaLetterLimiter.check(clientIP);
-    if (!rateLimitResult.success) {
-      const errorMessage = rateLimitResult.blocked 
-        ? `Too many letters sent. You are blocked until ${rateLimitResult.blockedUntil?.toLocaleString()}`
-        : `You can only send 2 letters per day. Try again after ${rateLimitResult.resetAt.toLocaleString()}`;
+    // Sanitize email headers to prevent injection
+    const sanitizedEmail = sanitizeEmailHeader(body.parentEmail || '');
+    
+    // ✅ DUAL RATE LIMITING: Check both email and IP address
+    const rateLimitResult = checkSantaRateLimit(sanitizedEmail, clientIP);
+    
+    if (!rateLimitResult.allowed) {
+      const errorMessage = rateLimitResult.reason === 'email_limit'
+        ? `You've already sent ${rateLimitResult.emailCount} letter(s) today from this email address. Daily limit is ${rateLimitResult.limit}.`
+        : `You've already sent ${rateLimitResult.ipCount} letter(s) today from this location. Daily limit is ${rateLimitResult.limit}.`;
       
-      console.warn(`[SECURITY] Rate limit exceeded for ${clientIP} (Santa letter)`);
+      console.warn(`[SECURITY] Rate limit exceeded for ${sanitizedEmail} / ${clientIP} (${rateLimitResult.reason})`);
       
       return NextResponse.json({ 
         error: errorMessage,
-        resetAt: rateLimitResult.resetAt.toISOString()
+        emailCount: rateLimitResult.emailCount,
+        ipCount: rateLimitResult.ipCount,
+        limit: rateLimitResult.limit,
+        reason: rateLimitResult.reason
       }, { status: 429 });
     }
-
-    // Check for duplicate submission within 24 hours
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    const duplicate = db.prepare(`
-      SELECT id FROM santa_letters 
-      WHERE ip_address = ? 
-        AND created_at > ?
-      LIMIT 1
-    `).get(clientIP, oneDayAgo);
-    
-    if (duplicate) {
-      console.warn(`[SECURITY] Duplicate submission detected from ${clientIP}`);
-      return NextResponse.json({ 
-        error: 'You already sent a letter today. Please wait 24 hours before sending another.' 
-      }, { status: 429 });
-    }
-    
-    // Sanitize email headers to prevent injection
-    const sanitizedEmail = sanitizeEmailHeader(body.parentEmail || '');
     
     // ✅ SECURITY: Validate and sanitize ALL inputs
     const validation = validateAndSanitizeSantaLetter(
