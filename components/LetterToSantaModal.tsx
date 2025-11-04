@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 
 interface LetterToSantaModalProps {
   isOpen: boolean;
@@ -17,9 +17,69 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
     type: 'success' | 'error' | null;
     message: string;
   }>({ type: null, message: '' });
+  const [letterCount, setLetterCount] = useState<number>(0);
+  const [dailyLimit, setDailyLimit] = useState<number>(1);
+  const [loadingLimit, setLoadingLimit] = useState(true);
+
+  // Fetch daily limit when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchDailyLimit();
+    }
+  }, [isOpen]);
+
+  // Check letter count when email changes
+  useEffect(() => {
+    if (isOpen && parentEmail && parentEmail.includes('@')) {
+      checkLetterCount();
+    }
+  }, [isOpen, parentEmail]);
+
+  const fetchDailyLimit = async () => {
+    try {
+      const response = await fetch('/api/settings/santa-letters');
+      if (response.ok) {
+        const data = await response.json();
+        setDailyLimit(data.limit || 1);
+      }
+    } catch (error) {
+      console.error('Failed to fetch daily limit:', error);
+    } finally {
+      setLoadingLimit(false);
+    }
+  };
+
+  const checkLetterCount = async () => {
+    if (!parentEmail || !parentEmail.includes('@')) return;
+
+    try {
+      const response = await fetch('/api/santa/check-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: parentEmail }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLetterCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error('Failed to check letter count:', error);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    // Check if limit reached
+    if (letterCount >= dailyLimit) {
+      setSubmitStatus({
+        type: 'error',
+        message: `You've already sent ${dailyLimit} letter${dailyLimit > 1 ? 's' : ''} today. Please try again tomorrow! 🎄`,
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     setSubmitStatus({ type: null, message: '' });
 
@@ -40,15 +100,25 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
       const data = await response.json();
 
       if (response.ok) {
+        // Increment letter count immediately
+        const newCount = letterCount + 1;
+        setLetterCount(newCount);
+        
         setSubmitStatus({
           type: 'success',
           message: data.message || "Santa has received your letter! 🎅✨",
         });
+        
         // Reset form
         setChildName('');
         setChildAge('');
-        setParentEmail('');
         setLetterContent('');
+        
+        // Keep email to show updated count for this email
+        // Don't reset: setParentEmail('');
+        
+        // Verify count from server (optional, for accuracy)
+        await checkLetterCount();
         
         // Auto-close after 5 seconds
         setTimeout(() => {
@@ -95,6 +165,23 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
             🎅 Write to Santa! 🎄
           </h2>
           <p className="text-lg">Send your Christmas wishes to the North Pole!</p>
+          
+          {/* Letter Count Display */}
+          {!loadingLimit && parentEmail && parentEmail.includes('@') && (
+            <div className="mt-4 inline-block bg-white/20 backdrop-blur-sm px-6 py-2 rounded-full">
+              <span className="text-sm font-semibold">
+                Letters today: {' '}
+                <span className={letterCount >= dailyLimit ? 'text-yellow-300' : 'text-green-200'}>
+                  {letterCount}/{dailyLimit}
+                </span>
+                {letterCount < dailyLimit && (
+                  <span className="ml-2 text-green-200">
+                    ({dailyLimit - letterCount} remaining)
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Form */}
@@ -193,7 +280,7 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
           <div className="flex justify-center pt-4">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || letterCount >= dailyLimit}
               className="px-8 py-4 bg-gradient-to-r from-red-600 to-green-600 text-white text-xl font-bold rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isSubmitting ? (
@@ -204,6 +291,8 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
                   </svg>
                   Sending to the North Pole...
                 </span>
+              ) : letterCount >= dailyLimit ? (
+                '🎄 Daily Limit Reached 🎄'
               ) : (
                 '🎁 Send to Santa! 🎁'
               )}
@@ -213,7 +302,26 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
           {/* Footer note */}
           <div className="text-center text-sm text-gray-600 pt-4 border-t-2 border-red-200">
             <p className="mb-1">
-              🎄 Santa reads every letter carefully! You can send one letter per day. 🎄
+              {submitStatus.type === 'success' ? (
+                letterCount < dailyLimit ? (
+                  <span className="text-green-600 font-semibold">
+                    🎄 Thank you! You can send {dailyLimit - letterCount} more letter{(dailyLimit - letterCount) > 1 ? 's' : ''} today. 🎄
+                  </span>
+                ) : (
+                  <span className="text-orange-600 font-semibold">
+                    🎄 You've sent {dailyLimit} letter{dailyLimit > 1 ? 's' : ''} today. Come back tomorrow for more! 🎄
+                  </span>
+                )
+              ) : letterCount >= dailyLimit ? (
+                <span className="text-orange-600 font-semibold">
+                  🎄 You've sent {dailyLimit} letter{dailyLimit > 1 ? 's' : ''} today. Come back tomorrow for more! 🎄
+                </span>
+              ) : (
+                <span>
+                  🎄 Santa reads every letter carefully! You can send{' '}
+                  {dailyLimit > 1 ? `up to ${dailyLimit} letters` : 'one letter'} per day. 🎄
+                </span>
+              )}
             </p>
             <p className="text-xs">
               ✉️ Your letter will be delivered to Santa's workshop, and he'll send a personalized reply to your email soon!
