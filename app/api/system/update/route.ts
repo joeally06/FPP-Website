@@ -16,14 +16,7 @@ async function validateUpdateRequest(): Promise<{ valid: boolean; error?: string
       return { valid: false, error: 'Not a Git repository' };
     }
     
-    // Check for uncommitted changes
-    const { stdout } = await execAsync('git status --porcelain');
-    if (stdout.trim()) {
-      return { 
-        valid: false, 
-        error: 'Uncommitted changes detected. Please commit or stash changes first.' 
-      };
-    }
+    // Note: update.sh handles uncommitted changes via git stash, so we don't need to check here
     
     return { valid: true };
   } catch (error: any) {
@@ -64,20 +57,47 @@ export async function POST() {
     console.log('[Update] Executing update.sh...');
     const { stdout, stderr } = await execAsync('bash ./update.sh --silent', {
       cwd: process.cwd(),
-      timeout: 300000, // 5 minute timeout
+      timeout: 600000, // 10 minute timeout (increased for slower connections)
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for output
       env: { ...process.env, CI: 'true' }, // Prevent interactive prompts
     });
     
-    console.log('[Update] Update completed successfully');
+    console.log('[Update] Update script completed');
     console.log('[Update] Output:', stdout);
     
     if (stderr) {
       console.warn('[Update] Warnings:', stderr);
     }
     
+    // Check if update was successful
+    const alreadyUpToDate = stdout.includes('Already up to date');
+    const updateComplete = stdout.includes('Update complete') || stdout.includes('Server restarted successfully');
+    const noUpdates = stdout.includes('No updates available');
+    
+    if (alreadyUpToDate || noUpdates) {
+      return NextResponse.json({
+        success: true,
+        message: 'System is already up to date',
+        updated: false,
+        output: stdout,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    if (updateComplete) {
+      return NextResponse.json({
+        success: true,
+        message: 'Update completed successfully! The application has been restarted.',
+        updated: true,
+        output: stdout,
+        requiresReload: true,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
     return NextResponse.json({
       success: true,
-      message: 'Update completed successfully! The server will restart shortly.',
+      message: 'Update script executed',
       output: stdout,
       warnings: stderr || null,
       timestamp: new Date().toISOString(),
@@ -85,6 +105,19 @@ export async function POST() {
     
   } catch (error: any) {
     console.error('[Update] Update failed:', error);
+    
+    // Check if it's a timeout
+    if (error.killed && error.signal === 'SIGTERM') {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Update timeout - process took too long',
+          details: 'The update may still be running. Check server logs with: pm2 logs fpp-control'
+        },
+        { status: 504 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         success: false,

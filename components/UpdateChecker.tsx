@@ -3,10 +3,25 @@
 import { useState, useEffect } from 'react';
 import { AdminH2, AdminText, AdminWarning, AdminSuccess, AdminTextSmall } from './admin/Typography';
 
+interface UpdateInfo {
+  updatesAvailable: boolean;
+  commitsAhead: number;
+  currentVersion: string;
+  remoteVersion: string;
+  latestCommit?: {
+    hash: string;
+    author: string;
+    time: string;
+    message: string;
+  };
+  changedFiles?: string[];
+  changelog?: string[];
+  checked: string;
+}
+
 export default function UpdateChecker() {
   const [checking, setChecking] = useState(false);
-  const [hasUpdates, setHasUpdates] = useState(false);
-  const [commits, setCommits] = useState<string[]>([]);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [message, setMessage] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -15,25 +30,19 @@ export default function UpdateChecker() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'check' }),
-      });
-
+      const response = await fetch('/api/system/check-updates');
       const data = await response.json();
 
-      if (data.success) {
-        setHasUpdates(data.hasUpdates);
-        setCommits(data.commits || []);
+      if (response.ok) {
+        setUpdateInfo(data);
         
-        if (data.hasUpdates) {
-          setMessage('🎉 Updates available!');
+        if (data.updatesAvailable) {
+          setMessage(`🎉 ${data.commitsAhead} update${data.commitsAhead > 1 ? 's' : ''} available!`);
         } else {
           setMessage('✅ You are running the latest version');
         }
       } else {
-        setMessage(`❌ Failed to check: ${data.error}`);
+        setMessage(`❌ Failed to check: ${data.error || data.details}`);
       }
     } catch (error) {
       console.error('Update check error:', error);
@@ -52,8 +61,9 @@ export default function UpdateChecker() {
       '4. Pull latest code\n' +
       '5. Update dependencies\n' +
       '6. Run database migrations\n' +
-      '7. Restart the server\n\n' +
-      'Expected downtime: 2-3 minutes\n' +
+      '7. Rebuild the application\n' +
+      '8. Restart the server\n\n' +
+      'Expected downtime: 2-5 minutes\n' +
       'The page will reload automatically when complete.\n\n' +
       'Continue?'
     )) {
@@ -61,55 +71,59 @@ export default function UpdateChecker() {
     }
 
     setIsUpdating(true);
-    setMessage('⏳ Update scheduled... Server will restart in ~30 seconds');
+    setMessage('⏳ Starting update process...');
 
     try {
-      const response = await fetch('/api/update', {
+      const response = await fetch('/api/system/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'trigger' }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setMessage('🔄 Update in progress... Server stopping in 30 seconds...');
-        setHasUpdates(false);
-        
-        // Start polling to detect when server is back
-        setTimeout(() => {
-          setMessage('🔄 Server updating... Checking for completion...');
+        if (data.updated === false) {
+          // Already up to date
+          setMessage('✅ System is already up to date');
+          setIsUpdating(false);
+          checkForUpdates(); // Refresh status
+        } else {
+          // Update in progress
+          setMessage('🔄 Update in progress... Server will restart shortly...');
           
-          const pollInterval = setInterval(async () => {
-            try {
-              const pingResponse = await fetch('/api/health');
-              if (pingResponse.ok) {
-                clearInterval(pollInterval);
-                setMessage('✅ Update complete! Reloading page...');
-                setTimeout(() => window.location.reload(), 2000);
-              }
-            } catch {
-              // Server still down, keep polling
-              console.log('Server still updating...');
-            }
-          }, 5000); // Check every 5 seconds
-
-          // Timeout after 10 minutes
+          // Start polling to detect when server is back
           setTimeout(() => {
-            clearInterval(pollInterval);
-            setMessage('⚠️ Update taking longer than expected. Please refresh manually or check server logs.');
-            setIsUpdating(false);
-          }, 10 * 60 * 1000);
-          
-        }, 30000); // Start checking after 30 seconds
-        
+            setMessage('🔄 Server restarting... Checking for completion...');
+            
+            const pollInterval = setInterval(async () => {
+              try {
+                const pingResponse = await fetch('/api/health');
+                if (pingResponse.ok) {
+                  clearInterval(pollInterval);
+                  setMessage('✅ Update complete! Reloading page...');
+                  setTimeout(() => window.location.reload(), 2000);
+                }
+              } catch {
+                // Server still down, keep polling
+                console.log('Server still updating...');
+              }
+            }, 5000); // Check every 5 seconds
+
+            // Timeout after 10 minutes
+            setTimeout(() => {
+              clearInterval(pollInterval);
+              setMessage('⚠️ Update taking longer than expected. Please refresh manually or check server logs.');
+              setIsUpdating(false);
+            }, 10 * 60 * 1000);
+            
+          }, 10000); // Start checking after 10 seconds
+        }
       } else {
-        setMessage(`❌ Failed to trigger update: ${data.error}`);
+        setMessage(`❌ Failed to update: ${data.error || data.details}`);
         setIsUpdating(false);
       }
     } catch (error) {
       console.error('Update trigger error:', error);
-      setMessage('❌ Failed to trigger update');
+      setMessage('❌ Failed to trigger update. Check server logs.');
       setIsUpdating(false);
     }
   };
@@ -138,11 +152,65 @@ export default function UpdateChecker() {
         </div>
       )}
 
-      {hasUpdates && commits.length > 0 && (
+      {/* Version Information */}
+      {updateInfo && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+            <AdminTextSmall className="text-white/60 mb-1">Current Version</AdminTextSmall>
+            <AdminText className="text-white font-mono">{updateInfo.currentVersion}</AdminText>
+          </div>
+          
+          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+            <AdminTextSmall className="text-white/60 mb-1">Latest Version</AdminTextSmall>
+            <AdminText className="text-white font-mono">{updateInfo.remoteVersion}</AdminText>
+          </div>
+        </div>
+      )}
+
+      {/* Latest Commit Info */}
+      {updateInfo?.latestCommit && updateInfo.updatesAvailable && (
+        <div className="p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <AdminText className="font-semibold text-white mb-2">Latest Update Available:</AdminText>
+          <div className="space-y-1">
+            <p className="text-white font-medium">{updateInfo.latestCommit.message}</p>
+            <div className="flex gap-4 text-sm text-white/60">
+              <span>by {updateInfo.latestCommit.author}</span>
+              <span>{updateInfo.latestCommit.time}</span>
+              <span className="font-mono">{updateInfo.latestCommit.hash}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Changed Files */}
+      {updateInfo?.changedFiles && updateInfo.changedFiles.length > 0 && updateInfo.updatesAvailable && (
+        <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+          <AdminTextSmall className="text-white/60 mb-2">
+            Files to be updated ({updateInfo.changedFiles.length})
+          </AdminTextSmall>
+          <div className="max-h-40 overflow-y-auto">
+            <ul className="space-y-1">
+              {updateInfo.changedFiles.slice(0, 10).map((file, index) => (
+                <li key={index} className="text-sm text-white/80 font-mono truncate">
+                  • {file}
+                </li>
+              ))}
+              {updateInfo.changedFiles.length > 10 && (
+                <li className="text-sm text-white/50 italic">
+                  ... and {updateInfo.changedFiles.length - 10} more
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Changelog */}
+      {updateInfo?.changelog && updateInfo.changelog.length > 0 && updateInfo.updatesAvailable && (
         <div className="p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
           <AdminText className="font-semibold text-white mb-2">Recent Changes:</AdminText>
           <ul className="space-y-1">
-            {commits.map((commit, index) => (
+            {updateInfo.changelog.map((commit, index) => (
               <li key={index} className="text-sm text-white/80 font-mono">
                 • {commit}
               </li>
@@ -172,12 +240,12 @@ export default function UpdateChecker() {
           {checking ? '⏳ Checking...' : '🔍 Check for Updates'}
         </button>
 
-        {hasUpdates && !isUpdating && (
+        {updateInfo?.updatesAvailable && !isUpdating && (
           <button
             onClick={triggerUpdate}
             className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold animate-pulse"
           >
-            📥 Install Update
+            📥 Install {updateInfo.commitsAhead} Update{updateInfo.commitsAhead > 1 ? 's' : ''}
           </button>
         )}
 
@@ -188,6 +256,12 @@ export default function UpdateChecker() {
           </div>
         )}
       </div>
+
+      {updateInfo?.checked && (
+        <AdminTextSmall className="text-white/50">
+          Last checked: {new Date(updateInfo.checked).toLocaleString()}
+        </AdminTextSmall>
+      )}
 
       {/* Manual fallback */}
       <div className="p-4 bg-white/5 rounded-lg border border-white/10">

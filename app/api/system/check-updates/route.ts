@@ -31,25 +31,58 @@ export async function GET() {
     // Check if update available
     const updateAvailable = currentVersion !== latestVersion;
     
+    // Count commits ahead
+    let commitsAhead = 0;
+    if (updateAvailable) {
+      const { stdout: countStr } = await execAsync(
+        `git rev-list HEAD..origin/${currentBranch} --count`
+      );
+      commitsAhead = parseInt(countStr.trim(), 10);
+    }
+    
     // Get changelog if update available
     let changelog: string[] = [];
+    let latestCommit = null;
+    let changedFiles: string[] = [];
+    
     if (updateAvailable) {
+      // Get commit messages
       const { stdout: logOutput } = await execAsync(
         `git log HEAD..origin/${currentBranch} --oneline --max-count=10`
       );
       changelog = logOutput.trim().split('\n').filter(Boolean);
+      
+      // Get latest commit details
+      const { stdout: commitInfo } = await execAsync(
+        `git log origin/${currentBranch} -1 --pretty=format:"%h|%an|%ar|%s"`
+      );
+      const [hash, author, time, message] = commitInfo.split('|');
+      latestCommit = { hash, author, time, message };
+      
+      // Get changed files
+      const { stdout: filesOutput } = await execAsync(
+        `git diff --name-only HEAD origin/${currentBranch}`
+      );
+      changedFiles = filesOutput.trim().split('\n').filter(f => f.length > 0);
     }
     
     console.log('[Update Check] Update available:', updateAvailable);
     console.log('[Update Check] Current:', currentVersion, 'Latest:', latestVersion);
+    console.log('[Update Check] Commits ahead:', commitsAhead);
     
     return NextResponse.json({
-      updateAvailable,
+      updatesAvailable: updateAvailable,
+      updateAvailable, // Keep for backwards compatibility
+      commitsAhead,
       currentVersion,
       latestVersion,
+      remoteVersion: latestVersion, // Alias for consistency
       currentBranch,
       changelog,
-      lastChecked: new Date().toISOString(),
+      latestCommit,
+      changedFiles,
+      checked: new Date().toISOString(),
+      lastChecked: new Date().toISOString(), // Keep for backwards compatibility
     });
     
   } catch (error: any) {
