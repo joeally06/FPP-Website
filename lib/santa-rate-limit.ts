@@ -11,6 +11,13 @@ export interface RateLimitResult {
   reason?: 'email_limit' | 'ip_limit';
 }
 
+/**
+ * Check Santa letter rate limits for both email and IP address
+ * This prevents abuse by tracking both identifiers independently
+ * @param email - Parent's email address from session
+ * @param ipAddress - Client IP address from request headers
+ * @returns Rate limit result with counts and permission status
+ */
 export function checkSantaRateLimit(email: string, ipAddress: string): RateLimitResult {
   const db = new Database(dbPath);
 
@@ -21,10 +28,10 @@ export function checkSantaRateLimit(email: string, ipAddress: string): RateLimit
     
     const limit = setting ? parseInt(setting.value, 10) : 1;
 
-    // Get today's date
+    // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
 
-    // Count letters by email today
+    // Count letters by email today (prevents multiple account abuse)
     const emailResult = db.prepare(`
       SELECT COUNT(*) as count 
       FROM santa_letters 
@@ -32,7 +39,7 @@ export function checkSantaRateLimit(email: string, ipAddress: string): RateLimit
       AND DATE(created_at) = DATE(?)
     `).get(email, today) as { count: number };
 
-    // Count letters by IP today
+    // Count letters by IP today (prevents VPN hopping abuse)
     const ipResult = db.prepare(`
       SELECT COUNT(*) as count 
       FROM santa_letters 
@@ -43,7 +50,7 @@ export function checkSantaRateLimit(email: string, ipAddress: string): RateLimit
     const emailCount = emailResult.count;
     const ipCount = ipResult.count;
 
-    // Check if either limit is exceeded
+    // Check if either limit is exceeded (whichever hits first blocks)
     if (emailCount >= limit) {
       return {
         allowed: false,
@@ -76,6 +83,12 @@ export function checkSantaRateLimit(email: string, ipAddress: string): RateLimit
   }
 }
 
+/**
+ * Extract client IP address from request headers
+ * Cloudflare-aware with fallback priority chain
+ * @param request - Next.js Request object
+ * @returns Client IP address string
+ */
 export function getClientIP(request: Request): string {
   // Check various headers for real IP (useful behind proxies/Cloudflare)
   const forwarded = request.headers.get('x-forwarded-for');
