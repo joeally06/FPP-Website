@@ -41,8 +41,30 @@ export async function GET() {
     const isComplete = status === 'SUCCESS' || status === 'COMPLETE';
     const hasFailed = status.startsWith('FAILED');
 
+    // Add human-readable status message
+    const getStatusMessage = (status: string): string => {
+      const messages: { [key: string]: string } = {
+        'IDLE': 'No upgrade in progress',
+        'STOPPING': 'Stopping application...',
+        'BACKING_UP': 'Creating backup...',
+        'STASHING': 'Saving local changes...',
+        'CHECKING': 'Checking for updates...',
+        'UPDATING': 'Downloading updates...',
+        'INSTALLING': 'Installing dependencies...',
+        'BUILDING': 'Building application...',
+        'MIGRATING': 'Running database migrations...',
+        'RESTORING': 'Restoring local changes...',
+        'RESTARTING': 'Restarting application...',
+        'SUCCESS': 'Upgrade completed successfully! 🎉',
+        'COMPLETE': 'Upgrade completed successfully! 🎉',
+        'UP_TO_DATE': 'Already up to date'
+      };
+      return messages[status] || status;
+    };
+
     return NextResponse.json({
       status,
+      statusMessage: getStatusMessage(status),
       isRunning,
       isComplete,
       hasFailed,
