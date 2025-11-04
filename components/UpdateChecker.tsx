@@ -24,13 +24,61 @@ export default function UpdateChecker() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [message, setMessage] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [serverCheckCount, setServerCheckCount] = useState(0);
+
+  useEffect(() => {
+    checkForUpdates();
+    const interval = setInterval(checkForUpdates, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll for server to come back online after update
+  useEffect(() => {
+    if (!isUpdating || serverCheckCount === 0) return;
+
+    const checkServer = async () => {
+      try {
+        const response = await fetch('/api/health', {
+          method: 'GET',
+          cache: 'no-store'
+        });
+
+        if (response.ok) {
+          console.log('[Update] Server is back online!');
+          setMessage('✅ Update complete! Reloading page in 3 seconds...');
+
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        }
+      } catch (error) {
+        // Server still down, keep waiting
+        console.log(`[Update] Server check ${serverCheckCount}/60 - still updating...`);
+        
+        if (serverCheckCount < 60) {
+          setServerCheckCount(serverCheckCount + 1);
+          setMessage(`🔄 Waiting for server restart... (${serverCheckCount}/60)`);
+        } else {
+          // Timeout after 2 minutes
+          setMessage('⚠️ Update timeout - please refresh manually or check server logs.');
+          setIsUpdating(false);
+          setServerCheckCount(0);
+        }
+      }
+    };
+
+    const timer = setTimeout(checkServer, 2000); // Check every 2 seconds
+    return () => clearTimeout(timer);
+  }, [isUpdating, serverCheckCount]);
 
   const checkForUpdates = async () => {
     setChecking(true);
     setMessage('');
 
     try {
-      const response = await fetch('/api/system/check-updates');
+      const response = await fetch('/api/system/check-updates', {
+        cache: 'no-store'
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -54,85 +102,60 @@ export default function UpdateChecker() {
 
   const triggerUpdate = async () => {
     if (!confirm(
-      '⚠️ This will:\n\n' +
-      '1. Stop the server (brief downtime)\n' +
-      '2. Safely close database\n' +
-      '3. Backup database\n' +
-      '4. Pull latest code\n' +
-      '5. Update dependencies\n' +
-      '6. Run database migrations\n' +
-      '7. Rebuild the application\n' +
-      '8. Restart the server\n\n' +
-      'Expected downtime: 2-5 minutes\n' +
-      'The page will reload automatically when complete.\n\n' +
-      'Continue?'
+      '⚠️  IMPORTANT: Database-Safe Update Process\n\n' +
+      'This update will:\n' +
+      '1. Stop PM2 (safely closes database - NO CORRUPTION RISK)\n' +
+      '2. Backup your database and configuration\n' +
+      '3. Pull latest code from GitHub\n' +
+      '4. Update dependencies\n' +
+      '5. Rebuild the application\n' +
+      '6. Restart PM2\n\n' +
+      'Expected downtime: 2-3 minutes\n' +
+      'This page will automatically reload when complete.\n\n' +
+      '✅ Your database will be safely closed and backed up\n' +
+      '✅ Automatic rollback if anything fails\n\n' +
+      'Continue with update?'
     )) {
       return;
     }
 
     setIsUpdating(true);
-    setMessage('⏳ Starting update process...');
+    setMessage('⏳ Starting database-safe update sequence...');
 
     try {
       const response = await fetch('/api/system/update', {
         method: 'POST',
+        cache: 'no-store'
       });
 
       const data = await response.json();
 
       if (data.success) {
-        if (data.updated === false) {
+        if (!data.updated) {
           // Already up to date
           setMessage('✅ System is already up to date');
           setIsUpdating(false);
-          checkForUpdates(); // Refresh status
+          checkForUpdates();
         } else {
-          // Update in progress
-          setMessage('🔄 Update in progress... Server will restart shortly...');
-          
-          // Start polling to detect when server is back
-          setTimeout(() => {
-            setMessage('🔄 Server restarting... Checking for completion...');
-            
-            const pollInterval = setInterval(async () => {
-              try {
-                const pingResponse = await fetch('/api/health');
-                if (pingResponse.ok) {
-                  clearInterval(pollInterval);
-                  setMessage('✅ Update complete! Reloading page...');
-                  setTimeout(() => window.location.reload(), 2000);
-                }
-              } catch {
-                // Server still down, keep polling
-                console.log('Server still updating...');
-              }
-            }, 5000); // Check every 5 seconds
-
-            // Timeout after 10 minutes
-            setTimeout(() => {
-              clearInterval(pollInterval);
-              setMessage('⚠️ Update taking longer than expected. Please refresh manually or check server logs.');
-              setIsUpdating(false);
-            }, 10 * 60 * 1000);
-            
-          }, 10000); // Start checking after 10 seconds
+          // Update started - begin polling for server restart
+          setMessage('🔄 Update in progress. PM2 will stop (database closes safely)...');
+          setServerCheckCount(1); // Start polling
         }
       } else {
-        setMessage(`❌ Failed to update: ${data.error || data.details}`);
+        // Update failed
+        setMessage(`❌ ${data.error || data.details || 'Update failed - check server logs'}`);
         setIsUpdating(false);
       }
-    } catch (error) {
-      console.error('Update trigger error:', error);
-      setMessage('❌ Failed to trigger update. Check server logs.');
-      setIsUpdating(false);
+    } catch (error: any) {
+      console.error('Update request failed:', error);
+      
+      // If we get a network error, the server is probably restarting
+      // This is EXPECTED when PM2 stops - start polling for it to come back
+      console.log('[Update] Server connection lost (expected - PM2 stopping)');
+      setMessage('🔄 Server is restarting (database closed safely). Waiting for it to come back online...');
+      setServerCheckCount(1); // Start polling
     }
   };
-
-  useEffect(() => {
-    checkForUpdates();
-    const interval = setInterval(checkForUpdates, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div className="space-y-4">
