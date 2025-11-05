@@ -49,22 +49,22 @@ rm scripts/trigger-upgrade.sh scripts/upgrade-system.sh
 - ✅ `scripts/backup.js` - Database backup utility
 - ✅ `scripts/bump-version.js` - Version management (just added)
 - ✅ `scripts/check-dependencies.js` - Dependency checker
-- ✅ `scripts/configure-oauth.sh/.ps1` - OAuth setup wizard
+- ✅ `scripts/configure-oauth.sh` - OAuth setup wizard
 - ✅ `scripts/db-stats.js` - Database statistics
 - ✅ `scripts/init-database.js` - Database initialization
 - ✅ `scripts/install-git-hooks.sh` - Git hooks installer
 - ✅ `scripts/install-update-watcher.sh` - Update watcher service
 - ✅ `scripts/migrate-database.js` - Database migrations
 - ✅ `scripts/run-update.sh` - Update wrapper (detached process)
-- ✅ `scripts/setup-cloudflare-tunnel.sh/.ps1` - Cloudflare setup
+- ✅ `scripts/setup-cloudflare-tunnel.sh` - Cloudflare setup
 - ✅ `scripts/setup-wizard.js` - Interactive setup
 - ✅ `scripts/update-watcher.sh` - Update monitoring service
 
 ### Root Scripts (All Good)
 - ✅ `update.sh` - Main update script (works from SSH)
-- ✅ `setup.sh/.ps1` - Installation wizards
+- ✅ `setup.sh` - Installation wizard
 - ✅ `deploy-production.sh` - Production deployment
-- ✅ `rollback.sh/.ps1` - Rollback utilities
+- ✅ `rollback.sh` - Rollback utility
 
 ---
 
@@ -136,10 +136,6 @@ Thumbs.db
 # Force LF line endings for shell scripts
 *.sh text eol=lf
 *.bash text eol=lf
-
-# Force CRLF for Windows scripts
-*.ps1 text eol=crlf
-*.bat text eol=crlf
 
 # Binary files
 *.db binary

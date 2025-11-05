@@ -66,19 +66,11 @@ FPP Control Center is a **complete web-based control panel** for your Falcon Pla
 
 The fastest way to get started:
 
-**Linux/Mac:**
 ```bash
 git clone https://github.com/joeally06/FPP-Website.git
 cd FPP-Website
 chmod +x setup.sh
 ./setup.sh
-```
-
-**Windows:**
-```powershell
-git clone https://github.com/joeally06/FPP-Website.git
-cd FPP-Website
-powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
 The interactive wizard walks you through everything in **10-15 minutes**.
@@ -92,11 +84,12 @@ See the complete [INSTALLATION.md](INSTALLATION.md) guide for step-by-step instr
 ## 📋 System Requirements
 
 ### **Required:**
+- **Linux or macOS** - Raspberry Pi, Ubuntu, Debian, or Mac
 - **Node.js 20+** - Download from [nodejs.org](https://nodejs.org/)
 - **npm 10+** - Included with Node.js
 - **Git** - Version control system
 
-> **✨ New!** The setup wizard can automatically install Node.js and Git if missing (Linux/Mac only)
+> **✨ New!** The setup wizard can automatically install Node.js and Git if missing
 
 ### **Optional:**
 - **PM2** - Process manager for production (Linux/Mac)

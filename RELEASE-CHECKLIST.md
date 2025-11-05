@@ -107,7 +107,7 @@ This checklist ensures all steps are completed before tagging and releasing a ne
 ## Deployment Testing
 
 ### 12. Local Testing
-- [ ] Fresh install works: `./setup.sh` or `setup.ps1`
+- [ ] Fresh install works: `./setup.sh`
 - [ ] Update process works: Web UI update
 - [ ] PM2 process management stable
 - [ ] Logs accessible and informative
@@ -126,7 +126,7 @@ This checklist ensures all steps are completed before tagging and releasing a ne
 - [ ] Linux (Ubuntu/Debian) tested
 - [ ] Linux (RHEL/CentOS) tested
 - [ ] macOS tested (if applicable)
-- [ ] Windows tested (if applicable)
+- [ ] macOS tested (if applicable)
 
 ---
 
@@ -250,7 +250,7 @@ See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
 ## 🚀 Installation
 
-Quick start: `./setup.sh` (Linux/Mac) or `setup.ps1` (Windows)
+Quick start: `./setup.sh`
 
 Full guide: [INSTALLATION.md](INSTALLATION.md)
 

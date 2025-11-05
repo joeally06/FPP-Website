@@ -1,6 +1,8 @@
 #  FPP Control Center - Complete Installation Guide
 
-This guide walks you through **every step** of installing and configuring FPP Control Center, from a fresh system to a fully working deployment.
+This guide walks you through **every step** of installing and configuring FPP Control Center on **Linux or macOS** systems.
+
+> **Note:** FPP Control Center requires Linux or macOS. It is designed for Raspberry Pi, Ubuntu, Debian, or Mac environments where FPP runs.
 
 **Estimated Time:**
 - **Local Network Setup:** 15-20 minutes
@@ -27,6 +29,8 @@ This guide walks you through **every step** of installing and configuring FPP Co
 
 Before installing FPP Control Center, ensure you have the required software installed.
 
+> **Supported Platforms:** Linux (Raspberry Pi, Ubuntu, Debian, CentOS, Fedora) and macOS
+
 ### Required Software
 
 #### 1 **Node.js 20+ and npm**
@@ -40,23 +44,6 @@ npm --version    # Should show 10.0.0 or higher
 ```
 
 **Installation by Platform:**
-
-<details>
-<summary><strong>Windows</strong></summary>
-
-1. Download from [nodejs.org](https://nodejs.org/) (LTS version)
-2. Run the installer
-3.  Check "Automatically install necessary tools"
-4.  Check "Add to PATH"
-5. Complete installation
-6. **Restart terminal/PowerShell**
-
-**Verify:**
-```powershell
-node --version
-npm --version
-```
-</details>
 
 <details>
 <summary><strong>macOS</strong></summary>
@@ -141,25 +128,6 @@ git --version
 **Installation by Platform:**
 
 <details>
-<summary><strong>Windows</strong></summary>
-
-1. Download from [git-scm.com](https://git-scm.com/download/win)
-2. Run installer
-3. **Recommended settings:**
-   -  Use Git from command line
-   -  Use bundled OpenSSH
-   -  Checkout Windows-style, commit Unix-style
-   -  Use MinTTY terminal
-4. Complete installation
-5. **Restart terminal/PowerShell**
-
-**Verify:**
-```powershell
-git --version
-```
-</details>
-
-<details>
 <summary><strong>macOS</strong></summary>
 
 **Option 1: Homebrew**
@@ -207,11 +175,11 @@ git --version
 
 ### Optional Software
 
-#### 3 **PM2 (Production - Linux/Mac Only)**
+#### 3 **PM2 (Production Only)**
 
 PM2 keeps your application running 24/7, auto-restarts on crashes, and starts on system boot.
 
-**When needed:** Production Linux/Mac servers only. Not needed for Windows or development.
+**When needed:** Production servers only. Not needed for development.
 
 **Installation:**
 ```bash
@@ -230,7 +198,7 @@ Ollama provides local AI for generating personalized Santa letter responses.
 **Installation:**
 
 <details>
-<summary><strong>Windows/macOS</strong></summary>
+<summary><strong>macOS</strong></summary>
 
 1. Download from [ollama.ai](https://ollama.ai/)
 2. Install and run Ollama
@@ -328,15 +296,9 @@ cd FPP-Website
 
 #### **Step 2: Run Setup Wizard**
 
-**Linux/Mac:**
 ```bash
 chmod +x setup.sh
 ./setup.sh
-```
-
-**Windows (PowerShell):**
-```powershell
-powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
 ---
@@ -595,11 +557,7 @@ SMTP_PASS=your-app-password
 
 **Generate NEXTAUTH_SECRET:**
 ```bash
-# Linux/Mac:
 openssl rand -base64 32
-
-# Windows (PowerShell):
-[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
 ```
 
 #### **Step 4: Initialize Database**
@@ -621,16 +579,11 @@ npm run build
 npm run dev
 ```
 
-**Production (Linux/Mac with PM2):**
+**Production (with PM2):**
 ```bash
 pm2 start npm --name "fpp-control" -- start
 pm2 save
 pm2 startup
-```
-
-**Production (Windows):**
-```powershell
-npm start
 ```
 
 </details>
@@ -1081,15 +1034,9 @@ Cloudflare Tunnel allows public internet access **without port forwarding**.
 
 Run the automated script:
 
-**Linux/Mac:**
-``bash
+```bash
 ./scripts/setup-cloudflare-tunnel.sh
-``
-
-**Windows:**
-``powershell
-.\scripts\setup-cloudflare-tunnel.ps1
-``
+```
 
 The script will:
 1. Install `cloudflared`
@@ -1284,17 +1231,10 @@ node --version
 <details>
 <summary><strong>Port 3000 already in use</strong></summary>
 
-**Linux/Mac:**
-``bash
+```bash
 lsof -i :3000
 kill -9 <PID>
-``
-
-**Windows:**
-``powershell
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
-``
+```
 </details>
 
 <details>

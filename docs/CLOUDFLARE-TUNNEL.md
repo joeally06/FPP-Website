@@ -34,12 +34,6 @@ Cloudflare Tunnel provides secure, public HTTPS access to your FPP Control Cente
 ./scripts/setup-cloudflare-tunnel.sh
 ```
 
-### Windows
-
-```powershell
-.\scripts\setup-cloudflare-tunnel.ps1
-```
-
 The wizard will guide you through:
 1. Installing `cloudflared`
 2. Authenticating with Cloudflare
@@ -128,8 +122,10 @@ wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudfla
 sudo rpm -i cloudflared-linux-x86_64.rpm
 ```
 
-**Windows:**
-Download from [GitHub Releases](https://github.com/cloudflare/cloudflared/releases)
+**macOS:**
+```bash
+brew install cloudflare/cloudflare/cloudflared
+```
 
 ### 2. Authenticate
 
