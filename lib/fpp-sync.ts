@@ -3,7 +3,7 @@ import path from 'path';
 
 const dbPath = path.join(process.cwd(), 'votes.db');
 
-interface SyncResult {
+export interface SyncResult {
   success: boolean;
   playlistsCount: number;
   sequencesCount: number;
@@ -11,7 +11,7 @@ interface SyncResult {
   timestamp: string;
 }
 
-interface SyncStatus {
+export interface SyncStatus {
   lastSync: string | null;
   lastSuccess: string | null;
   lastError: string | null;
@@ -20,106 +20,53 @@ interface SyncStatus {
 }
 
 /**
- * Fetch data from FPP with multiple endpoint fallback
- */
-async function fetchFromFPP(endpoints: string[]): Promise<any> {
-  const fppIp = process.env.FPP_IP || 'localhost';
-  const timeout = 5000;
-
-  for (const endpoint of endpoints) {
-    try {
-      const url = `http://${fppIp}${endpoint}`;
-      console.log(`[FPP Sync] Trying ${url}...`);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' }
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`[FPP Sync] Success from ${endpoint}`);
-        return data;
-      }
-    } catch (error) {
-      console.log(`[FPP Sync] Failed ${endpoint}:`, error);
-      continue;
-    }
-  }
-
-  throw new Error('All FPP endpoints failed');
-}
-
-/**
- * Fetch playlists from FPP
- */
-async function fetchPlaylists(): Promise<any[]> {
-  const endpoints = [
-    '/api/playlists',
-    '/api/playlist',
-    '/playlists.php'
-  ];
-
-  const data = await fetchFromFPP(endpoints);
-  
-  // Handle different response formats
-  if (Array.isArray(data)) {
-    return data;
-  } else if (data.playlists && Array.isArray(data.playlists)) {
-    return data.playlists;
-  } else {
-    return [];
-  }
-}
-
-/**
- * Fetch sequences from FPP
- */
-async function fetchSequences(): Promise<any[]> {
-  const endpoints = [
-    '/api/sequences',
-    '/api/sequence',
-    '/sequences.php'
-  ];
-
-  const data = await fetchFromFPP(endpoints);
-  
-  // Handle different response formats
-  if (Array.isArray(data)) {
-    return data;
-  } else if (data.sequences && Array.isArray(data.sequences)) {
-    return data.sequences;
-  } else {
-    return [];
-  }
-}
-
-/**
- * Main sync function - fetches from FPP and updates database
+ * Main sync function - fetches from FPP using existing working API routes (same as Jukebox)
+ * and updates database cache
  */
 export async function syncFppData(): Promise<SyncResult> {
   const timestamp = new Date().toISOString();
   let db: Database.Database | null = null;
 
   try {
-    console.log('[FPP Sync] Starting sync...');
-    console.log('[FPP Sync] FPP_IP:', process.env.FPP_IP || 'localhost');
+    console.log('[FPP Sync] Starting sync using internal API routes (same as Jukebox)...');
     
-    // Fetch data from FPP
-    const [playlists, sequences] = await Promise.all([
-      fetchPlaylists(),
-      fetchSequences()
-    ]);
+    // Use the same endpoints as Jukebox (they're already working!)
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    
+    // Fetch playlists using the working proxy
+    console.log('[FPP Sync] Fetching playlists from /api/fppd/playlists...');
+    const playlistsRes = await fetch(`${baseUrl}/api/fppd/playlists`, {
+      headers: { 'Accept': 'application/json' }
+    });
 
-    console.log(`[FPP Sync] Fetched ${playlists.length} playlists, ${sequences.length} sequences`);
+    if (!playlistsRes.ok) {
+      throw new Error(`Playlists API returned ${playlistsRes.status}`);
+    }
+
+    const playlistsData = await playlistsRes.json();
+    const playlists = Array.isArray(playlistsData) ? playlistsData : [];
+    console.log('[FPP Sync] Found', playlists.length, 'playlists');
+
+    // Fetch sequences using the working proxy
+    console.log('[FPP Sync] Fetching sequences from /api/fppd/sequence...');
+    const sequencesRes = await fetch(`${baseUrl}/api/fppd/sequence`, {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!sequencesRes.ok) {
+      throw new Error(`Sequences API returned ${sequencesRes.status}`);
+    }
+
+    const sequencesData = await sequencesRes.json();
+    const sequences = Array.isArray(sequencesData) ? sequencesData : [];
+    console.log('[FPP Sync] Found', sequences.length, 'sequences');
 
     // Open database
-    const dbPath = path.join(process.cwd(), 'votes.db');
+    console.log('[FPP Sync] Opening database:', dbPath);
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+
+    // Open database
     console.log('[FPP Sync] Opening database:', dbPath);
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
@@ -137,13 +84,18 @@ export async function syncFppData(): Promise<SyncResult> {
       `);
 
       for (const playlist of playlists) {
-        const name = playlist.name || playlist.playlistName || 'Unknown';
-        const description = playlist.description || '';
-        const itemCount = playlist.playlistInfo?.total_items || 
-                         playlist.item_count || 
-                         (Array.isArray(playlist.items) ? playlist.items.length : 0);
-        const duration = playlist.playlistInfo?.total_duration || 
-                        playlist.duration || 0;
+        const name = typeof playlist === 'string' 
+          ? playlist 
+          : (playlist.name || playlist.playlistName || 'Unknown');
+        const description = typeof playlist === 'object' 
+          ? (playlist.description || playlist.desc || '') 
+          : '';
+        const itemCount = typeof playlist === 'object'
+          ? (playlist.count || playlist.total_items || playlist.item_count || (Array.isArray(playlist.items) ? playlist.items.length : 0))
+          : 0;
+        const duration = typeof playlist === 'object'
+          ? (playlist.duration || playlist.total_duration || 0)
+          : 0;
         const rawData = JSON.stringify(playlist);
 
         insertPlaylist.run(name, description, itemCount, duration, rawData, timestamp);
@@ -156,10 +108,18 @@ export async function syncFppData(): Promise<SyncResult> {
       `);
 
       for (const sequence of sequences) {
-        const name = sequence.name || sequence.sequenceName || 'Unknown';
-        const filename = sequence.filename || sequence.file || '';
-        const lengthMs = sequence.length || sequence.lengthMS || 0;
-        const channelCount = sequence.channelCount || sequence.channels || 0;
+        const name = typeof sequence === 'string' 
+          ? sequence.replace('.fseq', '') 
+          : (sequence.name || sequence.sequenceName || sequence.fileName || 'Unknown');
+        const filename = typeof sequence === 'string' 
+          ? sequence 
+          : (sequence.fileName || sequence.filename || sequence.name || '');
+        const lengthMs = typeof sequence === 'object'
+          ? (sequence.length || sequence.lengthMS || sequence.duration || 0)
+          : 0;
+        const channelCount = typeof sequence === 'object'
+          ? (sequence.channelCount || sequence.channels || 0)
+          : 0;
         const rawData = JSON.stringify(sequence);
 
         insertSequence.run(name, filename, lengthMs, channelCount, rawData, timestamp);
@@ -179,7 +139,8 @@ export async function syncFppData(): Promise<SyncResult> {
 
     transaction();
 
-    console.log('[FPP Sync] Sync completed successfully');
+    console.log('[FPP Sync] ✅ Sync completed successfully');
+    console.log('[FPP Sync] Cached', playlists.length, 'playlists and', sequences.length, 'sequences');
 
     return {
       success: true,
@@ -191,7 +152,7 @@ export async function syncFppData(): Promise<SyncResult> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : '';
-    console.error('[FPP Sync] Sync failed:', errorMessage);
+    console.error('[FPP Sync] ❌ Sync failed:', errorMessage);
     console.error('[FPP Sync] Stack trace:', errorStack);
 
     // Update sync status with error
