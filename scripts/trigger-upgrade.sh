@@ -82,10 +82,12 @@ git pull origin master >> "$LOG_FILE" 2>&1 || {
 
 log "✅ Code updated"
 
-# Step 5: Install dependencies
+# Step 5: Install dependencies (force clean install)
 set_status "INSTALLING"
 log "Installing dependencies..."
 
+# Clean install to ensure TypeScript and all deps are fresh
+rm -rf node_modules package-lock.json
 npm install >> "$LOG_FILE" 2>&1 || {
     set_status "FAILED"
     log "ERROR: npm install failed"
