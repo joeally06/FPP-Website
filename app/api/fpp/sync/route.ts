@@ -5,7 +5,7 @@ import { syncFppData, getSyncStatus } from '@/lib/fpp-sync';
 
 /**
  * POST /api/fpp/sync - Trigger manual sync
- * Requires admin authentication
+ * 🔒 ADMIN ONLY - Requires admin authentication
  */
 export async function POST(request: NextRequest) {
   try {
@@ -34,12 +34,14 @@ export async function POST(request: NextRequest) {
     const result = await syncFppData();
 
     if (result.success) {
+      console.log('[API] ✅ Sync successful:', result.playlistsCount, 'playlists,', result.sequencesCount, 'sequences');
       return NextResponse.json({
         success: true,
         message: `Synced ${result.playlistsCount} playlists and ${result.sequencesCount} sequences`,
         data: result
       });
     } else {
+      console.error('[API] ❌ Sync failed:', result.error);
       return NextResponse.json({
         success: false,
         message: 'Sync failed',
@@ -62,10 +64,20 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/fpp/sync - Get current sync status
- * Public endpoint (used to display sync status on UI)
+ * 🔒 AUTHENTICATED USERS - Any logged-in user can view status
  */
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication (any user)
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: 'Unauthorized - login required' },
+        { status: 401 }
+      );
+    }
+
     const status = getSyncStatus();
     
     return NextResponse.json({

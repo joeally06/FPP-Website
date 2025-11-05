@@ -1,13 +1,30 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import Database from 'better-sqlite3';
 import path from 'path';
 
 const dbPath = path.join(process.cwd(), 'votes.db');
 
+/**
+ * GET /api/fpp/sequences
+ * Returns cached sequences from database
+ * 🔒 AUTHENTICATED USERS ONLY
+ */
 export async function GET() {
   let db: Database.Database | null = null;
   
   try {
+    // Check authentication (any logged-in user)
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: 'Unauthorized - login required to view sequences' },
+        { status: 401 }
+      );
+    }
+
     // Try to read sequences from database cache first
     db = new Database(dbPath);
     
@@ -42,23 +59,14 @@ export async function GET() {
       return NextResponse.json(parsedSequences);
     }
 
-    // If cache is empty, fetch live from FPP
-    console.log('[FPP Sequences] Cache empty, fetching live from FPP...');
+    // If cache is empty, suggest syncing
+    console.log('[FPP Sequences] Cache empty - suggesting sync');
     
-    const fppUrl = process.env.FPP_URL || 'http://192.168.5.2';
-    const response = await fetch(`${fppUrl}/api/sequence`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(5000)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`FPP API returned ${response.status}`);
-    }
-
-    const liveData = await response.json();
-    console.log('[FPP Sequences] Returning', liveData.length, 'sequences live from FPP');
-    
-    return NextResponse.json(liveData);
+    return NextResponse.json({
+      error: 'No cached sequences available',
+      hint: 'Click "Sync Now" to load sequences from FPP device',
+      sequences: []
+    }, { status: 404 });
 
   } catch (error: any) {
     console.error('[FPP Sequences] Error:', error);
@@ -66,7 +74,7 @@ export async function GET() {
     return NextResponse.json({
       error: 'Failed to load sequences',
       details: error.message,
-      hint: 'Try clicking "Sync Now" to cache data from FPP'
+      sequences: []
     }, { status: 500 });
   } finally {
     if (db) {
