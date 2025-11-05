@@ -46,9 +46,17 @@ votes.db
 *.db-shm
 *.db-wal
 *.db-journal
+votes.db.corrupt-*
+votes.db.dump
+*.db.backup
 
 # backups
 backups/
+!backups/.gitkeep
+
+# test files
+test.js
+test-sync.ts
 
 # update logs and signals
 logs/

@@ -1,1 +1,0 @@
-fetch('http://localhost:3001/api/jukebox/refresh-cache', { method: 'POST' }).then(r => r.json()).then(d => console.log('Success:', d.success, 'Cached:', d.sequencesCached, 'Sequences:', d.sequences)).catch(e => console.error('Error:', e.message))
