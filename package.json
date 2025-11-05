@@ -1,6 +1,7 @@
 {
-  "name": "fpp-control",
-  "version": "0.1.0",
+  "name": "fpp-control-center",
+  "version": "1.0.0-rc.1",
+  "description": "Control center for Falcon Player (FPP) light shows",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,7 +18,14 @@
     "cloudflare:setup": "bash scripts/setup-cloudflare-tunnel.sh",
     "cloudflare:setup:win": "powershell -ExecutionPolicy Bypass -File scripts/setup-cloudflare-tunnel.ps1",
     "deploy:prod": "bash deploy-production.sh",
-    "update": "bash update.sh || powershell -ExecutionPolicy Bypass -File update.ps1"
+    "update": "bash update.sh || powershell -ExecutionPolicy Bypass -File update.ps1",
+    "version:bump": "node scripts/bump-version.js",
+    "version:major": "node scripts/bump-version.js major",
+    "version:minor": "node scripts/bump-version.js minor",
+    "version:patch": "node scripts/bump-version.js patch",
+    "version:prerelease": "node scripts/bump-version.js prerelease",
+    "version:release": "node scripts/bump-version.js release",
+    "version:current": "node -e \"console.log(require('./lib/version').getVersion())\""
   },
   "dependencies": {
     "@types/luxon": "^3.7.1",
