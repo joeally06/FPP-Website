@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -6,8 +7,16 @@ import fs from 'fs/promises';
 
 const execAsync = promisify(exec);
 
+/**
+ * POST /api/update
+ * Legacy update endpoint - triggers system updates
+ * 🔒 ADMIN ONLY - Can trigger system-wide updates
+ */
 export async function POST(request: NextRequest) {
   try {
+    // Require admin authentication
+    await requireAdmin();
+    
     const { action } = await request.json();
 
     if (action === 'check') {

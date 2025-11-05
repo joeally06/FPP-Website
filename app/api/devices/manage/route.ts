@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { 
   getAllDevices, 
   insertDevice, 
@@ -7,23 +8,37 @@ import {
   getDeviceById 
 } from '@/lib/database';
 
-// GET - Get all devices
+/**
+ * GET /api/devices/manage
+ * Get all managed devices
+ * 🔒 ADMIN ONLY - Contains sensitive device configuration
+ */
 export async function GET() {
   try {
+    // Require admin authentication
+    await requireAdmin();
+    
     const devices = getAllDevices.all();
     return NextResponse.json({ success: true, devices });
   } catch (error) {
     console.error('[Device API] Failed to get devices:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to get devices' }, 
-      { status: 500 }
+      { success: false, error: error instanceof Error && error.message.includes('Unauthorized') ? error.message : 'Failed to get devices' }, 
+      { status: error instanceof Error && error.message.includes('Unauthorized') ? 401 : 500 }
     );
   }
 }
 
-// POST - Create new device
+/**
+ * POST /api/devices/manage
+ * Create new managed device
+ * 🔒 ADMIN ONLY - Can add devices to network
+ */
 export async function POST(request: NextRequest) {
   try {
+    // Require admin authentication
+    await requireAdmin();
+    
     const body = await request.json();
     const { id, name, type, ip, enabled, description } = body;
 
@@ -72,15 +87,22 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[Device API] Failed to create device:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create device' }, 
-      { status: 500 }
+      { success: false, error: error instanceof Error && error.message.includes('Unauthorized') ? error.message : 'Failed to create device' }, 
+      { status: error instanceof Error && error.message.includes('Unauthorized') ? 401 : 500 }
     );
   }
 }
 
-// PUT - Update existing device
+/**
+ * PUT /api/devices/manage
+ * Update existing managed device
+ * 🔒 ADMIN ONLY - Can modify device configuration
+ */
 export async function PUT(request: NextRequest) {
   try {
+    // Require admin authentication
+    await requireAdmin();
+    
     const body = await request.json();
     const { id, name, type, ip, enabled, description } = body;
 
@@ -127,15 +149,22 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('[Device API] Failed to update device:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to update device' }, 
-      { status: 500 }
+      { success: false, error: error instanceof Error && error.message.includes('Unauthorized') ? error.message : 'Failed to update device' }, 
+      { status: error instanceof Error && error.message.includes('Unauthorized') ? 401 : 500 }
     );
   }
 }
 
-// DELETE - Delete device
+/**
+ * DELETE /api/devices/manage
+ * Delete managed device
+ * 🔒 ADMIN ONLY - Can remove devices from network
+ */
 export async function DELETE(request: NextRequest) {
   try {
+    // Require admin authentication
+    await requireAdmin();
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -166,8 +195,8 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('[Device API] Failed to delete device:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete device' }, 
-      { status: 500 }
+      { success: false, error: error instanceof Error && error.message.includes('Unauthorized') ? error.message : 'Failed to delete device' }, 
+      { status: error instanceof Error && error.message.includes('Unauthorized') ? 401 : 500 }
     );
   }
 }

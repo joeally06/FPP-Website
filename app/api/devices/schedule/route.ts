@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { getMonitoringSchedule, updateMonitoringSchedule } from '@/lib/database';
 
+/**
+ * GET /api/devices/schedule
+ * Get device monitoring schedule
+ * 🔒 ADMIN ONLY - Contains device monitoring configuration
+ */
 export async function GET() {
   try {
+    // Require admin authentication
+    await requireAdmin();
+    
     const schedule = getMonitoringSchedule.get();
     
     return NextResponse.json({
@@ -12,14 +21,22 @@ export async function GET() {
   } catch (error) {
     console.error('[Schedule API] Error getting schedule:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to get monitoring schedule' },
-      { status: 500 }
+      { success: false, error: error instanceof Error && error.message.includes('Unauthorized') ? error.message : 'Failed to get monitoring schedule' },
+      { status: error instanceof Error && error.message.includes('Unauthorized') ? 401 : 500 }
     );
   }
 }
 
+/**
+ * PUT /api/devices/schedule
+ * Update device monitoring schedule
+ * 🔒 ADMIN ONLY - Can modify monitoring behavior
+ */
 export async function PUT(request: NextRequest) {
   try {
+    // Require admin authentication
+    await requireAdmin();
+    
     const body = await request.json();
     const { enabled, start_time, end_time, timezone } = body;
 
@@ -61,8 +78,8 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('[Schedule API] Error updating schedule:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to update monitoring schedule' },
-      { status: 500 }
+      { success: false, error: error instanceof Error && error.message.includes('Unauthorized') ? error.message : 'Failed to update monitoring schedule' },
+      { status: error instanceof Error && error.message.includes('Unauthorized') ? 401 : 500 }
     );
   }
 }
