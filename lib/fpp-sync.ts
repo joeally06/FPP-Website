@@ -71,11 +71,6 @@ export async function syncFppData(): Promise<SyncResult> {
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
 
-    // Open database
-    console.log('[FPP Sync] Opening database:', dbPath);
-    db = new Database(dbPath);
-    db.pragma('journal_mode = WAL');
-
     // Start transaction
     const transaction = db.transaction(() => {
       // Clear old data
@@ -89,21 +84,25 @@ export async function syncFppData(): Promise<SyncResult> {
       `);
 
       for (const playlist of playlists) {
-        const name = typeof playlist === 'string' 
-          ? playlist 
-          : (playlist.name || playlist.playlistName || 'Unknown');
-        const description = typeof playlist === 'object' 
-          ? (playlist.description || playlist.desc || '') 
-          : '';
-        const itemCount = typeof playlist === 'object'
-          ? (playlist.count || playlist.total_items || playlist.item_count || (Array.isArray(playlist.items) ? playlist.items.length : 0))
-          : 0;
-        const duration = typeof playlist === 'object'
-          ? (playlist.duration || playlist.total_duration || 0)
-          : 0;
-        const rawData = JSON.stringify(playlist);
-
-        insertPlaylist.run(name, description, itemCount, duration, rawData, timestamp);
+        // FPP returns just strings (playlist names)
+        const name = typeof playlist === 'string' ? playlist : (playlist.name || 'Unknown');
+        
+        // Skip empty names
+        if (!name || name.trim() === '') continue;
+        
+        // Create object that matches Media Library expectations
+        const playlistObj = {
+          name: name,
+          desc: '',
+          playlistInfo: {
+            total_items: 0,
+            total_duration: 0
+          },
+          mainPlaylist: []
+        };
+        
+        const rawData = JSON.stringify(playlistObj);
+        insertPlaylist.run(name, '', 0, 0, rawData, timestamp);
       }
 
       // Insert sequences
@@ -113,21 +112,24 @@ export async function syncFppData(): Promise<SyncResult> {
       `);
 
       for (const sequence of sequences) {
-        const name = typeof sequence === 'string' 
-          ? sequence.replace('.fseq', '') 
-          : (sequence.name || sequence.sequenceName || sequence.fileName || 'Unknown');
-        const filename = typeof sequence === 'string' 
-          ? sequence 
-          : (sequence.fileName || sequence.filename || sequence.name || '');
-        const lengthMs = typeof sequence === 'object'
-          ? (sequence.length || sequence.lengthMS || sequence.duration || 0)
-          : 0;
-        const channelCount = typeof sequence === 'object'
-          ? (sequence.channelCount || sequence.channels || 0)
-          : 0;
-        const rawData = JSON.stringify(sequence);
-
-        insertSequence.run(name, filename, lengthMs, channelCount, rawData, timestamp);
+        // FPP returns just strings (sequence filenames)
+        const filename = typeof sequence === 'string' ? sequence : (sequence.name || 'Unknown');
+        
+        // Skip empty names
+        if (!filename || filename.trim() === '') continue;
+        
+        // Remove .fseq extension if present for display name
+        const name = filename.replace(/\.fseq$/i, '');
+        
+        // Create object that matches Media Library expectations
+        const sequenceObj = {
+          name: name,
+          size: 0,
+          duration: 0
+        };
+        
+        const rawData = JSON.stringify(sequenceObj);
+        insertSequence.run(name, filename, 0, 0, rawData, timestamp);
       }
 
       // Update sync status
