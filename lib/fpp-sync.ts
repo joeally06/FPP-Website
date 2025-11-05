@@ -108,6 +108,7 @@ export async function syncFppData(): Promise<SyncResult> {
 
   try {
     console.log('[FPP Sync] Starting sync...');
+    console.log('[FPP Sync] FPP_IP:', process.env.FPP_IP || 'localhost');
     
     // Fetch data from FPP
     const [playlists, sequences] = await Promise.all([
@@ -118,6 +119,8 @@ export async function syncFppData(): Promise<SyncResult> {
     console.log(`[FPP Sync] Fetched ${playlists.length} playlists, ${sequences.length} sequences`);
 
     // Open database
+    const dbPath = path.join(process.cwd(), 'votes.db');
+    console.log('[FPP Sync] Opening database:', dbPath);
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
 
@@ -187,7 +190,9 @@ export async function syncFppData(): Promise<SyncResult> {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
     console.error('[FPP Sync] Sync failed:', errorMessage);
+    console.error('[FPP Sync] Stack trace:', errorStack);
 
     // Update sync status with error
     if (db) {
@@ -200,6 +205,21 @@ export async function syncFppData(): Promise<SyncResult> {
         `).run(timestamp, errorMessage);
       } catch (dbError) {
         console.error('[FPP Sync] Failed to update error status:', dbError);
+      }
+    } else {
+      // Try to open DB to record error
+      try {
+        const dbPath = path.join(process.cwd(), 'votes.db');
+        const errorDb = new Database(dbPath);
+        errorDb.prepare(`
+          UPDATE fpp_sync_status 
+          SET last_sync = ?,
+              last_error = ?
+          WHERE id = 1
+        `).run(timestamp, errorMessage);
+        errorDb.close();
+      } catch (dbError) {
+        console.error('[FPP Sync] Failed to open DB for error logging:', dbError);
       }
     }
 
