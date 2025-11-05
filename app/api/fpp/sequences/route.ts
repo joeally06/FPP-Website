@@ -41,12 +41,13 @@ export async function GET() {
       return NextResponse.json(parsedSequences);
     }
 
-    // If cache is empty, fetch live from FPP (using same route as Jukebox)
+    // If cache is empty, fetch live from FPP
     console.log('[FPP Sequences] Cache empty, fetching live from FPP...');
     
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/fppd/sequence`, {
-      headers: { 'Accept': 'application/json' }
+    const fppUrl = process.env.FPP_URL || 'http://192.168.5.2';
+    const response = await fetch(`${fppUrl}/api/sequence`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(5000)
     });
     
     if (!response.ok) {

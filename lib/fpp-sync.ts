@@ -28,15 +28,17 @@ export async function syncFppData(): Promise<SyncResult> {
   let db: Database.Database | null = null;
 
   try {
-    console.log('[FPP Sync] Starting sync using internal API routes (same as Jukebox)...');
+    console.log('[FPP Sync] Starting sync from FPP device...');
     
-    // Use the same endpoints as Jukebox (they're already working!)
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    // Connect directly to FPP device (public API endpoints don't require auth)
+    const fppUrl = process.env.FPP_URL || 'http://192.168.5.2';
+    console.log('[FPP Sync] FPP URL:', fppUrl);
     
-    // Fetch playlists using the working proxy
-    console.log('[FPP Sync] Fetching playlists from /api/fppd/playlists...');
-    const playlistsRes = await fetch(`${baseUrl}/api/fppd/playlists`, {
-      headers: { 'Accept': 'application/json' }
+    // Fetch playlists from FPP
+    console.log('[FPP Sync] Fetching playlists from', `${fppUrl}/api/playlists`);
+    const playlistsRes = await fetch(`${fppUrl}/api/playlists`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(5000)
     });
 
     if (!playlistsRes.ok) {
@@ -47,10 +49,11 @@ export async function syncFppData(): Promise<SyncResult> {
     const playlists = Array.isArray(playlistsData) ? playlistsData : [];
     console.log('[FPP Sync] Found', playlists.length, 'playlists');
 
-    // Fetch sequences using the working proxy
-    console.log('[FPP Sync] Fetching sequences from /api/fppd/sequence...');
-    const sequencesRes = await fetch(`${baseUrl}/api/fppd/sequence`, {
-      headers: { 'Accept': 'application/json' }
+    // Fetch sequences from FPP
+    console.log('[FPP Sync] Fetching sequences from', `${fppUrl}/api/sequence`);
+    const sequencesRes = await fetch(`${fppUrl}/api/sequence`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(5000)
     });
 
     if (!sequencesRes.ok) {
