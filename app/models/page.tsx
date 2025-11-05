@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Search, Upload, Zap, Cable, Info, Power, File, X, Edit, Trash2 } from 'lucide-react';
+import { Search, Upload, Zap, Cable, Info, Power, File, X, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import AdminLayout from '@/components/AdminLayout';
 import StatCard from '@/components/ui/StatCard';
 import GlassCard from '@/components/ui/GlassCard';
@@ -37,7 +37,20 @@ export default function ModelsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
+  const [expandedModels, setExpandedModels] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleModelExpansion = (id: number) => {
+    setExpandedModels(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     fetchModels();
@@ -331,91 +344,126 @@ export default function ModelsPage() {
 
       {/* Models Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredModels.map(model => (
+        {filteredModels.map(model => {
+          const isExpanded = expandedModels.has(model.id);
+          return (
           <GlassCard key={model.id} hover className="p-4">
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-white">{model.model_name}</h3>
-                <p className="text-sm text-white/70">{model.display_as}</p>
-              </div>
-              <span className="px-2 py-1 bg-white/10 text-white/90 text-xs rounded ml-2 whitespace-nowrap border border-white/20">
-                {model.string_type}
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {/* Channel Info */}
-              <div className="flex items-center gap-2 text-sm text-white/90">
-                <Cable className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                <span className="font-medium">Ch {model.start_channel_no?.toLocaleString()}</span>
-                <span className="text-white/50">→</span>
-                <span className="font-medium">{model.end_channel_no?.toLocaleString()}</span>
-                <span className="ml-auto px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded border border-blue-500/30">
-                  {model.channel_count} ch
-                </span>
-              </div>
-
-              {/* Controller Info */}
-              <div className="flex items-center gap-2 text-sm text-white/90">
-                <Zap className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <span className="font-medium truncate">{model.controller_name}</span>
-                {model.controller_ports && (
-                  <span className="px-2 py-0.5 bg-white/10 text-white/90 text-xs rounded flex-shrink-0 border border-white/20">
-                    Port {model.controller_ports}
-                  </span>
-                )}
-              </div>
-
-              {/* IP & Protocol */}
-              <div className="flex items-center gap-2 text-sm text-white/70">
-                <Info className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{model.controller_ip}</span>
-                <span className="ml-auto px-2 py-0.5 bg-white/10 text-white/90 text-xs rounded flex-shrink-0 border border-white/20">
-                  {model.protocol}
-                </span>
-              </div>
-
-              {/* Nodes & Strings */}
-              <div className="text-sm text-white/70 pt-2 border-t border-white/10">
-                {model.string_count} string{model.string_count > 1 ? 's' : ''} × {model.node_count} nodes
-              </div>
-
-              {/* Power Consumption */}
-              <div className="flex items-center gap-2 text-sm text-white/90">
-                <Power className="w-4 h-4 text-red-400 flex-shrink-0" />
-                <span className="font-medium">{model.est_current_amps?.toFixed(2)}A</span>
-                <span className="text-white/60 text-xs ml-auto">
-                  @ {model.connection_protocol}
-                </span>
-              </div>
-
-              {/* Connection Attributes */}
-              {model.connection_attributes && (
-                <div className="text-xs text-white/50 pt-2 border-t border-white/10 font-mono overflow-hidden text-ellipsis whitespace-nowrap" title={model.connection_attributes}>
-                  {model.connection_attributes}
+            {/* Header - Always Visible */}
+            <div 
+              className="cursor-pointer"
+              onClick={() => toggleModelExpansion(model.id)}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">{model.model_name}</h3>
+                  <p className="text-sm text-white/70">{model.display_as}</p>
                 </div>
-              )}
+                <div className="flex items-center gap-2 ml-2">
+                  <span className="px-2 py-1 bg-white/10 text-white/90 text-xs rounded whitespace-nowrap border border-white/20">
+                    {model.string_type}
+                  </span>
+                  {isExpanded ? (
+                    <ChevronUp className="w-5 h-5 text-white/50 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-white/50 flex-shrink-0" />
+                  )}
+                </div>
+              </div>
+
+              {/* Compact Info - Always Visible */}
+              <div className="space-y-2">
+                {/* Channel Range */}
+                <div className="flex items-center gap-2 text-sm text-white/90">
+                  <Cable className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span className="font-medium">Ch {model.start_channel_no?.toLocaleString()}-{model.end_channel_no?.toLocaleString()}</span>
+                  <span className="ml-auto px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded border border-blue-500/30">
+                    {model.channel_count} ch
+                  </span>
+                </div>
+
+                {/* Controller */}
+                <div className="flex items-center gap-2 text-sm text-white/90">
+                  <Info className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <span className="font-medium truncate">{model.controller_name}</span>
+                  {model.controller_ports && (
+                    <span className="px-2 py-0.5 bg-white/10 text-white/90 text-xs rounded flex-shrink-0 border border-white/20">
+                      P{model.controller_ports}
+                    </span>
+                  )}
+                </div>
+
+                {/* Nodes */}
+                <div className="text-sm text-white/70">
+                  {model.string_count} string{model.string_count > 1 ? 's' : ''} × {model.node_count} nodes = {(model.string_count * model.node_count).toLocaleString()} total
+                </div>
+              </div>
             </div>
 
-            {/* Edit/Delete Buttons */}
-            <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
-              <button
-                onClick={() => setEditingModel(model)}
-                className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </button>
-              <button
-                onClick={() => deleteModel(model.id, model.model_name)}
-                className="flex-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </div>
+            {/* Expanded Details */}
+            {isExpanded && (
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                {/* IP & Protocol */}
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{model.controller_ip}</span>
+                  <span className="ml-auto px-2 py-0.5 bg-white/10 text-white/90 text-xs rounded flex-shrink-0 border border-white/20">
+                    {model.protocol}
+                  </span>
+                </div>
+
+                {/* Power Consumption */}
+                <div className="flex items-center gap-2 text-sm text-white/90">
+                  <Power className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span className="font-medium">{model.est_current_amps?.toFixed(2)}A</span>
+                  <span className="text-white/60 text-xs ml-auto">
+                    @ {model.connection_protocol}
+                  </span>
+                </div>
+
+                {/* Universe ID */}
+                {model.universe_id && (
+                  <div className="text-sm text-white/70">
+                    <span className="text-white/50">Universe:</span> {model.universe_id}
+                  </div>
+                )}
+
+                {/* Connection Attributes */}
+                {model.connection_attributes && (
+                  <div className="bg-black/30 rounded p-2 border border-white/10">
+                    <p className="text-xs text-white/50 mb-1">Connection Attributes:</p>
+                    <p className="text-xs text-white/70 font-mono break-all">
+                      {model.connection_attributes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Edit/Delete Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingModel(model);
+                    }}
+                    className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteModel(model.id, model.model_name);
+                    }}
+                    className="flex-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
           </GlassCard>
-        ))}
+        )})}
       </div>
 
       {/* Empty State */}
