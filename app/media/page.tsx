@@ -58,30 +58,44 @@ export default function MediaLibrary() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log('[Media Library] Fetching playlists and sequences...');
+      console.log('[Media Library] Fetching active playlist from FPP...');
       
-      const [playlistsRes, sequencesRes] = await Promise.all([
-        fetch('/api/fpp/playlists'),
-        fetch('/api/fpp/sequences')
-      ]);
+      // Fetch the active/scheduled playlist from FPP
+      const playlistRes = await fetch('/api/fppd/playlist');
 
-      if (playlistsRes.ok) {
-        const playlistsData = await playlistsRes.json();
-        console.log('[Media Library] Playlists received:', playlistsData);
-        setPlaylists(Array.isArray(playlistsData) ? playlistsData : []);
+      if (playlistRes.ok) {
+        const playlistData = await playlistRes.json();
+        console.log('[Media Library] Active playlist received:', playlistData);
+        
+        // FPP returns a single playlist object with mainPlaylist array
+        if (playlistData && playlistData.mainPlaylist) {
+          setPlaylists([playlistData]); // Wrap in array for consistent handling
+          
+          // Extract sequences from the active playlist
+          const activeSequences = playlistData.mainPlaylist
+            .filter((item: any) => item.type === 'sequence' && item.sequenceName)
+            .map((item: any) => ({
+              name: item.sequenceName,
+              size: 0,
+              duration: item.duration
+            }));
+          
+          setSequences(activeSequences);
+          console.log('[Media Library] Extracted sequences:', activeSequences);
+        } else {
+          console.warn('[Media Library] No active playlist or invalid format');
+          setPlaylists([]);
+          setSequences([]);
+        }
       } else {
-        console.error('[Media Library] Failed to fetch playlists:', playlistsRes.status);
-      }
-
-      if (sequencesRes.ok) {
-        const sequencesData = await sequencesRes.json();
-        console.log('[Media Library] Sequences received:', sequencesData);
-        setSequences(Array.isArray(sequencesData) ? sequencesData : []);
-      } else {
-        console.error('[Media Library] Failed to fetch sequences:', sequencesRes.status);
+        console.error('[Media Library] Failed to fetch active playlist:', playlistRes.status);
+        setPlaylists([]);
+        setSequences([]);
       }
     } catch (error) {
       console.error('Failed to fetch media:', error);
+      setPlaylists([]);
+      setSequences([]);
     } finally {
       setLoading(false);
     }
@@ -190,8 +204,8 @@ export default function MediaLibrary() {
 
   return (
     <AdminLayout
-      title="📚 Media Library"
-      subtitle="Manage your playlists and sequences"
+      title="🎵 Active Playlist"
+      subtitle="Currently scheduled sequences in FPP"
     >
       {/* Search and Filter Bar */}
       <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20 mb-6">
