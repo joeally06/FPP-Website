@@ -28,7 +28,8 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [message, setMessage] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [serverCheckCount, setServerCheckCount] = useState(0);
+  const [updateStatus, setUpdateStatus] = useState<string>('');
+  const [updateLogs, setUpdateLogs] = useState<string[]>([]);
 
   useEffect(() => {
     checkForUpdates();
@@ -36,44 +37,60 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Poll for server to come back online after update
+  // Poll for update status when updating
   useEffect(() => {
-    if (!isUpdating || serverCheckCount === 0) return;
+    if (!isUpdating) return;
 
-    const checkServer = async () => {
+    const pollStatus = async () => {
       try {
-        const response = await fetch('/api/health', {
-          method: 'GET',
+        const response = await fetch('/api/system/update-status', {
           cache: 'no-store'
         });
 
         if (response.ok) {
-          console.log('[Update] Server is back online!');
-          setMessage('✅ Update complete! Reloading page in 3 seconds...');
+          const data = await response.json();
+          
+          setUpdateStatus(data.statusMessage || data.status);
+          setUpdateLogs(data.lastLines || []);
 
-          setTimeout(() => {
-            window.location.reload();
-          }, 3000);
+          if (data.isComplete) {
+            if (data.status === 'UP_TO_DATE') {
+              setMessage('✅ Already up to date!');
+              setIsUpdating(false);
+              checkForUpdates();
+            } else {
+              setMessage('✅ Update complete! Reloading in 3 seconds...');
+              setTimeout(() => {
+                window.location.reload();
+              }, 3000);
+            }
+          } else if (data.hasFailed) {
+            setMessage(`❌ Update failed: ${data.status}`);
+            setIsUpdating(false);
+          } else {
+            setMessage(data.statusMessage || 'Update in progress...');
+          }
+        } else {
+          // If status endpoint fails, try health check (server might be restarting)
+          const healthResponse = await fetch('/api/health', { cache: 'no-store' });
+          if (healthResponse.ok) {
+            // Server is back but status endpoint failed - might be complete
+            setMessage('✅ Server is back online! Reloading...');
+            setTimeout(() => window.location.reload(), 2000);
+          }
         }
       } catch (error) {
-        // Server still down, keep waiting
-        console.log(`[Update] Server check ${serverCheckCount}/60 - still updating...`);
-        
-        if (serverCheckCount < 60) {
-          setServerCheckCount(serverCheckCount + 1);
-          setMessage(`🔄 Waiting for server restart... (${serverCheckCount}/60)`);
-        } else {
-          // Timeout after 2 minutes
-          setMessage('⚠️ Update timeout - please refresh manually or check server logs.');
-          setIsUpdating(false);
-          setServerCheckCount(0);
-        }
+        // Network error likely means server is restarting - keep waiting
+        console.log('[Update] Waiting for server to restart...');
       }
     };
 
-    const timer = setTimeout(checkServer, 2000); // Check every 2 seconds
-    return () => clearTimeout(timer);
-  }, [isUpdating, serverCheckCount]);
+    // Poll every 2 seconds
+    const interval = setInterval(pollStatus, 2000);
+    pollStatus(); // Initial poll
+
+    return () => clearInterval(interval);
+  }, [isUpdating]);
 
   const checkForUpdates = async () => {
     setChecking(true);
@@ -115,7 +132,7 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
       '5. Rebuild the application\n' +
       '6. Restart PM2\n\n' +
       'Expected downtime: 2-3 minutes\n' +
-      'This page will automatically reload when complete.\n\n' +
+      'This page will track progress in real-time.\n\n' +
       '✅ Your database will be safely closed and backed up\n' +
       '✅ Automatic rollback if anything fails\n\n' +
       'Continue with update?'
@@ -124,7 +141,9 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
     }
 
     setIsUpdating(true);
-    setMessage('⏳ Starting database-safe update sequence...');
+    setMessage('⏳ Starting update...');
+    setUpdateStatus('Starting...');
+    setUpdateLogs([]);
 
     try {
       const response = await fetch('/api/system/update', {
@@ -135,29 +154,17 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
       const data = await response.json();
 
       if (data.success) {
-        if (!data.updated) {
-          // Already up to date
-          setMessage('✅ System is already up to date');
-          setIsUpdating(false);
-          checkForUpdates();
-        } else {
-          // Update started - begin polling for server restart
-          setMessage('🔄 Update in progress. PM2 will stop (database closes safely)...');
-          setServerCheckCount(1); // Start polling
-        }
+        setMessage('🔄 Update started! Monitoring progress...');
+        // The polling useEffect will take over from here
       } else {
-        // Update failed
-        setMessage(`❌ ${data.error || data.details || 'Update failed - check server logs'}`);
+        setMessage(`❌ ${data.error || 'Failed to start update'}`);
         setIsUpdating(false);
       }
     } catch (error: any) {
-      console.error('Update request failed:', error);
-      
-      // If we get a network error, the server is probably restarting
-      // This is EXPECTED when PM2 stops - start polling for it to come back
-      console.log('[Update] Server connection lost (expected - PM2 stopping)');
-      setMessage('🔄 Server is restarting (database closed safely). Waiting for it to come back online...');
-      setServerCheckCount(1); // Start polling
+      console.error('Update trigger failed:', error);
+      // Even if the trigger request fails, the update might have started
+      // Let the polling handle it
+      setMessage('🔄 Update triggered. Monitoring progress...');
     }
   };
 
@@ -176,6 +183,31 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
             : 'bg-green-500/20 border-green-500/30'
         }`}>
           <AdminText className="text-white">{message}</AdminText>
+        </div>
+      )}
+
+      {/* Real-time Update Progress */}
+      {isUpdating && updateStatus && (
+        <div className="p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <AdminText className="font-semibold text-white mb-2">
+            {updateStatus}
+          </AdminText>
+          
+          {/* Live Update Log */}
+          {updateLogs.length > 0 && (
+            <div className="mt-3 p-3 bg-black/30 rounded font-mono text-xs max-h-64 overflow-y-auto">
+              {updateLogs.map((line, i) => (
+                <div key={i} className="text-white/80 whitespace-pre-wrap">
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <div className="mt-3 flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+            <AdminTextSmall className="text-white/80">Update in progress...</AdminTextSmall>
+          </div>
         </div>
       )}
 

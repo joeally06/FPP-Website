@@ -1,22 +1,19 @@
 ﻿import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-
-const execAsync = promisify(exec);
 
 export async function POST() {
   try {
     await requireAdmin();
 
-    console.log('[System Update] Triggering upgrade (FPP-style)...');
+    console.log('[System Update] Starting detached update process...');
 
     const projectRoot = process.cwd();
-    const triggerScript = path.join(projectRoot, 'scripts', 'trigger-upgrade.sh');
-    const logFile = path.join(projectRoot, 'logs', 'upgrade.log');
-    const statusFile = path.join(projectRoot, 'logs', 'upgrade_status');
+    const updateScript = path.join(projectRoot, 'scripts', 'run-update.sh');
+    const logFile = path.join(projectRoot, 'logs', 'update.log');
+    const statusFile = path.join(projectRoot, 'logs', 'update_status');
 
     // Ensure directories exist
     const logsDir = path.join(projectRoot, 'logs');
@@ -24,66 +21,64 @@ export async function POST() {
       fs.mkdirSync(logsDir, { recursive: true });
     }
 
-    // Check if trigger script exists
-    if (!fs.existsSync(triggerScript)) {
+    // Check if script exists
+    if (!fs.existsSync(updateScript)) {
       return NextResponse.json({
         success: false,
-        error: 'Upgrade script not found. Please run: git pull'
+        error: 'Update script not found at: ' + updateScript
       }, { status: 500 });
     }
 
     // Make script executable
     try {
-      fs.chmodSync(triggerScript, '755');
+      fs.chmodSync(updateScript, '755');
     } catch (error) {
       console.warn('[System Update] Failed to chmod:', error);
     }
 
-    // Clear old status/log
+    // Clear old status (log is cleared by run-update.sh)
     try {
-      if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
-      if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
+      if (fs.existsSync(statusFile)) {
+        fs.writeFileSync(statusFile, 'STARTING');
+      }
     } catch (error) {
-      console.warn('[System Update] Failed to clear old files:', error);
+      console.warn('[System Update] Failed to clear status:', error);
     }
 
-    console.log('[System Update] Executing trigger script...');
+    console.log('[System Update] Spawning update process...');
+    console.log('[System Update] Script:', updateScript);
     console.log('[System Update] This will:');
-    console.log('[System Update]   1. Create temp upgrade script in /tmp');
-    console.log('[System Update]   2. Schedule with at/batch/nohup (FPP-style)');
-    console.log('[System Update]   3. Return immediately');
-    console.log('[System Update]   4. Upgrade runs independently');
-    console.log('[System Update]   5. Temp script deletes itself when done');
+    console.log('[System Update]   1. Run update.sh in background');
+    console.log('[System Update]   2. Track status in logs/update_status');
+    console.log('[System Update]   3. Log output to logs/update.log');
+    console.log('[System Update]   4. Continue even after server restart');
 
-    // Execute the trigger script (it will schedule the upgrade and exit immediately)
-    try {
-      const { stdout, stderr } = await execAsync(`bash ${triggerScript}`, {
-        cwd: projectRoot,
-        timeout: 5000 // Trigger should complete in 5 seconds
-      });
+    // Spawn the update script as a completely detached process
+    // This ensures it continues running even when PM2 stops the app
+    const child = spawn('bash', [updateScript], {
+      detached: true,        // Run independently
+      stdio: 'ignore',       // Don't keep pipes open
+      cwd: projectRoot,
+      env: process.env
+    });
 
-      console.log('[System Update] Trigger output:', stdout);
-      if (stderr) console.warn('[System Update] Trigger stderr:', stderr);
+    // Unref allows parent to exit independently
+    child.unref();
 
-      return NextResponse.json({
-        success: true,
-        message: 'Upgrade started. The application will restart automatically in 1-2 minutes.',
-        updated: true,
-        requiresReload: true,
-        logFile: 'logs/upgrade.log',
-        statusFile: 'logs/upgrade_status',
-        note: 'Upgrade runs independently using FPP-style at/batch scheduling'
-      });
+    console.log('[System Update] Update process spawned (PID:', child.pid, ')');
+    console.log('[System Update] Monitor: tail -f logs/update.log');
 
-    } catch (error: any) {
-      console.error('[System Update] Trigger failed:', error);
-      
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to trigger upgrade',
-        details: error.message
-      }, { status: 500 });
-    }
+    // Return immediately - update continues in background
+    return NextResponse.json({
+      success: true,
+      message: 'Update started successfully',
+      updated: true,
+      requiresReload: true,
+      pid: child.pid,
+      logFile: 'logs/update.log',
+      statusFile: 'logs/update_status',
+      note: 'Update runs in background. Server will restart automatically.'
+    });
 
   } catch (error: any) {
     console.error('[System Update] Fatal error:', error);
