@@ -48,6 +48,7 @@ export async function syncFppData(): Promise<SyncResult> {
     const playlistsData = await playlistsRes.json();
     const playlists = Array.isArray(playlistsData) ? playlistsData : [];
     console.log('[FPP Sync] Found', playlists.length, 'playlists');
+    console.log('[FPP Sync] Sample playlist:', playlists[0]);
 
     // Fetch sequences from FPP
     console.log('[FPP Sync] Fetching sequences from', `${fppUrl}/api/sequence`);
@@ -63,6 +64,7 @@ export async function syncFppData(): Promise<SyncResult> {
     const sequencesData = await sequencesRes.json();
     const sequences = Array.isArray(sequencesData) ? sequencesData : [];
     console.log('[FPP Sync] Found', sequences.length, 'sequences');
+    console.log('[FPP Sync] Sample sequence:', sequences[0]);
 
     // Open database
     console.log('[FPP Sync] Opening database:', dbPath);

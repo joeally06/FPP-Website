@@ -40,6 +40,7 @@ export async function GET() {
         }
       });
 
+      console.log('[FPP Playlists] Sample parsed playlist:', parsedPlaylists[0]);
       return NextResponse.json(parsedPlaylists);
     }
 

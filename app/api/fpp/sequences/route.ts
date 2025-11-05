@@ -38,6 +38,7 @@ export async function GET() {
         }
       });
 
+      console.log('[FPP Sequences] Sample parsed sequence:', parsedSequences[0]);
       return NextResponse.json(parsedSequences);
     }
 
