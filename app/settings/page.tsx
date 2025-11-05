@@ -327,12 +327,11 @@ function SantaLetterSettings() {
 }
 
 function MonitoringSettings() {
-  const [monitoringEnabled, setMonitoringEnabled] = useState(true);
+  const [monitoringEnabled, setMonitoringEnabled] = useState(false);
   const [startHour, setStartHour] = useState(16); // 4 PM
   const [startMinute, setStartMinute] = useState(0);
   const [endHour, setEndHour] = useState(22); // 10 PM
   const [endMinute, setEndMinute] = useState(0);
-  const [intervalMinutes, setIntervalMinutes] = useState(5);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -341,16 +340,26 @@ function MonitoringSettings() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await fetch('/api/settings?category=monitoring');
+        const response = await fetch('/api/devices/schedule');
         const data = await response.json();
         
-        if (data.settings) {
-          setMonitoringEnabled(data.settings.monitoring_enabled === 'true');
-          setStartHour(parseInt(data.settings.monitoring_start_hour || '16', 10));
-          setStartMinute(parseInt(data.settings.monitoring_start_minute || '0', 10));
-          setEndHour(parseInt(data.settings.monitoring_end_hour || '22', 10));
-          setEndMinute(parseInt(data.settings.monitoring_end_minute || '0', 10));
-          setIntervalMinutes(parseInt(data.settings.monitoring_interval_minutes || '5', 10));
+        if (data.success && data.schedule) {
+          const schedule = data.schedule;
+          setMonitoringEnabled(Boolean(schedule.enabled));
+          
+          // Parse start time (HH:MM format)
+          if (schedule.start_time) {
+            const [h, m] = schedule.start_time.split(':');
+            setStartHour(parseInt(h, 10));
+            setStartMinute(parseInt(m, 10));
+          }
+          
+          // Parse end time (HH:MM format)
+          if (schedule.end_time) {
+            const [h, m] = schedule.end_time.split(':');
+            setEndHour(parseInt(h, 10));
+            setEndMinute(parseInt(m, 10));
+          }
         }
       } catch (error) {
         console.error('Failed to load monitoring settings:', error);
@@ -368,25 +377,25 @@ function MonitoringSettings() {
       setSaving(true);
       setMessage('⏳ Saving settings...');
       
-      const response = await fetch('/api/settings', {
+      // Format times as HH:MM
+      const start_time = `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`;
+      const end_time = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+      
+      const response = await fetch('/api/devices/schedule', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          settings: {
-            monitoring_enabled: monitoringEnabled.toString(),
-            monitoring_start_hour: startHour.toString(),
-            monitoring_start_minute: startMinute.toString(),
-            monitoring_end_hour: endHour.toString(),
-            monitoring_end_minute: endMinute.toString(),
-            monitoring_interval_minutes: intervalMinutes.toString(),
-          },
+          enabled: monitoringEnabled,
+          start_time,
+          end_time,
+          timezone: 'America/Chicago'
         }),
       });
       
       const data = await response.json();
       
       if (data.success) {
-        setMessage('✅ Settings saved successfully! Changes will apply on next monitoring cycle.');
+        setMessage('✅ Monitoring settings saved successfully! Changes are active now.');
       } else {
         setMessage(`❌ Failed to save: ${data.error}`);
       }
@@ -501,27 +510,6 @@ function MonitoringSettings() {
           </AdminTextSmall>
         </div>
 
-        <div>
-          <AdminLabel>Check Interval</AdminLabel>
-          <div className="flex items-center gap-4">
-            <select
-              value={intervalMinutes}
-              onChange={(e) => setIntervalMinutes(parseInt(e.target.value, 10))}
-              className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
-            >
-              <option value={1}>1 minute</option>
-              <option value={2}>2 minutes</option>
-              <option value={5}>5 minutes</option>
-              <option value={10}>10 minutes</option>
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-            </select>
-          </div>
-          <AdminTextSmall className="mt-1">
-            How often to ping devices during monitoring hours
-          </AdminTextSmall>
-        </div>
-
         <div className="pt-4 border-t border-white/10">
           <button
             onClick={handleSave}
@@ -530,6 +518,16 @@ function MonitoringSettings() {
           >
             {saving ? '⏳ Saving...' : '💾 Save Monitoring Settings'}
           </button>
+        </div>
+
+        <div className="p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <AdminH4>ℹ️ How Device Monitoring Works</AdminH4>
+          <ul className="space-y-1 mt-2">
+            <li><AdminTextSmall>• Monitoring runs automatically during the scheduled time window</AdminTextSmall></li>
+            <li><AdminTextSmall>• Devices are checked every 5 minutes when enabled</AdminTextSmall></li>
+            <li><AdminTextSmall>• Email alerts are sent when devices go offline</AdminTextSmall></li>
+            <li><AdminTextSmall>• Configure devices on the Device Status page</AdminTextSmall></li>
+          </ul>
         </div>
 
         <div>
