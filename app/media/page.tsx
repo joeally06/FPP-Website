@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { useFPPConnection } from '@/contexts/FPPConnectionContext';
-import { Music, List, Play, Trash2, Search, Filter } from 'lucide-react';
+import { Music, List, Play, Trash2, Search, Filter, RefreshCw } from 'lucide-react';
 
 interface Playlist {
   name: string;
@@ -41,6 +41,9 @@ export default function MediaLibrary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPlaylist, setSelectedPlaylist] = useState<string>('all');
   const [expandedPlaylists, setExpandedPlaylists] = useState<Set<string>>(new Set());
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string>('');
 
   useEffect(() => {
     if (!isAdmin) {
@@ -48,48 +51,47 @@ export default function MediaLibrary() {
       return;
     }
 
-    if (isOnline) {
-      fetchData();
-    } else {
-      setLoading(false);
+    fetchData();
+    fetchSyncStatus();
+  }, [isAdmin, router]);
+
+  const fetchSyncStatus = async () => {
+    try {
+      const res = await fetch('/api/fpp/sync');
+      if (res.ok) {
+        const data = await res.json();
+        setSyncStatus(data.data);
+      }
+    } catch (error) {
+      console.error('[Media Library] Failed to fetch sync status:', error);
     }
-  }, [isAdmin, isOnline, router]);
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log('[Media Library] Fetching active playlist from FPP...');
+      console.log('[Media Library] Fetching playlists and sequences from cache...');
       
-      // Fetch the active/scheduled playlist from FPP
-      const playlistRes = await fetch('/api/fppd/playlist');
+      const [playlistsRes, sequencesRes] = await Promise.all([
+        fetch('/api/fpp/playlists'),
+        fetch('/api/fpp/sequences')
+      ]);
 
-      if (playlistRes.ok) {
-        const playlistData = await playlistRes.json();
-        console.log('[Media Library] Active playlist received:', playlistData);
-        
-        // FPP returns a single playlist object with mainPlaylist array
-        if (playlistData && playlistData.mainPlaylist) {
-          setPlaylists([playlistData]); // Wrap in array for consistent handling
-          
-          // Extract sequences from the active playlist
-          const activeSequences = playlistData.mainPlaylist
-            .filter((item: any) => item.type === 'sequence' && item.sequenceName)
-            .map((item: any) => ({
-              name: item.sequenceName,
-              size: 0,
-              duration: item.duration
-            }));
-          
-          setSequences(activeSequences);
-          console.log('[Media Library] Extracted sequences:', activeSequences);
-        } else {
-          console.warn('[Media Library] No active playlist or invalid format');
-          setPlaylists([]);
-          setSequences([]);
-        }
+      if (playlistsRes.ok) {
+        const playlistsData = await playlistsRes.json();
+        console.log('[Media Library] Playlists loaded:', playlistsData.length);
+        setPlaylists(Array.isArray(playlistsData) ? playlistsData : []);
       } else {
-        console.error('[Media Library] Failed to fetch active playlist:', playlistRes.status);
+        console.error('[Media Library] Failed to fetch playlists:', playlistsRes.status);
         setPlaylists([]);
+      }
+
+      if (sequencesRes.ok) {
+        const sequencesData = await sequencesRes.json();
+        console.log('[Media Library] Sequences loaded:', sequencesData.length);
+        setSequences(Array.isArray(sequencesData) ? sequencesData : []);
+      } else {
+        console.error('[Media Library] Failed to fetch sequences:', sequencesRes.status);
         setSequences([]);
       }
     } catch (error) {
@@ -98,6 +100,33 @@ export default function MediaLibrary() {
       setSequences([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage('');
+    
+    try {
+      const res = await fetch('/api/fpp/sync', {
+        method: 'POST'
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        setSyncMessage(`✅ ${data.message}`);
+        await fetchData();
+        await fetchSyncStatus();
+      } else {
+        setSyncMessage(`❌ Sync failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('[Media Library] Sync error:', error);
+      setSyncMessage('❌ Failed to sync with FPP device');
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMessage(''), 5000);
     }
   };
 
@@ -204,11 +233,62 @@ export default function MediaLibrary() {
 
   return (
     <AdminLayout
-      title="🎵 Active Playlist"
-      subtitle="Currently scheduled sequences in FPP"
+      title="🎵 Media Library"
+      subtitle="Playlists and sequences from FPP"
     >
+      {/* Sync Status Banner */}
+      {syncStatus && (
+        <div className="backdrop-blur-md bg-white/10 rounded-xl p-4 shadow-2xl border border-white/20 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                <span className="text-white font-semibold">FPP Data Cache</span>
+              </div>
+              <div className="text-sm text-white/70">
+                {syncStatus.lastSuccess ? (
+                  <>
+                    Last synced: {new Date(syncStatus.lastSuccess).toLocaleString()} 
+                    {' - '}
+                    {syncStatus.playlistsCount} playlists, {syncStatus.sequencesCount} sequences
+                  </>
+                ) : syncStatus.lastError ? (
+                  <span className="text-red-300">Error: {syncStatus.lastError}</span>
+                ) : (
+                  <span className="text-yellow-300">No data cached yet - click Sync to load from FPP</span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                syncing
+                  ? 'bg-white/10 text-white/50 cursor-not-allowed'
+                  : 'bg-white/20 hover:bg-white/30 text-white'
+              }`}
+            >
+              {syncing ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Syncing...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Sync Now
+                </span>
+              )}
+            </button>
+          </div>
+          {syncMessage && (
+            <div className="mt-2 text-sm text-white">{syncMessage}</div>
+          )}
+        </div>
+      )}
+
       {/* Search and Filter Bar */}
-      <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20 mb-6">
+      <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20 mb-6">`
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" />
@@ -247,11 +327,11 @@ export default function MediaLibrary() {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white/70">Loading media library...</p>
         </div>
-      ) : !isOnline ? (
+      ) : (playlists.length === 0 && sequences.length === 0) ? (
         <div className="backdrop-blur-md bg-white/10 rounded-xl p-12 shadow-2xl border border-white/20 text-center">
-          <div className="text-6xl mb-4">📡</div>
-          <h3 className="text-2xl font-bold text-white mb-2">FPP Offline</h3>
-          <p className="text-white/70">Media library unavailable while FPP server is offline.</p>
+          <div className="text-6xl mb-4">�</div>
+          <h3 className="text-2xl font-bold text-white mb-2">No Data Cached</h3>
+          <p className="text-white/70 mb-4">Click "Sync Now" to load playlists and sequences from FPP.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

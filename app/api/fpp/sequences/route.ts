@@ -1,40 +1,51 @@
 import { NextResponse } from 'next/server';
+import Database from 'better-sqlite3';
+import path from 'path';
+
+const dbPath = path.join(process.cwd(), 'votes.db');
 
 export async function GET() {
+  let db: Database.Database | null = null;
+  
   try {
-    // Get FPP URL from environment
-    const fppUrl = process.env.FPP_URL || 'http://192.168.5.2:80';
+    // Read sequences from database cache
+    db = new Database(dbPath);
     
-    console.log('[FPP Sequences] Fetching from:', fppUrl);
+    const sequences = db.prepare(`
+      SELECT name, filename, length_ms, channel_count, raw_data, synced_at
+      FROM fpp_sequences
+      ORDER BY name ASC
+    `).all();
 
-    // Fetch sequences from FPP API
-    const response = await fetch(`${fppUrl}/api/sequence`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+    console.log(`[FPP Sequences] Returning ${sequences.length} cached sequences`);
+
+    // Parse raw_data JSON for each sequence
+    const parsedSequences = sequences.map((sequence: any) => {
+      try {
+        return JSON.parse(sequence.raw_data);
+      } catch {
+        // Fallback to basic structure if JSON parse fails
+        return {
+          name: sequence.name,
+          filename: sequence.filename,
+          length: sequence.length_ms,
+          channelCount: sequence.channel_count
+        };
+      }
     });
 
-    if (!response.ok) {
-      console.error('[FPP Sequences] Error:', response.status, response.statusText);
-      return NextResponse.json({
-        error: 'Failed to fetch sequences from FPP',
-        status: response.status
-      }, { status: response.status });
-    }
-
-    const data = await response.json();
-    console.log('[FPP Sequences] Found:', data?.length || 0, 'sequences');
-
-    return NextResponse.json(data);
+    return NextResponse.json(parsedSequences);
 
   } catch (error: any) {
-    console.error('[FPP Sequences] Fatal error:', error);
+    console.error('[FPP Sequences] Database error:', error);
     
     return NextResponse.json({
-      error: 'Failed to connect to FPP device',
+      error: 'Failed to load sequences from cache',
       details: error.message
-    }, { status: 503 });
+    }, { status: 500 });
+  } finally {
+    if (db) {
+      db.close();
+    }
   }
 }
