@@ -21,6 +21,24 @@ log "🔄 FPP Control Center - Update Manager"
 log "======================================"
 log ""
 
+# Display current version
+if [ -f "package.json" ]; then
+    CURRENT_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
+    log "📦 Current Version: v$CURRENT_VERSION"
+    
+    if command -v git &> /dev/null && [ -d ".git" ]; then
+        CURRENT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        CURRENT_TAG=$(git describe --exact-match --tags 2>/dev/null || echo "")
+        
+        if [ -n "$CURRENT_TAG" ]; then
+            log "🏷️  Running: $CURRENT_TAG"
+        else
+            log "📝 Commit: $CURRENT_COMMIT (development)"
+        fi
+    fi
+    log ""
+fi
+
 # Check if we're in a git repository
 if [ ! -d ".git" ]; then
     echo "❌ This is not a Git repository!" >&2
@@ -160,6 +178,25 @@ fi
 log ""
 log "✅ Update complete!"
 log ""
+
+# Display new version
+if [ -f "package.json" ]; then
+    NEW_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
+    log "📦 Updated to Version: v$NEW_VERSION"
+    
+    if command -v git &> /dev/null; then
+        NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        NEW_TAG=$(git describe --exact-match --tags 2>/dev/null || echo "")
+        
+        if [ -n "$NEW_TAG" ]; then
+            log "🏷️  Now running: $NEW_TAG"
+        else
+            log "📝 Commit: $NEW_COMMIT"
+        fi
+    fi
+    log ""
+fi
+
 log "📋 Backup location: $BACKUP_DIR"
 
 # Restore stashed changes if any (merge with new code)

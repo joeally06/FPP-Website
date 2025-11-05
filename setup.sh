@@ -409,6 +409,59 @@ while true; do
 done
 
 # ═══════════════════════════════════════════════════════════
+# STEP 2.5: Version Selection
+# ═══════════════════════════════════════════════════════════
+print_header "Version Selection"
+
+echo "Which version would you like to install?"
+echo ""
+echo "  1) Latest Stable Release (Recommended)"
+echo "     - Tested and stable"
+echo "     - Recommended for production use"
+echo "     - Currently: $(git describe --tags --abbrev=0 2>/dev/null || echo 'No releases yet')"
+echo ""
+echo "  2) Latest Development (master branch)"
+echo "     - Newest features and improvements"
+echo "     - May have bugs"
+echo "     - For testing or contributing"
+echo ""
+
+VERSION_CHOICE=""
+while true; do
+    read -p "Choose version (1 or 2, default: 1): " -r
+    VERSION_CHOICE=${REPLY:-1}
+    if [[ "$VERSION_CHOICE" == "1" ]]; then
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -n "$LATEST_TAG" ]; then
+            print_step "Switching to latest release: $LATEST_TAG"
+            git checkout "$LATEST_TAG" 2>/dev/null || {
+                print_warning "Could not checkout release, using current version"
+            }
+            print_success "Using stable release: $LATEST_TAG"
+        else
+            print_warning "No releases found, using latest development version"
+        fi
+        break
+    elif [[ "$VERSION_CHOICE" == "2" ]]; then
+        print_info "Using latest development version (master branch)"
+        git checkout master 2>/dev/null || true
+        git pull origin master 2>/dev/null || true
+        print_success "Using latest development code"
+        break
+    else
+        print_warning "Please choose 1 or 2"
+    fi
+done
+
+echo ""
+print_step "Displaying version information..."
+chmod +x scripts/check-version.sh 2>/dev/null || true
+./scripts/check-version.sh 2>/dev/null || {
+    CURRENT_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
+    print_info "Installing version: $CURRENT_VERSION"
+}
+
+# ═══════════════════════════════════════════════════════════
 # STEP 3: Install Dependencies
 # ═══════════════════════════════════════════════════════════
 print_header "Step 3/8: Installing Dependencies"
