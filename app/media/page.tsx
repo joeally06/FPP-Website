@@ -154,11 +154,11 @@ export default function MediaLibrary() {
       getSequencesInPlaylist(playlist).forEach(seq => assignedSequences.add(seq));
     });
     
-    return sequences.filter(seq => !assignedSequences.has(seq.name));
+    return sequences.filter(seq => seq?.name && !assignedSequences.has(seq.name));
   };
 
   const filteredPlaylists = playlists.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    p?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredSequences = selectedPlaylist === 'all'
@@ -171,7 +171,7 @@ export default function MediaLibrary() {
       });
 
   const displayedSequences = filteredSequences.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    s?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDuration = (seconds?: number) => {

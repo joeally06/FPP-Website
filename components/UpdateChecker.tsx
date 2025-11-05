@@ -19,7 +19,11 @@ interface UpdateInfo {
   checked: string;
 }
 
-export default function UpdateChecker() {
+interface UpdateCheckerProps {
+  onInstallClick?: () => void;
+}
+
+export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
   const [checking, setChecking] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [message, setMessage] = useState('');
@@ -265,7 +269,7 @@ export default function UpdateChecker() {
 
         {updateInfo?.updatesAvailable && !isUpdating && (
           <button
-            onClick={triggerUpdate}
+            onClick={onInstallClick || triggerUpdate}
             className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold animate-pulse"
           >
             📥 Install {updateInfo.commitsAhead} Update{updateInfo.commitsAhead > 1 ? 's' : ''}
