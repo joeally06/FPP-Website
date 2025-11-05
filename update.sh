@@ -131,6 +131,10 @@ fi
 log "📥 Pulling updates..."
 git pull origin master --quiet
 
+# Fix script permissions after pull (git doesn't preserve executable bit)
+find scripts/ -name "*.sh" -type f -exec chmod +x {} \; 2>/dev/null
+chmod +x update.sh 2>/dev/null
+
 # Install/update dependencies
 log "📦 Updating dependencies..."
 if [ "$SILENT" = true ]; then

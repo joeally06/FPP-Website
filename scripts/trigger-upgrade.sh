@@ -80,6 +80,12 @@ git pull origin master >> "$LOG_FILE" 2>&1 || {
     exit 1
 }
 
+# Fix script permissions after pull (git doesn't preserve executable bit)
+log "Fixing script permissions..."
+find scripts/ -name "*.sh" -type f -exec chmod +x {} \; 2>/dev/null
+chmod +x manual-update.sh 2>/dev/null
+chmod +x update.sh 2>/dev/null
+
 log "✅ Code updated"
 
 # Step 5: Install dependencies (force clean install)

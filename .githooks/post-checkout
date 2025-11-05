@@ -1,0 +1,15 @@
+#!/bin/bash
+# Git hook to fix file permissions after checkout
+# This ensures all shell scripts are executable
+
+echo "🔧 Fixing script permissions..."
+
+# Make all .sh scripts executable
+find scripts/ -name "*.sh" -type f -exec chmod +x {} \; 2>/dev/null
+chmod +x manual-update.sh 2>/dev/null
+chmod +x update.sh 2>/dev/null
+chmod +x setup.sh 2>/dev/null
+chmod +x deploy-production.sh 2>/dev/null
+chmod +x rollback.sh 2>/dev/null
+
+echo "✅ Script permissions fixed"
