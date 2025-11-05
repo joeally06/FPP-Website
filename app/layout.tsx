@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import CookieConsent from "@/components/CookieConsent";
+import Footer from "@/components/Footer";
 
 // Initialize background services (server-side only)
 import '@/lib/server-init';
@@ -30,10 +31,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <Providers>
-          {children}
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
           <CookieConsent />
         </Providers>
       </body>
