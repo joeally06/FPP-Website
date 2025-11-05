@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import CookieConsent from "@/components/CookieConsent";
 
 // Initialize background services (server-side only)
 import '@/lib/server-init';
@@ -33,6 +34,7 @@ export default function RootLayout({
       >
         <Providers>
           {children}
+          <CookieConsent />
         </Providers>
       </body>
     </html>

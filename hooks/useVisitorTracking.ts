@@ -5,11 +5,36 @@ import { useEffect, useRef } from 'react';
 let sessionId: number | null = null;
 let trackingInitialized = false;
 
+// Check if analytics tracking is allowed
+function isAnalyticsAllowed(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  // Check if user has explicitly disabled analytics
+  if ((window as any).disableAnalytics === true) return false;
+  
+  // Check cookie consent
+  const consent = localStorage.getItem('cookie-consent');
+  if (!consent) return true; // Default to allow until user makes a choice
+  
+  try {
+    const parsed = JSON.parse(consent);
+    return parsed.analytics !== false;
+  } catch {
+    return true;
+  }
+}
+
 export function useVisitorTracking(page: string = '/jukebox') {
   const lastPageRef = useRef<string>(page);
   const unloadListenerAdded = useRef(false);
 
   useEffect(() => {
+    // Skip tracking if analytics not allowed
+    if (!isAnalyticsAllowed()) {
+      console.log('[Analytics] Tracking disabled by user preference');
+      return;
+    }
+
     // Initialize tracking on first visit
     if (!trackingInitialized) {
       trackingInitialized = true;
@@ -44,7 +69,7 @@ export function useVisitorTracking(page: string = '/jukebox') {
       unloadListenerAdded.current = true;
       
       const handleUnload = () => {
-        if (sessionId) {
+        if (sessionId && isAnalyticsAllowed()) {
           // Use sendBeacon for reliable tracking on page unload
           const blob = new Blob(
             [JSON.stringify({ action: 'end', sessionId })],
