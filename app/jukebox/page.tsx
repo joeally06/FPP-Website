@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession, signIn } from 'next-auth/react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { useTheme } from '@/lib/themes/theme-context';
@@ -402,6 +402,12 @@ export default function JukeboxPage() {
                     📊 Dashboard
                   </button>
                 )}
+                <button
+                  onClick={() => signOut({ callbackUrl: '/jukebox' })}
+                  className={`bg-${theme.secondaryColor}/80 hover:bg-${theme.secondaryColor} text-white px-4 py-2 md:px-6 md:py-3 rounded-lg font-semibold transition shadow-lg backdrop-blur-sm text-sm md:text-base whitespace-nowrap`}
+                >
+                  🚪 Logout
+                </button>
               </div>
             )}
           </div>
