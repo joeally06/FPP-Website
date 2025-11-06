@@ -14,7 +14,21 @@ interface Playlist {
     total_duration: number;
     total_items: number;
   };
+  leadIn?: Array<{
+    type: string;
+    sequenceName?: string;
+    playlistName?: string;
+    enabled: number;
+    duration?: number;
+  }>;
   mainPlaylist: Array<{
+    type: string;
+    sequenceName?: string;
+    playlistName?: string;
+    enabled: number;
+    duration?: number;
+  }>;
+  leadOut?: Array<{
     type: string;
     sequenceName?: string;
     playlistName?: string;
@@ -307,8 +321,14 @@ export default function MediaLibrary() {
   };
 
   const getSequencesInPlaylist = (playlist: Playlist) => {
-    return playlist.mainPlaylist
-      .filter(item => item.type === 'sequence' && item.sequenceName)
+    const allItems = [
+      ...(playlist.leadIn || []),
+      ...(playlist.mainPlaylist || []),
+      ...(playlist.leadOut || [])
+    ];
+    
+    return allItems
+      .filter(item => item.sequenceName) // Any item with a sequenceName (type can be 'sequence', 'both', 'media', etc.)
       .map(item => {
         // Remove .fseq extension and trim whitespace
         const cleanName = item.sequenceName!.replace(/\.fseq$/i, '').trim();
