@@ -123,6 +123,10 @@ export default function MediaLibrary() {
     setLoadingMetadata(true);
     try {
       const sequenceNames = getSequencesInPlaylist(selectedPlaylist);
+      console.log('[Media Library] Loading metadata for', sequenceNames.length, 'sequences');
+      console.log('[Media Library] Sequence names:', sequenceNames.slice(0, 3));
+      console.log('[Media Library] Available sequences:', sequences.length);
+      
       const BATCH_SIZE = 10;
       const sequencesData: SequenceWithMetadata[] = [];
 
@@ -133,7 +137,10 @@ export default function MediaLibrary() {
         const batchResults = await Promise.all(
           batch.map(async (seqName) => {
             const baseSequence = sequences.find(s => s.name === seqName);
-            if (!baseSequence) return null;
+            if (!baseSequence) {
+              console.warn('[Media Library] Sequence not found:', seqName);
+              return null;
+            }
 
             try {
               const [metadataRes, analyticsRes] = await Promise.all([
@@ -268,7 +275,7 @@ export default function MediaLibrary() {
   const getSequencesInPlaylist = (playlist: Playlist) => {
     return playlist.mainPlaylist
       .filter(item => item.type === 'sequence' && item.sequenceName)
-      .map(item => item.sequenceName!);
+      .map(item => item.sequenceName!.replace(/\.fseq$/i, '')); // Remove .fseq extension
   };
 
   const filteredPlaylists = playlists.filter(p =>
