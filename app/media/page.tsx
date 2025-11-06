@@ -93,6 +93,7 @@ export default function MediaLibrary() {
     album: '',
     trackName: ''
   });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -337,6 +338,9 @@ export default function MediaLibrary() {
   const selectSpotifyResult = async (result: SpotifySearchResult) => {
     if (!editingSequence) return;
     
+    console.log('[Media Library] Selecting Spotify result:', result);
+    setSaving(true);
+    
     try {
       const res = await fetch(`/api/spotify/metadata/${encodeURIComponent(editingSequence.name)}/override`, {
         method: 'POST',
@@ -352,18 +356,29 @@ export default function MediaLibrary() {
         })
       });
 
+      console.log('[Media Library] Save response status:', res.status);
+      
       if (res.ok) {
+        console.log('[Media Library] Reloading playlist metadata...');
         // Reload metadata for the selected playlist
         await loadPlaylistMetadata();
         closeEditModal();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('[Media Library] Failed to save:', errorData);
       }
     } catch (error) {
       console.error('[Media Library] Error saving Spotify result:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
   const saveManualMetadata = async () => {
     if (!editingSequence) return;
+    
+    console.log('[Media Library] Saving manual metadata:', manualForm);
+    setSaving(true);
     
     try {
       const res = await fetch(`/api/spotify/metadata/${encodeURIComponent(editingSequence.name)}/override`, {
@@ -380,13 +395,21 @@ export default function MediaLibrary() {
         })
       });
 
+      console.log('[Media Library] Save response status:', res.status);
+
       if (res.ok) {
+        console.log('[Media Library] Reloading playlist metadata...');
         // Reload metadata for the selected playlist
         await loadPlaylistMetadata();
         closeEditModal();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('[Media Library] Failed to save:', errorData);
       }
     } catch (error) {
       console.error('[Media Library] Error saving manual metadata:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -835,11 +858,19 @@ export default function MediaLibrary() {
                   {searchResults.length > 0 ? (
                     <div className="space-y-2">
                       <p className="text-sm text-white/60">{searchResults.length} results found</p>
+                      {saving && (
+                        <div className="p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg text-blue-200 text-sm flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Saving metadata and refreshing...
+                        </div>
+                      )}
                       {searchResults.map((result) => (
                         <div
                           key={result.id}
-                          onClick={() => selectSpotifyResult(result)}
-                          className="flex items-center gap-4 p-3 bg-white/5 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors group"
+                          onClick={() => !saving && selectSpotifyResult(result)}
+                          className={`flex items-center gap-4 p-3 bg-white/5 rounded-lg border border-white/10 transition-colors group ${
+                            saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'
+                          }`}
                         >
                           {result.albumArt && (
                             <img
@@ -853,7 +884,9 @@ export default function MediaLibrary() {
                             <p className="text-sm text-white/70 truncate">{result.artist}</p>
                             <p className="text-xs text-white/50 truncate">{result.album}</p>
                           </div>
-                          <Check className="w-5 h-5 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <Check className={`w-5 h-5 text-green-400 transition-opacity ${
+                            saving ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
+                          }`} />
                         </div>
                       ))}
                     </div>
@@ -935,15 +968,25 @@ export default function MediaLibrary() {
                   <div className="flex gap-3 pt-4">
                     <button
                       onClick={saveManualMetadata}
-                      disabled={!manualForm.trackName.trim()}
+                      disabled={!manualForm.trackName.trim() || saving}
                       className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      <Check className="w-4 h-4" />
-                      Save
+                      {saving ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Save
+                        </>
+                      )}
                     </button>
                     <button
                       onClick={closeEditModal}
-                      className="flex-1 py-2 px-4 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20"
+                      disabled={saving}
+                      className="flex-1 py-2 px-4 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>
