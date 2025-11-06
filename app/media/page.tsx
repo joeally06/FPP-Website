@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { useFPPConnection } from '@/contexts/FPPConnectionContext';
-import { Music, List, Play, Trash2, Search, RefreshCw, Star, TrendingUp } from 'lucide-react';
+import { Music, List, Play, Trash2, Search, RefreshCw, Star, TrendingUp, Edit3, X, Check } from 'lucide-react';
 
 interface Playlist {
   name: string;
@@ -54,6 +54,16 @@ interface SequenceWithMetadata extends Sequence {
   matchConfidence?: string;
 }
 
+interface SpotifySearchResult {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  albumArt: string;
+  spotifyUri: string;
+  previewUrl: string | null;
+}
+
 export default function MediaLibrary() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -70,6 +80,19 @@ export default function MediaLibrary() {
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string>('');
+  
+  // Edit modal state
+  const [editingSequence, setEditingSequence] = useState<SequenceWithMetadata | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SpotifySearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    albumArt: '',
+    artist: '',
+    album: '',
+    trackName: ''
+  });
 
   useEffect(() => {
     if (!isAdmin) {
@@ -269,6 +292,101 @@ export default function MediaLibrary() {
     } finally {
       setSyncing(false);
       setTimeout(() => setSyncMessage(''), 5000);
+    }
+  };
+
+  const openEditModal = (sequence: SequenceWithMetadata) => {
+    setEditingSequence(sequence);
+    setSearchQuery(sequence.name);
+    setSearchResults([]);
+    setManualMode(false);
+    setManualForm({
+      albumArt: sequence.albumArt || '',
+      artist: sequence.artist || '',
+      album: sequence.album || '',
+      trackName: sequence.trackName || sequence.name
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditingSequence(null);
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearching(false);
+    setManualMode(false);
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(searchQuery)}&limit=10`);
+      const data = await res.json();
+      
+      if (data.results) {
+        setSearchResults(data.results);
+      }
+    } catch (error) {
+      console.error('[Media Library] Spotify search error:', error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const selectSpotifyResult = async (result: SpotifySearchResult) => {
+    if (!editingSequence) return;
+    
+    try {
+      const res = await fetch(`/api/spotify/metadata/${encodeURIComponent(editingSequence.name)}/override`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          albumArt: result.albumArt,
+          artist: result.artist,
+          album: result.album,
+          trackName: result.name,
+          spotifyTrackId: result.id,
+          spotifyUri: result.spotifyUri,
+          previewUrl: result.previewUrl
+        })
+      });
+
+      if (res.ok) {
+        // Reload metadata for the selected playlist
+        await loadPlaylistMetadata();
+        closeEditModal();
+      }
+    } catch (error) {
+      console.error('[Media Library] Error saving Spotify result:', error);
+    }
+  };
+
+  const saveManualMetadata = async () => {
+    if (!editingSequence) return;
+    
+    try {
+      const res = await fetch(`/api/spotify/metadata/${encodeURIComponent(editingSequence.name)}/override`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          albumArt: manualForm.albumArt,
+          artist: manualForm.artist,
+          album: manualForm.album,
+          trackName: manualForm.trackName,
+          spotifyTrackId: null,
+          spotifyUri: null,
+          previewUrl: null
+        })
+      });
+
+      if (res.ok) {
+        // Reload metadata for the selected playlist
+        await loadPlaylistMetadata();
+        closeEditModal();
+      }
+    } catch (error) {
+      console.error('[Media Library] Error saving manual metadata:', error);
     }
   };
 
@@ -605,8 +723,25 @@ export default function MediaLibrary() {
                                   <span className="text-xs text-white/60">{sequence.playCount}</span>
                                 </div>
                               )}
+                              <button
+                                onClick={() => openEditModal(sequence)}
+                                className="ml-auto text-white/60 hover:text-white transition-colors"
+                                title="Edit metadata"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
                             </div>
-                          ) : null}
+                          ) : (
+                            <div className="flex items-center justify-end pt-3 border-t border-white/10">
+                              <button
+                                onClick={() => openEditModal(sequence)}
+                                className="text-white/60 hover:text-white transition-colors"
+                                title="Edit metadata"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -614,6 +749,208 @@ export default function MediaLibrary() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Metadata Modal */}
+      {editingSequence && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-white/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Edit Metadata</h3>
+                  <p className="text-sm text-white/60 mt-1">{editingSequence.name}</p>
+                </div>
+                <button
+                  onClick={closeEditModal}
+                  className="text-white/60 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Mode Toggle */}
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => setManualMode(false)}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                    !manualMode
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
+                >
+                  Search Spotify
+                </button>
+                <button
+                  onClick={() => setManualMode(true)}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                    manualMode
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
+                >
+                  Manual Entry
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {!manualMode ? (
+                /* Search Mode */
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder="Search for a song..."
+                      className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleSearch}
+                      disabled={searching || !searchQuery.trim()}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {searching ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-4 h-4" />
+                          Search
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Search Results */}
+                  {searchResults.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-white/60">{searchResults.length} results found</p>
+                      {searchResults.map((result) => (
+                        <div
+                          key={result.id}
+                          onClick={() => selectSpotifyResult(result)}
+                          className="flex items-center gap-4 p-3 bg-white/5 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors group"
+                        >
+                          {result.albumArt && (
+                            <img
+                              src={result.albumArt}
+                              alt={result.album}
+                              className="w-16 h-16 rounded object-cover"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-white font-medium truncate">{result.name}</h4>
+                            <p className="text-sm text-white/70 truncate">{result.artist}</p>
+                            <p className="text-xs text-white/50 truncate">{result.album}</p>
+                          </div>
+                          <Check className="w-5 h-5 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : searchQuery && !searching ? (
+                    <div className="text-center py-12 text-white/50">
+                      <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No results found</p>
+                      <p className="text-sm mt-1">Try a different search query</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                /* Manual Entry Mode */
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Album Art URL
+                    </label>
+                    <input
+                      type="text"
+                      value={manualForm.albumArt}
+                      onChange={(e) => setManualForm({ ...manualForm, albumArt: e.target.value })}
+                      placeholder="https://..."
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {manualForm.albumArt && (
+                      <div className="mt-3">
+                        <img
+                          src={manualForm.albumArt}
+                          alt="Preview"
+                          className="w-32 h-32 rounded object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Track Name
+                    </label>
+                    <input
+                      type="text"
+                      value={manualForm.trackName}
+                      onChange={(e) => setManualForm({ ...manualForm, trackName: e.target.value })}
+                      placeholder="Song title"
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Artist
+                    </label>
+                    <input
+                      type="text"
+                      value={manualForm.artist}
+                      onChange={(e) => setManualForm({ ...manualForm, artist: e.target.value })}
+                      placeholder="Artist name"
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Album
+                    </label>
+                    <input
+                      type="text"
+                      value={manualForm.album}
+                      onChange={(e) => setManualForm({ ...manualForm, album: e.target.value })}
+                      placeholder="Album name"
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={saveManualMetadata}
+                      disabled={!manualForm.trackName.trim()}
+                      className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Save
+                    </button>
+                    <button
+                      onClick={closeEditModal}
+                      className="flex-1 py-2 px-4 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -187,3 +187,29 @@ export function extractTrackMetadata(track: any): SpotifyTrackMetadata {
     previewUrl: track.preview_url || null
   };
 }
+
+/**
+ * Search Spotify for tracks with a custom query
+ * Returns multiple results for manual selection
+ */
+export async function searchSpotify(query: string, limit: number = 10) {
+  const token = await getSpotifyToken();
+  
+  const cleanQuery = cleanSequenceName(query);
+  
+  const response = await fetch(
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(cleanQuery)}&type=track&limit=${limit}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Spotify search failed: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.tracks?.items || [];
+}
