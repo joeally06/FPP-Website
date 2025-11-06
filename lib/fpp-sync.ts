@@ -46,8 +46,31 @@ export async function syncFppData(): Promise<SyncResult> {
     }
 
     const playlistsData = await playlistsRes.json();
-    const playlists = Array.isArray(playlistsData) ? playlistsData : [];
-    console.log('[FPP Sync] Found', playlists.length, 'playlists');
+    const playlistNames = Array.isArray(playlistsData) ? playlistsData : [];
+    console.log('[FPP Sync] Found', playlistNames.length, 'playlist names');
+    
+    // Fetch full details for each playlist
+    const playlists: any[] = [];
+    for (const name of playlistNames) {
+      try {
+        const playlistRes = await fetch(`${fppUrl}/api/playlist/${encodeURIComponent(name)}`, {
+          headers: { 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(10000)
+        });
+        
+        if (playlistRes.ok) {
+          const playlistDetail = await playlistRes.json();
+          playlists.push(playlistDetail);
+          console.log('[FPP Sync] Loaded playlist:', name, 'with', playlistDetail.mainPlaylist?.length || 0, 'items');
+        } else {
+          console.warn('[FPP Sync] Failed to load playlist details for:', name);
+        }
+      } catch (error) {
+        console.warn('[FPP Sync] Error loading playlist:', name, error);
+      }
+    }
+    
+    console.log('[FPP Sync] Loaded', playlists.length, 'complete playlists');
     console.log('[FPP Sync] Sample playlist:', playlists[0]);
 
     // Fetch sequences from FPP
@@ -84,25 +107,16 @@ export async function syncFppData(): Promise<SyncResult> {
       `);
 
       for (const playlist of playlists) {
-        // FPP returns just strings (playlist names)
-        const name = typeof playlist === 'string' ? playlist : (playlist.name || 'Unknown');
+        const name = playlist.name || 'Unknown';
+        const description = playlist.desc || '';
+        const itemCount = playlist.mainPlaylist?.length || 0;
+        const duration = playlist.playlistInfo?.total_duration || 0;
         
         // Skip empty names
         if (!name || name.trim() === '') continue;
         
-        // Create object that matches Media Library expectations
-        const playlistObj = {
-          name: name,
-          desc: '',
-          playlistInfo: {
-            total_items: 0,
-            total_duration: 0
-          },
-          mainPlaylist: []
-        };
-        
-        const rawData = JSON.stringify(playlistObj);
-        insertPlaylist.run(name, '', 0, 0, rawData, timestamp);
+        const rawData = JSON.stringify(playlist);
+        insertPlaylist.run(name, description, itemCount, duration, rawData, timestamp);
       }
 
       // Insert sequences
