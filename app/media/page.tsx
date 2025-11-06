@@ -101,19 +101,25 @@ export default function MediaLibrary() {
 
       if (playlistsRes.ok) {
         const playlistsData = await playlistsRes.json();
+        console.log('[Media Library] Loaded', playlistsData.length, 'playlists');
         setPlaylists(Array.isArray(playlistsData) ? playlistsData : []);
       } else {
+        console.error('[Media Library] Failed to load playlists:', playlistsRes.status, playlistsRes.statusText);
         setPlaylists([]);
       }
 
       if (sequencesRes.ok) {
         const sequencesData = await sequencesRes.json();
+        console.log('[Media Library] Loaded', sequencesData.length, 'sequences');
         setSequences(Array.isArray(sequencesData) ? sequencesData : []);
       } else {
+        console.error('[Media Library] Failed to load sequences:', sequencesRes.status, sequencesRes.statusText);
+        const errorData = await sequencesRes.json().catch(() => ({}));
+        console.error('[Media Library] Error details:', errorData);
         setSequences([]);
       }
     } catch (error) {
-      console.error('Failed to fetch media:', error);
+      console.error('[Media Library] Failed to fetch media:', error);
       setPlaylists([]);
       setSequences([]);
     } finally {
