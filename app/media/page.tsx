@@ -68,12 +68,16 @@ export default function MediaLibrary() {
   }, [isAdmin, router]);
 
   useEffect(() => {
-    if (selectedPlaylist) {
+    if (selectedPlaylist && sequences.length > 0) {
+      // Clear old sequences first
+      setSequencesWithMetadata([]);
+      // Load metadata for new playlist
       loadPlaylistMetadata();
-    } else {
+    } else if (!selectedPlaylist) {
       setSequencesWithMetadata([]);
     }
-  }, [selectedPlaylist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlaylist]); // Only trigger on playlist change, not sequences change
 
   const fetchSyncStatus = async () => {
     try {
@@ -124,8 +128,9 @@ export default function MediaLibrary() {
     try {
       const sequenceNames = getSequencesInPlaylist(selectedPlaylist);
       console.log('[Media Library] Loading metadata for', sequenceNames.length, 'sequences');
-      console.log('[Media Library] Sequence names:', sequenceNames.slice(0, 3));
-      console.log('[Media Library] Available sequences:', sequences.length);
+      console.log('[Media Library] First 5 sequence names:', sequenceNames.slice(0, 5));
+      console.log('[Media Library] Available sequences count:', sequences.length);
+      console.log('[Media Library] First 5 available sequences:', sequences.slice(0, 5).map(s => s.name));
       
       const BATCH_SIZE = 10;
       const sequencesData: SequenceWithMetadata[] = [];
@@ -187,9 +192,13 @@ export default function MediaLibrary() {
         const validResults = batchResults.filter(Boolean) as SequenceWithMetadata[];
         sequencesData.push(...validResults);
         
+        console.log(`[Media Library] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Found ${validResults.length}/${batch.length} sequences`);
+        
         // Update UI after each batch for progressive loading
         setSequencesWithMetadata([...sequencesData]);
       }
+      
+      console.log('[Media Library] Total loaded:', sequencesData.length, 'out of', sequenceNames.length);
     } catch (error) {
       console.error('Failed to load metadata:', error);
     } finally {
