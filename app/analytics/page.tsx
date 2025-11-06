@@ -14,6 +14,21 @@ import {
 import { Download, TrendingUp, Star, Mail, FileText } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
 interface AnalyticsData {
   overview: {
@@ -335,33 +350,48 @@ export default function AnalyticsPage() {
             <TrendingUp className="w-6 h-6 text-green-400" />
           </div>
           
-          <div className="h-64">
-            <div className="flex items-end justify-between h-full gap-2">
-              {data.trends.map((day, index) => {
-                const maxViews = Math.max(...data.trends.map(d => d.views));
-                const height = maxViews > 0 ? (day.views / maxViews) * 100 : 0;
-                
-                return (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="relative group flex-1 w-full flex items-end">
-                      <div
-                        className="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-lg transition-all hover:from-blue-400 hover:to-cyan-300 cursor-pointer"
-                        style={{ height: `${height}%`, minHeight: height > 0 ? '8px' : '0' }}
-                      >
-                        {/* Tooltip on hover */}
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap z-10">
-                          {day.views.toLocaleString()} views
-                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-black/80"></div>
-                        </div>
-                      </div>
-                    </div>
-                    <AdminTextSmall className="text-center">
-                      {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </AdminTextSmall>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={data.trends}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.1}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="rgba(255,255,255,0.6)"
+                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                />
+                <YAxis stroke="rgba(255,255,255,0.6)" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(0,0,0,0.8)', 
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                  labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                />
+                <Legend 
+                  wrapperStyle={{ color: 'rgba(255,255,255,0.8)' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="views" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3}
+                  fill="url(#colorViews)"
+                  dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: '#06b6d4' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -432,6 +462,65 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
+        {/* Top Sequences Bar Chart */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-lg">
+          <div className="flex justify-between items-center mb-6">
+            <AdminH2 className="mb-0">🎵 Top Sequences by Votes</AdminH2>
+            <Star className="w-6 h-6 text-yellow-400" />
+          </div>
+          
+          <div className="h-80">
+            {data.topContent.sequences.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={data.topContent.sequences.slice(0, 10)}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
+                >
+                  <defs>
+                    <linearGradient id="colorVotes" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.9}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.7}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="rgba(255,255,255,0.6)"
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                  />
+                  <YAxis stroke="rgba(255,255,255,0.6)" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(0,0,0,0.8)', 
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                    formatter={(value: any, name: string) => {
+                      if (name === 'votes') return [value, 'Votes'];
+                      if (name === 'rating') return [Number(value).toFixed(1), 'Rating'];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.8)' }} />
+                  <Bar 
+                    dataKey="votes" 
+                    fill="url(#colorVotes)" 
+                    radius={[8, 8, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <AdminText className="text-white/60">No sequence data yet</AdminText>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Santa Letters Insights */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 shadow-lg">
           <div className="flex items-center gap-3 mb-4">
@@ -439,22 +528,63 @@ export default function AnalyticsPage() {
             <AdminH2 className="mb-0">🎅 Santa Letters Insights</AdminH2>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-500/30">
-              <AdminTextSmall>Total Letters</AdminTextSmall>
-              <AdminValue className="text-2xl">{data.santaLetters.total}</AdminValue>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-500/30">
+                <AdminTextSmall>Total Letters</AdminTextSmall>
+                <AdminValue className="text-2xl">{data.santaLetters.total}</AdminValue>
+              </div>
+              <div className="bg-amber-500/20 rounded-lg p-4 border border-amber-500/30">
+                <AdminTextSmall>Pending</AdminTextSmall>
+                <AdminValue className="text-2xl">{data.santaLetters.pending}</AdminValue>
+              </div>
+              <div className="bg-green-500/20 rounded-lg p-4 border border-green-500/30">
+                <AdminTextSmall>Sent</AdminTextSmall>
+                <AdminValue className="text-2xl">{data.santaLetters.sent}</AdminValue>
+              </div>
+              <div className="bg-red-500/20 rounded-lg p-4 border border-red-500/30">
+                <AdminTextSmall>Failed</AdminTextSmall>
+                <AdminValue className="text-2xl">{data.santaLetters.failed}</AdminValue>
+              </div>
             </div>
-            <div className="bg-amber-500/20 rounded-lg p-4 border border-amber-500/30">
-              <AdminTextSmall>Pending</AdminTextSmall>
-              <AdminValue className="text-2xl">{data.santaLetters.pending}</AdminValue>
-            </div>
-            <div className="bg-green-500/20 rounded-lg p-4 border border-green-500/30">
-              <AdminTextSmall>Sent</AdminTextSmall>
-              <AdminValue className="text-2xl">{data.santaLetters.sent}</AdminValue>
-            </div>
-            <div className="bg-red-500/20 rounded-lg p-4 border border-red-500/30">
-              <AdminTextSmall>Failed</AdminTextSmall>
-              <AdminValue className="text-2xl">{data.santaLetters.failed}</AdminValue>
+
+            {/* Pie Chart */}
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Pending', value: data.santaLetters.pending, color: '#f59e0b' },
+                      { name: 'Sent', value: data.santaLetters.sent, color: '#10b981' },
+                      { name: 'Failed', value: data.santaLetters.failed, color: '#ef4444' },
+                    ].filter(item => item.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {[
+                      { name: 'Pending', value: data.santaLetters.pending, color: '#f59e0b' },
+                      { name: 'Sent', value: data.santaLetters.sent, color: '#10b981' },
+                      { name: 'Failed', value: data.santaLetters.failed, color: '#ef4444' },
+                    ].filter(item => item.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(0,0,0,0.8)', 
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>

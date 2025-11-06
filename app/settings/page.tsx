@@ -585,10 +585,17 @@ function DatabaseSettings() {
       const response = await fetch('/api/database/maintenance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ensure session cookies are sent
         body: JSON.stringify({ action }),
       });
       
       const data = await response.json();
+      
+      if (!response.ok) {
+        // Handle authentication and other HTTP errors
+        setMessage(`❌ Maintenance failed: ${data.error || 'Unknown error'}`);
+        return;
+      }
       
       if (data.success) {
         setMessage(`✅ ${action.charAt(0).toUpperCase() + action.slice(1)} maintenance completed successfully`);

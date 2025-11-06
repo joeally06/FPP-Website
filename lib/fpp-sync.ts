@@ -31,14 +31,14 @@ export async function syncFppData(): Promise<SyncResult> {
     console.log('[FPP Sync] Starting sync from FPP device...');
     
     // Connect directly to FPP device (public API endpoints don't require auth)
-    const fppUrl = process.env.FPP_URL || 'http://192.168.5.2';
+    const fppUrl = process.env.FPP_URL || process.env.NEXT_PUBLIC_FPP_URL || 'http://192.168.5.2:80';
     console.log('[FPP Sync] FPP URL:', fppUrl);
     
     // Fetch playlists from FPP
     console.log('[FPP Sync] Fetching playlists from', `${fppUrl}/api/playlists`);
     const playlistsRes = await fetch(`${fppUrl}/api/playlists`, {
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(15000) // 15 seconds for FPP to respond
     });
 
     if (!playlistsRes.ok) {
@@ -54,7 +54,7 @@ export async function syncFppData(): Promise<SyncResult> {
     console.log('[FPP Sync] Fetching sequences from', `${fppUrl}/api/sequence`);
     const sequencesRes = await fetch(`${fppUrl}/api/sequence`, {
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(15000) // 15 seconds for FPP to respond
     });
 
     if (!sequencesRes.ok) {

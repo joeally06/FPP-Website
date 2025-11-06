@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { 
   runFullMaintenance, 
   runQuickMaintenance, 
@@ -15,7 +16,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     // Verify admin authentication
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user || (session.user as any).role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized - Admin access required' },
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authentication
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user || (session.user as any).role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized - Admin access required' },
