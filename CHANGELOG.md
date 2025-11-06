@@ -184,5 +184,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/joeally06/FPP-Website/compare/v1.0.0-rc.1...HEAD
-[1.0.0-rc.1]: https://github.com/joeally06/FPP-Website/releases/tag/v1.0.0-rc.1
+[Unreleased]: https://github.com/joeally06/FPP-Control-Center/compare/v1.0.0-rc.1...HEAD
+[1.0.0-rc.1]: https://github.com/joeally06/FPP-Control-Center/releases/tag/v1.0.0-rc.1

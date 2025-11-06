@@ -286,10 +286,10 @@ Choose your preferred installation method:
 cd ~
 
 # Clone repository
-git clone https://github.com/joeally06/FPP-Website.git
+git clone https://github.com/joeally06/FPP-Control-Center.git
 
 # Enter directory
-cd FPP-Website
+cd FPP-Control-Center
 ```
 
 ---
@@ -512,8 +512,8 @@ Open browser and visit:
 
 ```bash
 cd ~
-git clone https://github.com/joeally06/FPP-Website.git
-cd FPP-Website
+git clone https://github.com/joeally06/FPP-Control-Center.git
+cd FPP-Control-Center
 ```
 
 #### **Step 2: Install Dependencies**
@@ -1394,7 +1394,7 @@ Your FPP Control Center is now fully installed and configured!
 -  [README.md](README.md) - Feature documentation
 -  [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md) - Security guide
 -  [CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md) - Public deployment
--  [GitHub Issues](https://github.com/joeally06/FPP-Website/issues) - Report bugs
--  [Discussions](https://github.com/joeally06/FPP-Website/discussions) - Ask questions
+-  [GitHub Issues](https://github.com/joeally06/FPP-Control-Center/issues) - Report bugs
+-  [Discussions](https://github.com/joeally06/FPP-Control-Center/discussions) - Ask questions
 
 **Happy holidays! **

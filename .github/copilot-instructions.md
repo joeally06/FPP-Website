@@ -65,7 +65,7 @@ The FPP Control Center is now fully documented and includes:
 
 ## 🚀 Quick Start for New Contributors
 
-1. Clone: `git clone https://github.com/joeally06/FPP-Website.git`
+1. Clone: `git clone https://github.com/joeally06/FPP-Control-Center.git`
 2. Run: `./setup.sh` (Linux/Mac) or `setup.ps1` (Windows)
 3. Follow the interactive wizard prompts
 4. Access: `http://localhost:3000`

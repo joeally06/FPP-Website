@@ -3,6 +3,16 @@
   "version": "1.0.0-rc.1",
   "description": "Control center for Falcon Player (FPP) light shows",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joeally06/FPP-Control-Center.git"
+  },
+  "bugs": {
+    "url": "https://github.com/joeally06/FPP-Control-Center/issues"
+  },
+  "homepage": "https://github.com/joeally06/FPP-Control-Center#readme",
+  "author": "joeally06",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

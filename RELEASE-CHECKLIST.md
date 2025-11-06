@@ -218,7 +218,7 @@ git push origin master --tags
 ## GitHub Release
 
 ### 20. Create GitHub Release
-1. Go to: https://github.com/joeally06/FPP-Website/releases/new
+1. Go to: https://github.com/joeally06/FPP-Control-Center/releases/new
 2. Select tag: `v1.0.0`
 3. Release title: `v1.0.0 - Production Release`
 4. Description: Copy from `CHANGELOG.md` (add emojis for visual appeal)
@@ -376,7 +376,7 @@ If you encounter issues during the release process:
 1. Check logs: `pm2 logs fpp-control`
 2. Review errors: `npm run build`
 3. Database check: `node scripts/check-db.js`
-4. Create issue: https://github.com/joeally06/FPP-Website/issues
+4. Create issue: https://github.com/joeally06/FPP-Control-Center/issues
 
 ---
 

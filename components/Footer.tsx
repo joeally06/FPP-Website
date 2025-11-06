@@ -65,7 +65,7 @@ export default function Footer() {
               Privacy Policy
             </Link>
             <a
-              href="https://github.com/joeally06/FPP-Website"
+              href="https://github.com/joeally06/FPP-Control-Center"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1"

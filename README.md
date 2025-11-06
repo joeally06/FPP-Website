@@ -67,8 +67,8 @@ FPP Control Center is a **complete web-based control panel** for your Falcon Pla
 The fastest way to get started:
 
 ```bash
-git clone https://github.com/joeally06/FPP-Website.git
-cd FPP-Website
+git clone https://github.com/joeally06/FPP-Control-Center.git
+cd FPP-Control-Center
 chmod +x setup.sh
 ./setup.sh
 ```
@@ -173,8 +173,8 @@ See the complete [INSTALLATION.md](INSTALLATION.md) guide for step-by-step instr
 
 ### **Getting Help:**
 - 📖 Check [INSTALLATION.md](INSTALLATION.md) for setup issues
-- 🐛 [GitHub Issues](https://github.com/joeally06/FPP-Website/issues) for bugs
-- 💬 [Discussions](https://github.com/joeally06/FPP-Website/discussions) for questions
+- 🐛 [GitHub Issues](https://github.com/joeally06/FPP-Control-Center/issues) for bugs
+- 💬 [Discussions](https://github.com/joeally06/FPP-Control-Center/discussions) for questions
 
 ### **Common Issues:**
 - **Setup wizard won't run** → See [Troubleshooting](INSTALLATION.md#-troubleshooting)
@@ -225,4 +225,4 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 
 Star ⭐ this repo if you found it helpful!
 
-**Questions?** Open an [issue](https://github.com/joeally06/FPP-Website/issues) or [discussion](https://github.com/joeally06/FPP-Website/discussions).
+**Questions?** Open an [issue](https://github.com/joeally06/FPP-Control-Center/issues) or [discussion](https://github.com/joeally06/FPP-Control-Center/discussions).

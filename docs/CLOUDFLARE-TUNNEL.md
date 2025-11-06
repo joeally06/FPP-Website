@@ -444,7 +444,7 @@ For home/hobby use, the free tier is more than sufficient.
 
 ### FPP Control Center
 
-- Create an issue on [GitHub](https://github.com/joeally06/FPP-Website/issues)
+- Create an issue on [GitHub](https://github.com/joeally06/FPP-Control-Center/issues)
 - Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 
 ---

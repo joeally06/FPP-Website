@@ -61,6 +61,6 @@ else
 fi
 
 echo ""
-echo "🌐 GitHub: https://github.com/joeally06/FPP-Website"
-echo "📚 Documentation: https://github.com/joeally06/FPP-Website/wiki"
+echo "🌐 GitHub: https://github.com/joeally06/FPP-Control-Center"
+echo "📚 Documentation: https://github.com/joeally06/FPP-Control-Center/wiki"
 echo ""
