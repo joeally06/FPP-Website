@@ -128,9 +128,9 @@ export default function MediaLibrary() {
     try {
       const sequenceNames = getSequencesInPlaylist(selectedPlaylist);
       console.log('[Media Library] Loading metadata for', sequenceNames.length, 'sequences');
-      console.log('[Media Library] First 5 sequence names:', sequenceNames.slice(0, 5));
+      console.log('[Media Library] Sequence names from playlist:', sequenceNames);
       console.log('[Media Library] Available sequences count:', sequences.length);
-      console.log('[Media Library] First 5 available sequences:', sequences.slice(0, 5).map(s => s.name));
+      console.log('[Media Library] Available sequence names:', sequences.slice(0, 10).map(s => s.name));
       
       const BATCH_SIZE = 10;
       const sequencesData: SequenceWithMetadata[] = [];
@@ -141,16 +141,25 @@ export default function MediaLibrary() {
         
         const batchResults = await Promise.all(
           batch.map(async (seqName) => {
-            const baseSequence = sequences.find(s => s.name === seqName);
+            // Case-insensitive search
+            const baseSequence = sequences.find(s => 
+              s.name.toLowerCase().trim() === seqName.toLowerCase().trim()
+            );
+            
             if (!baseSequence) {
               console.warn('[Media Library] Sequence not found:', seqName);
+              console.warn('[Media Library] Available sequences:', sequences.map(s => s.name).slice(0, 5));
               return null;
             }
 
+            console.log('[Media Library] ✓ Found sequence:', seqName, '→', baseSequence.name);
+
+            console.log('[Media Library] ✓ Found sequence:', seqName, '→', baseSequence.name);
+
             try {
               const [metadataRes, analyticsRes] = await Promise.all([
-                fetch(`/api/spotify/metadata/${encodeURIComponent(seqName)}`),
-                fetch(`/api/analytics/sequence/${encodeURIComponent(seqName)}`)
+                fetch(`/api/spotify/metadata/${encodeURIComponent(baseSequence.name)}`),
+                fetch(`/api/analytics/sequence/${encodeURIComponent(baseSequence.name)}`)
               ]);
 
               let albumArt, artist, album, trackName, matchConfidence;
@@ -284,7 +293,12 @@ export default function MediaLibrary() {
   const getSequencesInPlaylist = (playlist: Playlist) => {
     return playlist.mainPlaylist
       .filter(item => item.type === 'sequence' && item.sequenceName)
-      .map(item => item.sequenceName!.replace(/\.fseq$/i, '')); // Remove .fseq extension
+      .map(item => {
+        // Remove .fseq extension and trim whitespace
+        const cleanName = item.sequenceName!.replace(/\.fseq$/i, '').trim();
+        console.log('[Media Library] Cleaned sequence name:', item.sequenceName, '->', cleanName);
+        return cleanName;
+      });
   };
 
   const filteredPlaylists = playlists.filter(p =>
