@@ -164,26 +164,36 @@ export default function MediaLibrary() {
 
             try {
               const [metadataRes, analyticsRes] = await Promise.all([
-                fetch(`/api/spotify/metadata/${encodeURIComponent(baseSequence.name)}`),
-                fetch(`/api/analytics/sequence/${encodeURIComponent(baseSequence.name)}`)
+                fetch(`/api/spotify/metadata/${encodeURIComponent(baseSequence.name)}`).catch(err => {
+                  console.warn('[Media Library] Spotify API error for', baseSequence.name, ':', err.message);
+                  return null;
+                }),
+                fetch(`/api/analytics/sequence/${encodeURIComponent(baseSequence.name)}`).catch(err => {
+                  console.warn('[Media Library] Analytics API error for', baseSequence.name, ':', err.message);
+                  return null;
+                })
               ]);
 
               let albumArt, artist, album, trackName, matchConfidence;
-              if (metadataRes.ok) {
+              if (metadataRes && metadataRes.ok) {
                 const metadata = await metadataRes.json();
                 albumArt = metadata.albumArt;
                 artist = metadata.artist;
                 album = metadata.album;
                 trackName = metadata.trackName;
                 matchConfidence = metadata.matchConfidence;
+              } else if (metadataRes) {
+                console.warn('[Media Library] Spotify metadata failed for', baseSequence.name, ':', metadataRes.status);
               }
 
               let votes = 0, playCount = 0, rating = 0;
-              if (analyticsRes.ok) {
+              if (analyticsRes && analyticsRes.ok) {
                 const analytics = await analyticsRes.json();
                 votes = analytics.votes?.total || 0;
                 playCount = analytics.plays?.completed || 0;
                 rating = analytics.rating?.average || 0;
+              } else if (analyticsRes) {
+                console.warn('[Media Library] Analytics failed for', baseSequence.name, ':', analyticsRes.status);
               }
 
               return {

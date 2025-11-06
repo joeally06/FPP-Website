@@ -191,8 +191,16 @@ export async function HEAD(
 
   } catch (error: any) {
     console.error('[Analytics] Simple stats error:', error);
+    console.error('[Analytics] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return NextResponse.json(
-      { error: 'Failed to fetch stats' },
+      { 
+        error: 'Failed to fetch stats',
+        details: error.message 
+      },
       { status: 500 }
     );
   }
