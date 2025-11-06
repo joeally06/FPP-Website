@@ -27,10 +27,12 @@ export async function POST(
     db = new Database(dbPath);
 
     // Store manual override in database
+    // Use 'none' for match_confidence since manual entries don't have a confidence score
+    // We store the original search query to track that it was manually selected
     db.prepare(`
       INSERT INTO spotify_metadata 
       (sequence_name, album_art_url, artist_name, album_name, track_name, spotify_track_id, spotify_uri, preview_url, match_confidence, last_updated, search_query) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', CURRENT_TIMESTAMP, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'none', CURRENT_TIMESTAMP, ?)
       ON CONFLICT(sequence_name) DO UPDATE SET
         album_art_url = excluded.album_art_url,
         artist_name = excluded.artist_name,
@@ -39,8 +41,9 @@ export async function POST(
         spotify_track_id = excluded.spotify_track_id,
         spotify_uri = excluded.spotify_uri,
         preview_url = excluded.preview_url,
-        match_confidence = 'manual',
-        last_updated = CURRENT_TIMESTAMP
+        match_confidence = 'none',
+        last_updated = CURRENT_TIMESTAMP,
+        search_query = excluded.search_query
     `).run(
       sequenceName,
       albumArt || null,
@@ -50,7 +53,7 @@ export async function POST(
       spotifyTrackId || null,
       spotifyUri || null,
       previewUrl || null,
-      sequenceName
+      'MANUAL_OVERRIDE'
     );
 
     db.close();
