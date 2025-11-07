@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { searchSpotify } from '@/lib/spotify-token';
 
+/**
+ * GET /api/spotify/search
+ * Search Spotify for track metadata
+ * ADMIN ONLY - Spotify API access for metadata management
+ */
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Require admin authentication
+    await requireAdmin();
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
@@ -32,6 +34,12 @@ export async function GET(request: Request) {
       }))
     });
   } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[Spotify Search Error]:', error);
     return NextResponse.json(
       { error: 'Search failed', details: error.message },

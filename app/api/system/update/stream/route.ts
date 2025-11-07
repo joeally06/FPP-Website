@@ -1,10 +1,29 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { spawn } from 'child_process';
 import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * GET /api/system/update/stream
+ * Stream live update process output
+ * ADMIN ONLY - System update operations can modify critical files
+ */
 export async function GET(request: NextRequest) {
+  // Require admin authentication
+  try {
+    await requireAdmin();
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const encoder = new TextEncoder();
 
   // Create a ReadableStream that will stream the update output

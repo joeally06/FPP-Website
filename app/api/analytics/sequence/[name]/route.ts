@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { requireAdmin } from '@/lib/auth-helpers';
 import Database from 'better-sqlite3';
 import path from 'path';
 
@@ -14,20 +13,15 @@ const dbPath = path.join(process.cwd(), 'votes.db');
  * - Average rating
  * - Play count (completed requests)
  * - Recent activity
+ * ADMIN ONLY - Detailed sequence analytics
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ name: string }> }
 ) {
   try {
-    // Verify admin authentication
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
-        { status: 401 }
-      );
-    }
+    // Require admin authentication
+    await requireAdmin();
 
     const { name } = await params;
     const sequenceName = decodeURIComponent(name);
@@ -141,6 +135,12 @@ export async function GET(
     });
 
   } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[Analytics] Unexpected error:', error);
     return NextResponse.json(
       { 
@@ -153,20 +153,19 @@ export async function GET(
 }
 
 /**
- * GET /api/analytics/sequence/[name]/simple
+ * HEAD /api/analytics/sequence/[name]
  * 
  * Lightweight version returning only basic stats
  * (for use in lists where full analytics aren't needed)
+ * ADMIN ONLY - Quick stats endpoint
  */
 export async function HEAD(
   request: NextRequest,
   { params }: { params: Promise<{ name: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== 'admin') {
-      return new NextResponse(null, { status: 401 });
-    }
+    // Require admin authentication
+    await requireAdmin();
 
     const { name } = await params;
     const sequenceName = decodeURIComponent(name);
@@ -190,6 +189,12 @@ export async function HEAD(
     });
 
   } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[Analytics] Simple stats error:', error);
     console.error('[Analytics] Error details:', {
       message: error.message,

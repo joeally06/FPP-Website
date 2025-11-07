@@ -2,14 +2,22 @@
 // Also serves as health check for the queue processor
 
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 
 // Import the queue processor to ensure it's loaded
 import '@/lib/santa-queue-processor';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * GET /api/santa/trigger-queue
+ * Manually trigger Santa letter queue processing
+ * ADMIN ONLY - Manual queue trigger
+ */
 export async function GET() {
   try {
+    await requireAdmin();
+    
     // Forward to the actual processing endpoint
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const response = await fetch(`${baseUrl}/api/santa/process-queue`, {
@@ -23,7 +31,13 @@ export async function GET() {
       message: 'Manual queue processing triggered',
       result,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[Manual Queue Trigger] Error:', error);
     return NextResponse.json(
       {

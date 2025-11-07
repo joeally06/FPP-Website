@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import {
   getNextQueuedLetter,
   markLetterProcessing,
@@ -13,8 +14,15 @@ const MAX_RETRIES = 3;
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * GET /api/santa/process-queue
+ * Process the Santa letter queue
+ * ADMIN ONLY - Background job for processing letters
+ */
 export async function GET() {
   try {
+    await requireAdmin();
+    
     console.log('[Queue Processor] Starting queue processing...');
 
     // Get the next queued letter
@@ -112,7 +120,13 @@ export async function GET() {
         }, { status: 500 });
       }
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[Queue Processor] Fatal error:', error);
     return NextResponse.json(
       {

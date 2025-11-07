@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import db from '@/lib/database';
 
+/**
+ * GET /api/analytics
+ * Get analytics dashboard data including page views, votes, ratings, and traffic patterns
+ * ADMIN ONLY - Contains sensitive visitor and usage data
+ */
 export async function GET(request: NextRequest) {
   try {
+    // Require admin authentication
+    await requireAdmin();
+
     const { searchParams } = new URL(request.url);
     const range = searchParams.get('range') || '7d';
     const days = range === '30d' ? 30 : 7;
@@ -151,7 +160,13 @@ export async function GET(request: NextRequest) {
       success: true,
       data,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('Analytics error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch analytics' },

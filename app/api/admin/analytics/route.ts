@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { getVoteCounts } from '../../../../lib/database';
 
+/**
+ * GET /api/admin/analytics
+ * Get admin analytics data including vote counts and scores
+ * ADMIN ONLY - Admin dashboard analytics
+ */
 export async function GET(request: NextRequest) {
   try {
-    // Check if user is admin
-    const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Require admin authentication
+    await requireAdmin();
 
     // Get vote data
     const voteCounts = getVoteCounts.all();
@@ -24,7 +25,13 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json(analyticsData);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('Analytics error:', error);
     return NextResponse.json({ error: 'Failed to get analytics' }, { status: 500 });
   }

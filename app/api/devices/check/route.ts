@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getEnabledDevices, upsertDeviceStatus, getDeviceStatus } from '@/lib/database';
@@ -28,8 +29,16 @@ async function pingDevice(ip: string): Promise<boolean> {
   }
 }
 
+/**
+ * GET /api/devices/check
+ * Check device health status
+ * ADMIN ONLY - Device monitoring
+ */
 export async function GET() {
   try {
+    // Require admin authentication
+    await requireAdmin();
+
     // Check if monitoring is currently active based on schedule
     if (!isMonitoringActive()) {
       const schedule = getSchedule();
@@ -163,7 +172,13 @@ export async function GET() {
       results
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[Device Monitor] Error checking devices:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to check devices' },

@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import db from '@/lib/database';
 
+/**
+ * GET /api/analytics/export
+ * Export analytics data in CSV or JSON format
+ * ADMIN ONLY - Contains sensitive visitor data, votes, and Santa letters
+ */
 export async function GET(request: NextRequest) {
   try {
+    // Require admin authentication
+    await requireAdmin();
+
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'csv';
     const range = searchParams.get('range') || '7d';
@@ -93,7 +102,13 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Invalid format' }, { status: 400 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('Export error:', error);
     return NextResponse.json(
       { error: 'Failed to export data' },
