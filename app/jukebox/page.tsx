@@ -78,44 +78,50 @@ export default function JukeboxPage() {
     fetchVotes();
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     
-    // Queue processor - check every 10 seconds
-    const queueProcessorInterval = setInterval(async () => {
-      try {
-        await fetch('/api/jukebox/process-queue', { method: 'POST' });
-      } catch (error) {
-        console.error('Queue processor failed:', error);
-      }
-    }, 10000); // 10 seconds
+    // Admin-only background operations
+    let queueProcessorInterval: NodeJS.Timeout | undefined;
+    let cacheRefreshInterval: NodeJS.Timeout | undefined;
     
-    // Background cache refresh every 10 minutes
-    const cacheRefreshInterval = setInterval(async () => {
-      try {
-        const response = await fetch('/api/jukebox/refresh-cache', { method: 'POST' });
-        const data = await response.json();
-        
-        if (data.success) {
-          console.log(`[Jukebox] Background cache refresh: ${data.sequencesCached} sequences cached`);
-        } else {
-          // Only log if not offline (reduce console spam)
-          if (data.error !== 'FPP is offline') {
-            console.warn('[Jukebox] Background cache refresh failed:', data.error);
+    if (isAdmin) {
+      // Queue processor - check every 10 seconds (admin only)
+      queueProcessorInterval = setInterval(async () => {
+        try {
+          await fetch('/api/jukebox/process-queue', { method: 'POST' });
+        } catch (error) {
+          console.error('Queue processor failed:', error);
+        }
+      }, 10000); // 10 seconds
+      
+      // Background cache refresh every 10 minutes (admin only)
+      cacheRefreshInterval = setInterval(async () => {
+        try {
+          const response = await fetch('/api/jukebox/refresh-cache', { method: 'POST' });
+          const data = await response.json();
+          
+          if (data.success) {
+            console.log(`[Jukebox] Background cache refresh: ${data.sequencesCached} sequences cached`);
+          } else {
+            // Only log if not offline (reduce console spam)
+            if (data.error !== 'FPP is offline') {
+              console.warn('[Jukebox] Background cache refresh failed:', data.error);
+            }
+          }
+        } catch (error) {
+          // Silently fail for background refreshes to avoid console spam
+          // Only log if it's not a timeout/abort error
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.error('Background cache refresh failed:', error);
           }
         }
-      } catch (error) {
-        // Silently fail for background refreshes to avoid console spam
-        // Only log if it's not a timeout/abort error
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('Background cache refresh failed:', error);
-        }
-      }
-    }, 10 * 60 * 1000); // 10 minutes
+      }, 10 * 60 * 1000); // 10 minutes
+    }
     
     return () => {
       clearInterval(interval);
-      clearInterval(queueProcessorInterval);
-      clearInterval(cacheRefreshInterval);
+      if (queueProcessorInterval) clearInterval(queueProcessorInterval);
+      if (cacheRefreshInterval) clearInterval(cacheRefreshInterval);
     };
-  }, []);
+  }, [isAdmin]);
 
   const fetchData = async () => {
     try {
@@ -509,13 +515,15 @@ export default function JukeboxPage() {
                 <span className="text-3xl">{theme.icons.queue}</span>
                 Request a Song
               </h2>
-              <button
-                onClick={refreshSequenceCache}
-                disabled={loadingSequences}
-                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingSequences ? 'Loading...' : '🔄 Refresh'}
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={refreshSequenceCache}
+                  disabled={loadingSequences}
+                  className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold backdrop-blur-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingSequences ? 'Loading...' : '🔄 Refresh'}
+                </button>
+              )}
             </div>
             <form onSubmit={handleRequest} className="space-y-4">
               <div>

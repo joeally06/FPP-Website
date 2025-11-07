@@ -1,19 +1,31 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { clearCachedSequences, insertCachedSequence } from '@/lib/database';
 
+/**
+ * POST /api/jukebox/refresh-cache
+ * Refresh the jukebox sequence cache from FPP
+ * ADMIN ONLY - Expensive operation that queries FPP and updates database
+ */
 export async function POST() {
   try {
+    await requireAdmin();
+    
     console.log('[Jukebox Cache] Starting refresh...');
 
-    // Check FPP health first before attempting cache refresh
+    // Check FPP health directly (not through our API to avoid auth circular dependency)
     try {
-      const healthCheck = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/fpp/health`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const healthCheck = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/system/status`, {
+        signal: controller.signal,
         cache: 'no-store'
       });
 
-      const healthData = await healthCheck.json();
+      clearTimeout(timeoutId);
 
-      if (!healthData.online) {
+      if (!healthCheck.ok) {
         console.log('[Jukebox Cache] FPP is offline, skipping cache refresh');
         return NextResponse.json({
           success: false,
@@ -23,7 +35,13 @@ export async function POST() {
         }, { status: 503 });
       }
     } catch (healthError) {
-      console.warn('[Jukebox Cache] Health check failed, proceeding with caution:', healthError);
+      console.warn('[Jukebox Cache] FPP health check failed:', healthError);
+      return NextResponse.json({
+        success: false,
+        error: 'FPP is offline',
+        details: 'Cache refresh skipped - FPP server is not reachable',
+        sequencesCached: 0
+      }, { status: 503 });
     }
 
     // Retry logic for FPP connection
@@ -133,7 +151,14 @@ export async function POST() {
       sequencesCached: sequenceSet.size,
       sequences: Array.from(sequenceSet).sort()
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+    
     console.error('[Jukebox Cache] Error refreshing sequence cache:', error);
     
     // Provide more specific error messages

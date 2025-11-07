@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { 
   getCurrentlyPlaying, 
   getQueue, 
@@ -197,8 +198,15 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
   }
 }
 
+/**
+ * POST /api/jukebox/process-queue
+ * Process the jukebox queue (background job)
+ * ADMIN ONLY - Manages FPP playlist and queue state
+ */
 export async function POST() {
   try {
+    await requireAdmin();
+    
     console.log('[Queue] Starting queue processing...');
 
     // Get FPP status
@@ -213,7 +221,13 @@ export async function POST() {
 
     return NextResponse.json({ success: true, state: processingState });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[Queue] Unexpected error:', error);
     return NextResponse.json({ error: 'Queue processing failed', details: String(error) }, { status: 500 });
   }
