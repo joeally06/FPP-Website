@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth-helpers';
 import db from '@/lib/database';
 
+/**
+ * PUT /api/models/[id]
+ * Update a model
+ * ADMIN ONLY
+ */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
+    
     const { id } = await params;
     const data = await request.json();
 
@@ -71,7 +79,13 @@ export async function PUT(
       message: 'Model updated successfully'
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('Error updating model:', error);
     return NextResponse.json(
       { error: 'Failed to update model' },
@@ -80,11 +94,18 @@ export async function PUT(
   }
 }
 
+/**
+ * DELETE /api/models/[id]
+ * Delete a model
+ * ADMIN ONLY
+ */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
+    
     const { id } = await params;
     const stmt = db.prepare('DELETE FROM fpp_models WHERE id = ?');
     const result = stmt.run(id);
@@ -101,7 +122,13 @@ export async function DELETE(
       message: 'Model deleted successfully'
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('Error deleting model:', error);
     return NextResponse.json(
       { error: 'Failed to delete model' },

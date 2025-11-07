@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { requireAdmin } from '@/lib/auth-helpers';
 import Database from 'better-sqlite3';
 import path from 'path';
 
@@ -9,21 +8,13 @@ const dbPath = path.join(process.cwd(), 'votes.db');
 /**
  * GET /api/fpp/sequences
  * Returns cached sequences from database
- * 🔒 AUTHENTICATED USERS ONLY
+ * ADMIN ONLY - Sequences are used for show management
  */
 export async function GET() {
   let db: Database.Database | null = null;
   
   try {
-    // Check authentication (any logged-in user)
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized - login required to view sequences' },
-        { status: 401 }
-      );
-    }
+    await requireAdmin();
 
     // Try to read sequences from database cache first
     db = new Database(dbPath);
@@ -69,6 +60,12 @@ export async function GET() {
     }, { status: 404 });
 
   } catch (error: any) {
+    if (error.message?.includes('Authentication required')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (error.message?.includes('Admin access required')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     console.error('[FPP Sequences] Error:', error);
     
     return NextResponse.json({
