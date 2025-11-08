@@ -7,6 +7,7 @@ import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { useTheme } from '@/lib/themes/theme-context';
 import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
 import LetterToSantaModal from '@/components/LetterToSantaModal';
+import { YouTubePlayer } from '@/components/YouTubePlayer';
 
 interface QueueItem {
   id: number;
@@ -49,6 +50,16 @@ interface SequenceMetadata {
   cached: boolean;
 }
 
+interface YouTubeVideo {
+  id: number;
+  title: string;
+  youtube_id: string;
+  description: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  created_at: string;
+}
+
 export default function JukeboxPage() {
   // Track visitor engagement
   useVisitorTracking('/jukebox');
@@ -71,11 +82,15 @@ export default function JukeboxPage() {
   const [userVotes, setUserVotes] = useState<Record<string, string | null>>({});
   const [showSantaModal, setShowSantaModal] = useState(false);
   const isChristmasTheme = theme.id === 'christmas';
+  const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
+  const [selectedYouTubeVideo, setSelectedYouTubeVideo] = useState<YouTubeVideo | null>(null);
+  const [loadingYouTubeVideos, setLoadingYouTubeVideos] = useState(false);
 
   useEffect(() => {
     fetchAvailableSequences();
     fetchData();
     fetchVotes();
+    fetchYouTubeVideos();
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     
     // Admin-only background operations
@@ -175,6 +190,21 @@ export default function JukeboxPage() {
       setUserVotes(userVotesMap);
     } catch (err) {
       console.error('Failed to fetch user votes:', err);
+    }
+  };
+
+  const fetchYouTubeVideos = async () => {
+    try {
+      setLoadingYouTubeVideos(true);
+      const response = await fetch('/api/youtube-videos');
+      if (response.ok) {
+        const data = await response.json();
+        setYoutubeVideos(data.videos || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch YouTube videos:', error);
+    } finally {
+      setLoadingYouTubeVideos(false);
     }
   };
 
@@ -724,6 +754,102 @@ export default function JukeboxPage() {
             </p>
           )}
         </div>
+
+        {/* YouTube Videos */}
+        {youtubeVideos.length > 0 && (
+          <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mt-6 border ${theme.cardBorder}`}>
+            <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
+              <span className="text-3xl">🎬</span>
+              Watch Past Light Shows
+            </h2>
+            <p className="text-sm text-white/80 mb-4">
+              Enjoy videos of previous light shows and holiday displays!
+            </p>
+
+            {/* Video Selector */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-white/90 mb-2">
+                Select a Video to Watch
+              </label>
+              <select
+                value={selectedYouTubeVideo?.id || ''}
+                onChange={(e) => {
+                  const videoId = parseInt(e.target.value);
+                  const video = youtubeVideos.find(v => v.id === videoId);
+                  setSelectedYouTubeVideo(video || null);
+                }}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-sm"
+              >
+                <option value="" className="bg-gray-800">Choose a video...</option>
+                {youtubeVideos.map((video) => (
+                  <option key={video.id} value={video.id} className="bg-gray-800">
+                    {video.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* YouTube Player */}
+            {selectedYouTubeVideo && (
+              <div className="space-y-4">
+                <div className="bg-black/50 rounded-lg overflow-hidden aspect-video">
+                  <YouTubePlayer
+                    videoId={selectedYouTubeVideo.youtube_id}
+                    width="100%"
+                    height="100%"
+                  />
+                </div>
+
+                {/* Video Info */}
+                <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {selectedYouTubeVideo.title}
+                  </h3>
+                  {selectedYouTubeVideo.description && (
+                    <p className="text-white/80 text-sm mb-2">
+                      {selectedYouTubeVideo.description}
+                    </p>
+                  )}
+                  <p className="text-white/60 text-xs">
+                    Added {new Date(selectedYouTubeVideo.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Video Thumbnails Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
+              {youtubeVideos.map((video) => (
+                <div
+                  key={video.id}
+                  onClick={() => setSelectedYouTubeVideo(video)}
+                  className={`cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                    selectedYouTubeVideo?.id === video.id
+                      ? 'border-white shadow-lg scale-105'
+                      : 'border-white/20 hover:border-white/40'
+                  }`}
+                >
+                  {video.thumbnail_url ? (
+                    <img
+                      src={video.thumbnail_url}
+                      alt={video.title}
+                      className="w-full h-24 object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-24 bg-white/10 flex items-center justify-center">
+                      <span className="text-white/60 text-2xl">🎬</span>
+                    </div>
+                  )}
+                  <div className="p-2 bg-white/5">
+                    <h4 className="text-xs font-medium text-white truncate">
+                      {video.title}
+                    </h4>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Letter to Santa Modal */}

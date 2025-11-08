@@ -358,6 +358,20 @@ db.exec(`
   );
 `);
 
+// Create YouTube videos table for light show videos
+db.exec(`
+  CREATE TABLE IF NOT EXISTS youtube_videos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    youtube_id TEXT NOT NULL UNIQUE,
+    description TEXT,
+    thumbnail_url TEXT,
+    duration_seconds INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 // ========================================
 // Database Indexes for Performance
 // ========================================
@@ -500,6 +514,15 @@ db.exec(`
   
   CREATE INDEX IF NOT EXISTS idx_checklist_completed 
   ON setup_checklist(completed, year);
+`);
+
+// YouTube videos indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_youtube_created 
+  ON youtube_videos(created_at);
+  
+  CREATE INDEX IF NOT EXISTS idx_youtube_youtube_id 
+  ON youtube_videos(youtube_id);
 `);
 
 console.log('✅ All database indexes created successfully');
@@ -802,6 +825,34 @@ export const updateMonitoringSchedule = db.prepare(`
   UPDATE monitoring_schedule 
   SET enabled = ?, start_time = ?, end_time = ?, timezone = ?, updated_at = CURRENT_TIMESTAMP
   WHERE id = 1
+`);
+
+// YouTube videos prepared statements
+export const insertYouTubeVideo = db.prepare(`
+  INSERT INTO youtube_videos (title, youtube_id, description, thumbnail_url, duration_seconds)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+export const getAllYouTubeVideos = db.prepare(`
+  SELECT * FROM youtube_videos ORDER BY created_at DESC
+`);
+
+export const getYouTubeVideoById = db.prepare(`
+  SELECT * FROM youtube_videos WHERE id = ?
+`);
+
+export const updateYouTubeVideo = db.prepare(`
+  UPDATE youtube_videos 
+  SET title = ?, description = ?, thumbnail_url = ?, duration_seconds = ?, updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+export const deleteYouTubeVideo = db.prepare(`
+  DELETE FROM youtube_videos WHERE id = ?
+`);
+
+export const getYouTubeVideoByYouTubeId = db.prepare(`
+  SELECT * FROM youtube_videos WHERE youtube_id = ?
 `);
 
 export default db;
