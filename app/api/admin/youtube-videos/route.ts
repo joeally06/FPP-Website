@@ -13,13 +13,16 @@ import {
 function extractYouTubeId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
 
-  // Remove any query parameters or fragments
-  url = url.split('?')[0].split('#')[0];
+  // Trim whitespace
+  url = url.trim();
 
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-    /youtube\.com\/embed\/([^&\n?#]+)/,
-    /youtube\.com\/v\/([^&\n?#]+)/
+    /(?:youtube\.com\/watch\?v=)([^&\n?#]+)/,
+    /(?:youtu\.be\/)([^&\n?#]+)/,
+    /(?:youtube\.com\/embed\/)([^&\n?#]+)/,
+    /(?:youtube\.com\/v\/)([^&\n?#]+)/,
+    /(?:youtube\.com\/shorts\/)([^&\n?#]+)/,
+    /(?:youtube\.com\/live\/)([^&\n?#]+)/
   ];
 
   for (const pattern of patterns) {
