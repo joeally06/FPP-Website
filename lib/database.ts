@@ -829,12 +829,21 @@ export const updateMonitoringSchedule = db.prepare(`
 
 // YouTube videos prepared statements
 export const insertYouTubeVideo = db.prepare(`
-  INSERT INTO youtube_videos (title, youtube_id, description, thumbnail_url, duration_seconds)
-  VALUES (?, ?, ?, ?, ?)
+  INSERT INTO youtube_videos (title, youtube_id, description, thumbnail_url, duration_seconds, theme)
+  VALUES (?, ?, ?, ?, ?, ?)
 `);
 
 export const getAllYouTubeVideos = db.prepare(`
-  SELECT * FROM youtube_videos ORDER BY created_at DESC
+  SELECT id, title, youtube_id, description, thumbnail_url, duration_seconds, theme, created_at, updated_at 
+  FROM youtube_videos 
+  ORDER BY created_at DESC
+`);
+
+export const getYouTubeVideosByTheme = db.prepare(`
+  SELECT id, title, youtube_id, description, thumbnail_url, duration_seconds, theme, created_at, updated_at 
+  FROM youtube_videos 
+  WHERE theme = ?
+  ORDER BY created_at DESC
 `);
 
 export const getYouTubeVideoById = db.prepare(`
@@ -843,7 +852,7 @@ export const getYouTubeVideoById = db.prepare(`
 
 export const updateYouTubeVideo = db.prepare(`
   UPDATE youtube_videos 
-  SET title = ?, description = ?, thumbnail_url = ?, duration_seconds = ?, updated_at = CURRENT_TIMESTAMP
+  SET title = ?, description = ?, thumbnail_url = ?, duration_seconds = ?, theme = ?, updated_at = CURRENT_TIMESTAMP
   WHERE id = ?
 `);
 

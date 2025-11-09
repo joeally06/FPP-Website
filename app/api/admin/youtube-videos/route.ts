@@ -42,7 +42,7 @@ function isValidYouTubeId(id: string): boolean {
 /**
  * GET /api/admin/youtube-videos
  * Get all YouTube videos (admin management)
- * ADMIN ONLY
+ * ADMIN ONLY - Returns all videos regardless of theme
  */
 export async function GET() {
   try {
@@ -56,6 +56,7 @@ export async function GET() {
       description: string | null;
       thumbnail_url: string | null;
       duration_seconds: number | null;
+      theme: string;
       created_at: string;
       updated_at: string;
     }>;
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     // Require admin authentication
     await requireAdmin();
 
-    const { title, youtubeUrl, url, description } = await request.json();
+    const { title, youtubeUrl, url, description, theme } = await request.json();
 
     // Support both youtubeUrl and url parameter names
     const videoUrl = youtubeUrl || url;
@@ -97,6 +98,14 @@ export async function POST(request: NextRequest) {
     if (!videoUrl || typeof videoUrl !== 'string') {
       return NextResponse.json(
         { error: 'YouTube URL is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate theme
+    if (!theme || (theme !== 'christmas' && theme !== 'halloween')) {
+      return NextResponse.json(
+        { error: 'Theme is required and must be either "christmas" or "halloween"' },
         { status: 400 }
       );
     }
@@ -160,16 +169,17 @@ export async function POST(request: NextRequest) {
     // Generate thumbnail URL
     const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
 
-    // Insert new video
+    // Insert new video with theme
     const result = insertYouTubeVideo.run(
       finalTitle,
       youtubeId,
       description?.trim() || null,
       thumbnailUrl,
-      null // duration_seconds will be set later if needed
+      null, // duration_seconds will be set later if needed
+      theme
     );
 
-    console.log(`[Admin YouTube Videos] Added video: ${finalTitle} (${youtubeId})`);
+    console.log(`[Admin YouTube Videos] Added video: ${finalTitle} (${youtubeId}) - Theme: ${theme}`);
 
     return NextResponse.json({
       success: true,
@@ -180,7 +190,8 @@ export async function POST(request: NextRequest) {
         youtube_id: youtubeId,
         description: description?.trim() || null,
         thumbnail_url: thumbnailUrl,
-        duration_seconds: null
+        duration_seconds: null,
+        theme
       }
     });
   } catch (error: any) {

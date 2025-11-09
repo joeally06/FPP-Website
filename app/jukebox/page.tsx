@@ -199,7 +199,12 @@ export default function JukeboxPage() {
       const response = await fetch('/api/youtube-videos');
       if (response.ok) {
         const data = await response.json();
-        setYoutubeVideos(data.videos || []);
+        const videos = data.videos || [];
+        setYoutubeVideos(videos);
+        // Auto-select first video if available
+        if (videos.length > 0 && !selectedYouTubeVideo) {
+          setSelectedYouTubeVideo(videos[0]);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch YouTube videos:', error);
@@ -765,29 +770,6 @@ export default function JukeboxPage() {
             <p className="text-sm text-white/80 mb-4">
               Enjoy videos of previous light shows and holiday displays!
             </p>
-
-            {/* Video Selector */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-white/90 mb-2">
-                Select a Video to Watch
-              </label>
-              <select
-                value={selectedYouTubeVideo?.id || ''}
-                onChange={(e) => {
-                  const videoId = parseInt(e.target.value);
-                  const video = youtubeVideos.find(v => v.id === videoId);
-                  setSelectedYouTubeVideo(video || null);
-                }}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-sm"
-              >
-                <option value="" className="bg-gray-800">Choose a video...</option>
-                {youtubeVideos.map((video) => (
-                  <option key={video.id} value={video.id} className="bg-gray-800">
-                    {video.title}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             {/* YouTube Player */}
             {selectedYouTubeVideo && (

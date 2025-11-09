@@ -79,12 +79,20 @@ export async function PUT(
       );
     }
 
-    const { title, description, thumbnail_url, duration_seconds } = await request.json();
+    const { title, description, thumbnail_url, duration_seconds, theme } = await request.json();
 
     // Validate required fields
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
       return NextResponse.json(
         { error: 'Title is required and must be a non-empty string' },
+        { status: 400 }
+      );
+    }
+
+    // Validate theme if provided
+    if (theme && theme !== 'christmas' && theme !== 'halloween') {
+      return NextResponse.json(
+        { error: 'Theme must be either "christmas" or "halloween"' },
         { status: 400 }
       );
     }
@@ -98,16 +106,17 @@ export async function PUT(
       );
     }
 
-    // Update video
+    // Update video (theme defaults to 'christmas' if not provided)
     updateYouTubeVideo.run(
       title.trim(),
       description?.trim() || null,
       thumbnail_url?.trim() || null,
       duration_seconds ? parseInt(duration_seconds) : null,
+      theme || 'christmas',
       videoId
     );
 
-    console.log(`[Admin YouTube Video] Updated video ID ${videoId}: ${title}`);
+    console.log(`[Admin YouTube Video] Updated video ID ${videoId}: ${title} (Theme: ${theme || 'christmas'})`);
 
     return NextResponse.json({
       success: true,

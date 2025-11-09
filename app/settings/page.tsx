@@ -800,7 +800,8 @@ function YouTubeVideoSettings() {
   const [formData, setFormData] = useState({
     title: '',
     youtubeUrl: '',
-    description: ''
+    description: '',
+    theme: 'christmas' as 'christmas' | 'halloween'
   });
 
   // Load videos on mount
@@ -828,7 +829,7 @@ function YouTubeVideoSettings() {
   };
 
   const resetForm = () => {
-    setFormData({ title: '', youtubeUrl: '', description: '' });
+    setFormData({ title: '', youtubeUrl: '', description: '', theme: 'christmas' });
     setEditingVideo(null);
     setShowAddForm(false);
   };
@@ -850,6 +851,7 @@ function YouTubeVideoSettings() {
           youtubeUrl: formData.youtubeUrl.trim(),
           title: formData.title.trim() || undefined,
           description: formData.description.trim() || undefined,
+          theme: formData.theme,
         }),
       });
 
@@ -884,6 +886,7 @@ function YouTubeVideoSettings() {
         body: JSON.stringify({
           title: formData.title.trim() || undefined,
           description: formData.description.trim() || undefined,
+          theme: formData.theme,
         }),
       });
 
@@ -938,7 +941,8 @@ function YouTubeVideoSettings() {
     setFormData({
       title: video.title || '',
       youtubeUrl: `https://www.youtube.com/watch?v=${video.youtube_id}`,
-      description: video.description || ''
+      description: video.description || '',
+      theme: video.theme || 'christmas'
     });
     setShowAddForm(true);
   };
@@ -1012,6 +1016,21 @@ function YouTubeVideoSettings() {
               />
             </div>
 
+            <div>
+              <AdminLabel>Theme *</AdminLabel>
+              <select
+                value={formData.theme}
+                onChange={(e) => setFormData(prev => ({ ...prev, theme: e.target.value as 'christmas' | 'halloween' }))}
+                className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
+              >
+                <option value="christmas">🎄 Christmas</option>
+                <option value="halloween">🎃 Halloween</option>
+              </select>
+              <AdminTextSmall className="mt-1">
+                Video will only show on the jukebox when this theme is active
+              </AdminTextSmall>
+            </div>
+
             <div className="flex gap-3">
               <button
                 onClick={editingVideo ? handleEditVideo : handleAddVideo}
@@ -1066,7 +1085,16 @@ function YouTubeVideoSettings() {
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <AdminH4 className="truncate">{video.title}</AdminH4>
+                    <div className="flex items-center gap-2 mb-1">
+                      <AdminH4 className="truncate">{video.title}</AdminH4>
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                        video.theme === 'christmas' 
+                          ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                          : 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                      }`}>
+                        {video.theme === 'christmas' ? '🎄 Christmas' : '🎃 Halloween'}
+                      </span>
+                    </div>
                     <AdminTextSmall className="text-white/60">
                       {video.youtube_id}
                     </AdminTextSmall>
@@ -1106,8 +1134,10 @@ function YouTubeVideoSettings() {
       <div className="mt-6 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
         <AdminH4>ℹ️ How It Works</AdminH4>
         <ul className="space-y-1 mt-2">
-          <li><AdminTextSmall>• Videos are publicly accessible on the jukebox page</AdminTextSmall></li>
-          <li><AdminTextSmall>• Visitors can select and watch any video you've added</AdminTextSmall></li>
+          <li><AdminTextSmall>• Videos are filtered by the currently active theme</AdminTextSmall></li>
+          <li><AdminTextSmall>• Christmas videos only show when Christmas theme is active</AdminTextSmall></li>
+          <li><AdminTextSmall>• Halloween videos only show when Halloween theme is active</AdminTextSmall></li>
+          <li><AdminTextSmall>• Visitors can select and watch any video for the active theme</AdminTextSmall></li>
           <li><AdminTextSmall>• YouTube handles all video streaming and playback</AdminTextSmall></li>
           <li><AdminTextSmall>• Titles and thumbnails are automatically fetched from YouTube</AdminTextSmall></li>
           <li><AdminTextSmall>• Only you (admin) can add, edit, or delete videos</AdminTextSmall></li>
