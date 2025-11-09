@@ -47,19 +47,27 @@ export async function POST() {
 
     console.log('[System Update] Spawning update process...');
     console.log('[System Update] Script:', updateScript);
+    console.log('[System Update] PATH:', process.env.PATH);
     console.log('[System Update] This will:');
-    console.log('[System Update]   1. Run update.sh in background');
-    console.log('[System Update]   2. Track status in logs/update_status');
-    console.log('[System Update]   3. Log output to logs/update.log');
-    console.log('[System Update]   4. Continue even after server restart');
+    console.log('[System Update]   1. Validate environment (PM2, git, npm)');
+    console.log('[System Update]   2. Run update.sh in background');
+    console.log('[System Update]   3. Track status in logs/update_status');
+    console.log('[System Update]   4. Log output to logs/update.log');
+    console.log('[System Update]   5. Continue even after server restart');
 
     // Spawn the update script as a completely detached process
-    // This ensures it continues running even when PM2 stops the app
+    // CRITICAL: Pass full environment to ensure PM2, git, npm are available
     const child = spawn('bash', [updateScript], {
-      detached: true,        // Run independently
-      stdio: 'ignore',       // Don't keep pipes open
-      cwd: projectRoot,
-      env: process.env
+      detached: true,        // Run independently from parent
+      stdio: 'ignore',       // Don't keep pipes open (allows parent to exit)
+      cwd: projectRoot,      // Run in project directory
+      env: {
+        ...process.env,      // Inherit ALL environment variables
+        PATH: process.env.PATH,   // Explicitly ensure PATH is set
+        HOME: process.env.HOME,   // Explicitly ensure HOME is set
+        USER: process.env.USER,   // Explicitly ensure USER is set
+      },
+      shell: false           // Don't wrap in shell (direct execution)
     });
 
     // Unref allows parent to exit independently
