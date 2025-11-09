@@ -100,58 +100,17 @@ log ""
 
 set_status "STARTING"
 
-# Run the actual update script and capture both stdout and stderr
-# Parse output to update status in real-time
-bash ./update.sh --silent 2>&1 | while IFS= read -r line; do
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $line" >> "$LOG_FILE"
-    
-    # Update status based on what update.sh is doing
-    if [[ "$line" =~ "Stopping server" ]]; then
-        set_status "STOPPING"
-    elif [[ "$line" =~ "Stashing" ]]; then
-        set_status "STASHING"
-    elif [[ "$line" =~ "Creating backup" ]]; then
-        set_status "BACKING_UP"
-    elif [[ "$line" =~ "Fetching latest" ]] || [[ "$line" =~ "Pulling updates" ]]; then
-        set_status "UPDATING"
-    elif [[ "$line" =~ "Updating dependencies" ]]; then
-        set_status "INSTALLING"
-    elif [[ "$line" =~ "Running database migrations" ]]; then
-        set_status "MIGRATING"
-    elif [[ "$line" =~ "Building application" ]]; then
-        set_status "BUILDING"
-    elif [[ "$line" =~ "Restoring stashed" ]]; then
-        set_status "RESTORING"
-    elif [[ "$line" =~ "Restarting server" ]]; then
-        set_status "RESTARTING"
-    elif [[ "$line" =~ "Update complete" ]]; then
-        set_status "SUCCESS"
-    elif [[ "$line" =~ "Already up to date" ]]; then
-        set_status "UP_TO_DATE"
-    fi
-done
+# Run the actual update script
+# We use exec to replace this process with update.sh
+# This ensures update continues even if parent process dies
+log "🔄 Starting update process..."
+log "📝 Output will be logged to: $LOG_FILE"
+log ""
 
-# Capture the exit code from the pipeline
-EXIT_CODE=${PIPESTATUS[0]}
+# Execute update.sh directly (not in a pipeline that can break)
+# Redirect all output to log file
+exec bash ./update.sh --silent >> "$LOG_FILE" 2>&1
 
-if [ $EXIT_CODE -eq 0 ]; then
-    # Check if we already set SUCCESS or UP_TO_DATE
-    CURRENT_STATUS=$(cat "$STATUS_FILE" 2>/dev/null || echo "")
-    if [[ "$CURRENT_STATUS" != "SUCCESS" ]] && [[ "$CURRENT_STATUS" != "UP_TO_DATE" ]]; then
-        set_status "SUCCESS"
-    fi
-    log "✅ Update completed successfully!"
-else
-    set_status "FAILED"
-    log "❌ Update failed with exit code: $EXIT_CODE"
-    log "Check the log above for details"
-fi
+# Note: This line will never execute because exec replaces the process
+# Exit code is handled by update.sh itself
 
-# Clean up PID file
-rm -f "$PID_FILE"
-
-log "=================================="
-log "Update wrapper finished"
-log "=================================="
-
-exit $EXIT_CODE

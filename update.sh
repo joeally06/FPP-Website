@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # FPP Control Center - Update Script
-# Version: 2.2.0 (Fixed: Stop PM2 before checking git status)
+# Version: 2.3.0 (Enhanced: Direct status file updates)
 
 set -e
 
@@ -11,15 +11,32 @@ if [ "$1" = "--silent" ]; then
     SILENT=true
 fi
 
+# Status file for API polling
+STATUS_FILE="logs/update_status"
+
+# Trap errors and update status
+trap 'update_status "FAILED"; exit 1' ERR
+
 log() {
     if [ "$SILENT" = false ]; then
         echo "$1"
+    else
+        # Always log to file in silent mode
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    fi
+}
+
+# Update status function for frontend polling
+update_status() {
+    if [ "$SILENT" = true ]; then
+        echo "$1" > "$STATUS_FILE" 2>/dev/null || true
     fi
 }
 
 log "🔄 FPP Control Center - Update Manager"
 log "======================================"
 log ""
+update_status "STARTING"
 
 # Display current version
 if [ -f "package.json" ]; then
@@ -52,6 +69,7 @@ PM2_WAS_RUNNING=false
 if command -v pm2 &> /dev/null; then
     if pm2 list 2>/dev/null | grep -q "fpp-control"; then
         log "⏸️  Stopping server to prevent database conflicts..."
+        update_status "STOPPING"
         pm2 delete fpp-control > /dev/null 2>&1 || pm2 stop fpp-control
         PM2_WAS_RUNNING=true
         
@@ -66,6 +84,7 @@ fi
 STASHED=false
 if ! git diff-index --quiet HEAD -- 2>/dev/null; then
     log "📦 Stashing local changes..."
+    update_status "STASHING"
     git stash push -m "Auto-stash before update $(date +%Y%m%d_%H%M%S)"
     STASHED=true
     log "✅ Local changes stashed"
@@ -73,6 +92,7 @@ fi
 
 # Backup current version
 log "💾 Creating backup..."
+update_status "BACKING_UP"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="backups/$TIMESTAMP"
 mkdir -p "$BACKUP_DIR"
@@ -94,6 +114,7 @@ log ""
 
 # Fetch latest changes
 log "📥 Fetching latest updates from GitHub..."
+update_status "CHECKING"
 git fetch origin --quiet
 
 # Check if there are updates
@@ -102,6 +123,7 @@ REMOTE=$(git rev-parse origin/master)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
     log "✅ Already up to date!"
+    update_status "UP_TO_DATE"
     
     # Restore stashed changes if any
     if [ "$STASHED" = true ]; then
@@ -147,6 +169,7 @@ fi
 
 # Pull changes
 log "📥 Pulling updates..."
+update_status "UPDATING"
 git pull origin master --quiet
 
 # Fix script permissions after pull (git doesn't preserve executable bit)
@@ -155,6 +178,7 @@ chmod +x update.sh 2>/dev/null
 
 # Install/update dependencies
 log "📦 Updating dependencies..."
+update_status "INSTALLING"
 if [ "$SILENT" = true ]; then
     npm install --silent 2>&1 > /dev/null
 else
@@ -164,11 +188,13 @@ fi
 # Run database migrations if script exists
 if [ -f "scripts/migrate-database.js" ]; then
     log "🗄️  Running database migrations..."
+    update_status "MIGRATING"
     node scripts/migrate-database.js
 fi
 
 # Rebuild application (PM2 is stopped, no database conflicts)
 log "🔨 Building application..."
+update_status "BUILDING"
 if [ "$SILENT" = true ]; then
     npm run build 2>&1 | grep -E "(Creating|Compiled|Error|Warning)" || true
 else
@@ -177,6 +203,7 @@ fi
 
 log ""
 log "✅ Update complete!"
+update_status "COMPLETED"
 log ""
 
 # Display new version
@@ -202,6 +229,7 @@ log "📋 Backup location: $BACKUP_DIR"
 # Restore stashed changes if any (merge with new code)
 if [ "$STASHED" = true ]; then
     log "📦 Restoring stashed changes..."
+    update_status "RESTORING"
     if git stash pop --quiet 2>/dev/null; then
         log "✅ Local changes restored"
     else
@@ -213,8 +241,10 @@ fi
 # Restart PM2 if it was running
 if [ "$PM2_WAS_RUNNING" = true ]; then
     log "🔄 Restarting server..."
+    update_status "RESTARTING"
     pm2 start ecosystem.config.js
     log "✅ Server restarted successfully"
+    update_status "COMPLETED"
 fi
 
 if [ "$SILENT" = false ]; then
