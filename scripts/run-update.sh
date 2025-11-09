@@ -100,17 +100,23 @@ log ""
 
 set_status "STARTING"
 
-# Run the actual update script
-# We use exec to replace this process with update.sh
-# This ensures update continues even if parent process dies
-log "🔄 Starting update process..."
-log "📝 Output will be logged to: $LOG_FILE"
+# Use nohup and background execution to survive PM2 death
+# Direct all output to log file
+log "🔄 Starting update process (detached)..."
+log "📝 This process will continue even after server restarts"
 log ""
 
-# Execute update.sh directly (not in a pipeline that can break)
-# Redirect all output to log file
-exec bash ./update.sh --silent >> "$LOG_FILE" 2>&1
+# Run update.sh in background with nohup (survives parent death)
+nohup bash ./update.sh --silent </dev/null >> "$LOG_FILE" 2>&1 &
 
-# Note: This line will never execute because exec replaces the process
-# Exit code is handled by update.sh itself
+# Get the PID
+UPDATE_PID=$!
+echo $UPDATE_PID > "$PID_FILE"
+
+log "✅ Update process started (PID: $UPDATE_PID)"
+log "📊 Monitor progress: tail -f $LOG_FILE"
+log "📍 Status file: $STATUS_FILE"
+
+# This script exits here, but update.sh continues in background
+exit 0
 

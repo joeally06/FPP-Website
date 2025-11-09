@@ -13,8 +13,10 @@ export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProp
   const [isComplete, setIsComplete] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [autoCloseCountdown, setAutoCloseCountdown] = useState<number | null>(null);
+  const [usePolling, setUsePolling] = useState(false);
   const outputEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -70,10 +72,11 @@ export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProp
 
     eventSource.onerror = (error) => {
       console.error('[Update Modal] Stream error:', error);
-      setOutput((prev) => [...prev, '', '❌ Connection lost or update process ended.']);
-      setHasError(true);
-      setIsComplete(true);
+      setOutput((prev) => [...prev, '', '📡 Stream disconnected (server restarting). Switching to status polling...']);
       eventSource.close();
+      
+      // Switch to polling mode when stream fails (happens when PM2 stops)
+      setUsePolling(true);
     };
 
     return () => {
@@ -81,8 +84,82 @@ export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProp
         console.log('[Update Modal] Closing stream');
         eventSourceRef.current.close();
       }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
     };
   }, [isOpen]);
+
+  // Polling mode - used when stream dies (PM2 restart)
+  useEffect(() => {
+    if (!usePolling) return;
+
+    console.log('[Update Modal] Starting status polling...');
+    
+    const pollStatus = async () => {
+      try {
+        const response = await fetch('/api/system/update-status');
+        if (!response.ok) {
+          // Server not responding yet, keep polling
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Update output with last lines from log
+        if (data.lastLines && data.lastLines.length > 0) {
+          setOutput(data.lastLines);
+        }
+
+        // Check status
+        if (data.status === 'COMPLETED' || data.status === 'SUCCESS' || data.status === 'UP_TO_DATE') {
+          setOutput((prev) => [...prev, '', '✅ Update completed successfully!']);
+          setIsComplete(true);
+          
+          // Start auto-reload countdown
+          let countdown = 5;
+          setAutoCloseCountdown(countdown);
+          
+          const interval = setInterval(() => {
+            countdown--;
+            setAutoCloseCountdown(countdown);
+            
+            if (countdown <= 0) {
+              clearInterval(interval);
+              window.location.reload();
+            }
+          }, 1000);
+          
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+          }
+        } else if (data.status === 'FAILED') {
+          setOutput((prev) => [...prev, '', '❌ Update failed. Check logs for details.']);
+          setHasError(true);
+          setIsComplete(true);
+          
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+          }
+        }
+      } catch (error) {
+        console.error('[Update Modal] Polling error:', error);
+        // Server still restarting, keep polling
+      }
+    };
+
+    // Poll immediately
+    pollStatus();
+    
+    // Then poll every 2 seconds
+    pollingIntervalRef.current = setInterval(pollStatus, 2000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [usePolling]);
 
   // Auto-scroll to bottom when new output arrives
   useEffect(() => {
