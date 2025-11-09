@@ -208,10 +208,7 @@ export default function JukeboxPage() {
         const data = await response.json();
         const videos = data.videos || [];
         setYoutubeVideos(videos);
-        // Auto-select first video if available
-        if (videos.length > 0 && !selectedYouTubeVideo) {
-          setSelectedYouTubeVideo(videos[0]);
-        }
+        // Don't auto-select - let user choose which video to play
       }
     } catch (error) {
       console.error('Failed to fetch YouTube videos:', error);

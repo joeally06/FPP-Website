@@ -144,6 +144,15 @@ export function YouTubePlayer({
           onReady: (event: any) => {
             console.log('[YouTube Player] Player ready for video:', videoId);
             setIsPlayerReady(true);
+            
+            // Explicitly pause the video to prevent autoplay
+            try {
+              event.target.pauseVideo();
+              console.log('[YouTube Player] Video paused on ready to prevent autoplay');
+            } catch (error) {
+              console.warn('[YouTube Player] Could not pause video:', error);
+            }
+            
             onReady?.();
           },
           onStateChange: (event: any) => {
