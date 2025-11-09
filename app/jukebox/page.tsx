@@ -86,6 +86,11 @@ export default function JukeboxPage() {
   const [selectedYouTubeVideo, setSelectedYouTubeVideo] = useState<YouTubeVideo | null>(null);
   const [loadingYouTubeVideos, setLoadingYouTubeVideos] = useState(false);
 
+  // Re-fetch YouTube videos when theme changes
+  useEffect(() => {
+    fetchYouTubeVideos();
+  }, [theme.id]);
+
   useEffect(() => {
     fetchAvailableSequences();
     fetchData();

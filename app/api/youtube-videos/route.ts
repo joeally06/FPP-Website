@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllYouTubeVideos, getYouTubeVideosByTheme } from '@/lib/database';
-import { getSetting } from '@/lib/settings';
+import { getAllYouTubeVideos, getYouTubeVideosByTheme, getActiveTheme } from '@/lib/database';
 
 /**
  * GET /api/youtube-videos
@@ -25,8 +24,9 @@ export async function GET(request: Request) {
       }
       videos = getYouTubeVideosByTheme.all(themeParam);
     } else {
-      // Otherwise, fetch active theme from settings and filter
-      const activeTheme = await getSetting('theme') || 'christmas';
+      // Otherwise, fetch active theme from theme_settings table
+      const themeData = getActiveTheme.get() as { active_theme_id: string } | undefined;
+      const activeTheme = themeData?.active_theme_id || 'christmas';
       videos = getYouTubeVideosByTheme.all(activeTheme);
     }
 

@@ -138,6 +138,7 @@ export function YouTubePlayer({
           fs: 1, // Allow fullscreen
           iv_load_policy: 3, // Hide annotations
           cc_load_policy: 0, // Hide closed captions
+          origin: typeof window !== 'undefined' ? window.location.origin : undefined, // Specify origin to reduce CORS warnings
         },
         events: {
           onReady: (event: any) => {
