@@ -1,6 +1,6 @@
 {
   "name": "fpp-control-center",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.1-rc.2",
   "description": "Control center for Falcon Player (FPP) light shows",
   "private": true,
   "repository": {
@@ -65,8 +65,10 @@
     "@types/react-dom": "^19",
     "@types/spotify-web-api-node": "^5.0.11",
     "@types/validator": "^13.15.4",
+    "esbuild-register": "^3.6.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.0",
+    "node-fetch": "^2.7.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

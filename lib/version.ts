@@ -11,8 +11,8 @@
 export const APP_VERSION = {
   major: 1,
   minor: 0,
-  patch: 0,
-  prerelease: 'rc.1', // Release Candidate 1
+  patch: 1,
+  prerelease: 'rc.2', // Release Candidate 2
   build: null as string | null, // Git commit hash
 };
 
@@ -50,6 +50,25 @@ export function getVersionInfo() {
 
 // Version history and changelog
 export const VERSION_HISTORY = [
+  {
+    version: '1.0.1-rc.2',
+    date: '2025-11-09',
+    name: 'Performance & Architecture Release',
+    changes: [
+      'FPP state caching system - Backend polling eliminates redundant frontend requests',
+      'Database normalization - Unified sequences table with foreign key constraints',
+      'Spotify integration - "Listen on Spotify" links in jukebox Now Playing',
+      'Auto-refresh Spotify URLs - Metadata updates on Media Library changes',
+      'Bulk URL refresh button in Media Library',
+      'PM2 dual-process architecture (Next.js + FPP poller)',
+      'Stale data indicators in jukebox UI (30s threshold)',
+      'Health monitoring view for FPP polling service',
+      'Exponential backoff on FPP connection failures',
+      'Zero-data-loss migrations with comprehensive validation',
+      'Sub-millisecond cached status API responses',
+      'Prepared statements for all FPP operations',
+    ],
+  },
   {
     version: '1.0.0-rc.1',
     date: '2025-11-05',

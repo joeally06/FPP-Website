@@ -37,6 +37,8 @@ interface CurrentlyPlaying {
   media_name?: string; // MP3/media filename for Spotify matching
   requester_name: string;
   played_at: string;
+  cached?: boolean; // Whether data is from cache or direct FPP query
+  cache_age_seconds?: number; // Age of cached data in seconds
 }
 
 interface SequenceMetadata {
@@ -489,6 +491,18 @@ export default function JukeboxPage() {
           </h2>
           {currentlyPlaying ? (
             <div className={`bg-gradient-to-r from-${theme.primaryColor}/20 to-${theme.secondaryColor}/20 border-2 border-${theme.primaryColor}/40 rounded-xl p-4 backdrop-blur-sm`}>
+              {/* Cache status indicator - only show if using cached data and it's stale */}
+              {currentlyPlaying.cached && currentlyPlaying.cache_age_seconds && currentlyPlaying.cache_age_seconds > 30 && (
+                <div className="mb-3 px-3 py-2 bg-yellow-500/20 border border-yellow-500/40 rounded-lg">
+                  <p className="text-yellow-200 text-sm flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>
+                      Data may be outdated ({currentlyPlaying.cache_age_seconds}s old) - FPP poller may be offline
+                    </span>
+                  </p>
+                </div>
+              )}
+              
               <div className="flex items-start space-x-4">
                 {currentMetadata?.album_cover_url ? (
                   <img

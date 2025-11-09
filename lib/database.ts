@@ -619,7 +619,8 @@ export const incrementSequenceRequests = db.prepare(`
     last_requested = CURRENT_TIMESTAMP
 `);
 
-export const getPopularSequences = db.prepare(`
+// Legacy popular sequences query (uses old tables - kept for backward compatibility)
+export const getPopularSequencesLegacy = db.prepare(`
   SELECT 
     sr.sequence_name,
     sr.total_requests,
@@ -690,6 +691,188 @@ export const getAllSequenceMetadata = db.prepare(`
 // Media Library (spotify_metadata) prepared statements
 export const getMediaLibraryMetadata = db.prepare(`
   SELECT * FROM spotify_metadata WHERE sequence_name = ?
+`);
+
+// ========================================
+// Sequences Table (Normalized Metadata)
+// ========================================
+
+// Get sequence by name
+export const getSequenceByName = db.prepare(`
+  SELECT * FROM sequences WHERE sequence_name = ?
+`);
+
+// Get sequence by ID
+export const getSequenceById = db.prepare(`
+  SELECT * FROM sequences WHERE id = ?
+`);
+
+// Insert or update sequence metadata
+export const upsertSequence = db.prepare(`
+  INSERT INTO sequences (
+    sequence_name, title, artist, album, album_art_url, 
+    spotify_url, spotify_id, spotify_uri, preview_url, year,
+    is_custom_metadata, metadata_source, last_metadata_update,
+    updated_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  ON CONFLICT(sequence_name) DO UPDATE SET
+    title = excluded.title,
+    artist = excluded.artist,
+    album = excluded.album,
+    album_art_url = excluded.album_art_url,
+    spotify_url = excluded.spotify_url,
+    spotify_id = excluded.spotify_id,
+    spotify_uri = excluded.spotify_uri,
+    preview_url = excluded.preview_url,
+    year = excluded.year,
+    is_custom_metadata = excluded.is_custom_metadata,
+    metadata_source = excluded.metadata_source,
+    last_metadata_update = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+`);
+
+// Update play statistics
+export const incrementPlayCount = db.prepare(`
+  UPDATE sequences 
+  SET play_count = play_count + 1,
+      last_played_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+// Update request statistics
+export const incrementRequestCount = db.prepare(`
+  UPDATE sequences 
+  SET request_count = request_count + 1,
+      last_requested_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+// Get popular sequences
+export const getPopularSequences = db.prepare(`
+  SELECT * FROM sequences 
+  WHERE play_count > 0 
+  ORDER BY play_count DESC, request_count DESC 
+  LIMIT ?
+`);
+
+// Get recently played sequences
+export const getRecentlyPlayedSequences = db.prepare(`
+  SELECT * FROM sequences 
+  WHERE last_played_at IS NOT NULL 
+  ORDER BY last_played_at DESC 
+  LIMIT ?
+`);
+
+// Get all sequences with metadata
+export const getAllSequencesWithMetadata = db.prepare(`
+  SELECT * FROM sequences 
+  WHERE title IS NOT NULL 
+  ORDER BY sequence_name ASC
+`);
+
+// Get custom metadata sequences (user edited)
+export const getCustomMetadataSequences = db.prepare(`
+  SELECT * FROM sequences 
+  WHERE is_custom_metadata = 1 
+  ORDER BY updated_at DESC
+`);
+
+// ========================================
+// FPP State Caching Prepared Statements
+// ========================================
+
+// Get current FPP state
+export const getFPPState = db.prepare(`
+  SELECT * FROM fpp_state WHERE id = 1
+`);
+
+// Update FPP state (successful poll)
+export const updateFPPState = db.prepare(`
+  UPDATE fpp_state 
+  SET status = ?,
+      current_sequence = ?,
+      current_playlist = ?,
+      current_playlist_index = ?,
+      current_playlist_count = ?,
+      seconds_played = ?,
+      seconds_remaining = ?,
+      volume = ?,
+      mode = ?,
+      uptime = ?,
+      last_updated = CURRENT_TIMESTAMP,
+      last_poll_success = 1,
+      last_error = NULL,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = 1
+`);
+
+// Update FPP state (failed poll)
+export const updateFPPStateError = db.prepare(`
+  UPDATE fpp_state 
+  SET last_poll_success = 0,
+      last_error = ?,
+      last_updated = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = 1
+`);
+
+// Log poll attempt
+export const logFPPPoll = db.prepare(`
+  INSERT INTO fpp_poll_log (success, response_time_ms, error_message, status, current_sequence)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+// Upsert cached playlist
+export const upsertCachedPlaylist = db.prepare(`
+  INSERT INTO fpp_cached_playlists (name, sequence_count, is_active, last_synced)
+  VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+  ON CONFLICT(name) DO UPDATE SET
+    sequence_count = excluded.sequence_count,
+    is_active = excluded.is_active,
+    last_synced = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+`);
+
+// Clear active playlist flags
+export const clearActivePlaylistFlags = db.prepare(`
+  UPDATE fpp_cached_playlists SET is_active = 0
+`);
+
+// Get active playlist
+export const getActivePlaylist = db.prepare(`
+  SELECT * FROM fpp_cached_playlists WHERE is_active = 1 LIMIT 1
+`);
+
+// Get cached playlist by name
+export const getCachedPlaylist = db.prepare(`
+  SELECT * FROM fpp_cached_playlists WHERE name = ?
+`);
+
+// Delete playlist sequences
+export const deleteCachedPlaylistSequences = db.prepare(`
+  DELETE FROM fpp_cached_playlist_sequences WHERE playlist_name = ?
+`);
+
+// Insert playlist sequence
+export const insertCachedPlaylistSequence = db.prepare(`
+  INSERT INTO fpp_cached_playlist_sequences 
+  (playlist_name, sequence_name, position, duration, enabled, last_synced)
+  VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+`);
+
+// Get playlist sequences
+export const getCachedPlaylistSequences = db.prepare(`
+  SELECT * FROM fpp_cached_playlist_sequences 
+  WHERE playlist_name = ? 
+  ORDER BY position ASC
+`);
+
+// Get health summary
+export const getFPPHealthSummary = db.prepare(`
+  SELECT * FROM fpp_health_summary
 `);
 
 // Theme prepared statements
