@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
+import PlaylistControls from '@/components/PlaylistControls';
 import { useFPPConnection } from '@/contexts/FPPConnectionContext';
 
 interface Status {
@@ -204,6 +205,11 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Playlist & Sequence Controls */}
+      <div className="mb-8">
+        <PlaylistControls />
+      </div>
 
       {/* Quick Actions */}
       <div className="backdrop-blur-md bg-white/10 rounded-xl p-8 shadow-2xl border border-white/20">
