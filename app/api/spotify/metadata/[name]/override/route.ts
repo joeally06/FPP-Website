@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
+import { fetchSpotifyUrl } from '@/lib/spotify-url-helper';
 import Database from 'better-sqlite3';
 import path from 'path';
 
@@ -26,6 +27,24 @@ export async function POST(
 
     console.log('[Spotify Override] Saving metadata for:', sequenceName);
 
+    // Auto-fetch Spotify URL if we have track ID or can search by title/artist
+    let spotifyUrl: string | null = null;
+    
+    if (spotifyTrackId) {
+      // Construct URL from track ID
+      spotifyUrl = `https://open.spotify.com/track/${spotifyTrackId}`;
+      console.log('[Spotify Override] Constructed Spotify URL from track ID');
+    } else if (trackName && artist) {
+      // Search Spotify to get URL
+      console.log('[Spotify Override] Searching Spotify for URL...');
+      spotifyUrl = await fetchSpotifyUrl(trackName, artist);
+      if (spotifyUrl) {
+        console.log('[Spotify Override] ✓ Found Spotify URL:', spotifyUrl);
+      } else {
+        console.log('[Spotify Override] ✗ No Spotify URL found');
+      }
+    }
+
     db = new Database(dbPath);
 
     // Store manual override in database
@@ -33,8 +52,8 @@ export async function POST(
     // We store the original search query to track that it was manually selected
     db.prepare(`
       INSERT INTO spotify_metadata 
-      (sequence_name, album_art_url, artist_name, album_name, track_name, spotify_track_id, spotify_uri, preview_url, match_confidence, last_updated, search_query) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'none', CURRENT_TIMESTAMP, ?)
+      (sequence_name, album_art_url, artist_name, album_name, track_name, spotify_track_id, spotify_uri, preview_url, spotify_url, match_confidence, last_updated, search_query) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'none', CURRENT_TIMESTAMP, ?)
       ON CONFLICT(sequence_name) DO UPDATE SET
         album_art_url = excluded.album_art_url,
         artist_name = excluded.artist_name,
@@ -43,6 +62,7 @@ export async function POST(
         spotify_track_id = excluded.spotify_track_id,
         spotify_uri = excluded.spotify_uri,
         preview_url = excluded.preview_url,
+        spotify_url = excluded.spotify_url,
         match_confidence = 'none',
         last_updated = CURRENT_TIMESTAMP,
         search_query = excluded.search_query
@@ -55,6 +75,7 @@ export async function POST(
       spotifyTrackId || null,
       spotifyUri || null,
       previewUrl || null,
+      spotifyUrl || null,
       'MANUAL_OVERRIDE'
     );
 

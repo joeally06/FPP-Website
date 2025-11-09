@@ -670,8 +670,8 @@ export const getSequenceMetadata = db.prepare(`
 `);
 
 export const upsertSequenceMetadata = db.prepare(`
-  INSERT INTO sequence_metadata (sequence_name, song_title, artist, album, release_year, album_cover_url, spotify_id, last_updated)
-  VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  INSERT INTO sequence_metadata (sequence_name, song_title, artist, album, release_year, album_cover_url, spotify_id, spotify_url, last_updated)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   ON CONFLICT(sequence_name) DO UPDATE SET
     song_title = excluded.song_title,
     artist = excluded.artist,
@@ -679,6 +679,7 @@ export const upsertSequenceMetadata = db.prepare(`
     release_year = excluded.release_year,
     album_cover_url = excluded.album_cover_url,
     spotify_id = excluded.spotify_id,
+    spotify_url = excluded.spotify_url,
     last_updated = CURRENT_TIMESTAMP
 `);
 

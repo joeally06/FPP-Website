@@ -81,6 +81,10 @@ export default function MediaLibrary() {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string>('');
   
+  // Spotify URL refresh state
+  const [refreshingSpotifyUrls, setRefreshingSpotifyUrls] = useState(false);
+  const [refreshSpotifyMessage, setRefreshSpotifyMessage] = useState<string>('');
+  
   // Edit modal state
   const [editingSequence, setEditingSequence] = useState<SequenceWithMetadata | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -293,6 +297,39 @@ export default function MediaLibrary() {
     } finally {
       setSyncing(false);
       setTimeout(() => setSyncMessage(''), 5000);
+    }
+  };
+
+  const handleRefreshSpotifyUrls = async () => {
+    if (!confirm('Refresh Spotify URLs for all songs in Media Library? This may take a minute.')) {
+      return;
+    }
+
+    setRefreshingSpotifyUrls(true);
+    setRefreshSpotifyMessage('');
+
+    try {
+      const res = await fetch('/api/admin/media-library/refresh-urls', {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setRefreshSpotifyMessage(`✅ ${data.message}`);
+        // Refresh metadata to show new URLs
+        if (selectedPlaylist) {
+          await loadPlaylistMetadata();
+        }
+      } else {
+        setRefreshSpotifyMessage(`❌ Error: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('[Media Library] Spotify URL refresh error:', error);
+      setRefreshSpotifyMessage('❌ Failed to refresh Spotify URLs');
+    } finally {
+      setRefreshingSpotifyUrls(false);
+      setTimeout(() => setRefreshSpotifyMessage(''), 8000);
     }
   };
 
@@ -521,30 +558,58 @@ export default function MediaLibrary() {
                 )}
               </div>
             </div>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                syncing
-                  ? 'bg-white/10 text-white/50 cursor-not-allowed'
-                  : 'bg-white/20 hover:bg-white/30 text-white'
-              }`}
-            >
-              {syncing ? (
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Syncing...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4" />
-                  Sync Now
-                </span>
-              )}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                  syncing
+                    ? 'bg-white/10 text-white/50 cursor-not-allowed'
+                    : 'bg-white/20 hover:bg-white/30 text-white'
+                }`}
+              >
+                {syncing ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Syncing...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    Sync FPP
+                  </span>
+                )}
+              </button>
+              
+              <button
+                onClick={handleRefreshSpotifyUrls}
+                disabled={refreshingSpotifyUrls}
+                className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                  refreshingSpotifyUrls
+                    ? 'bg-green-600/30 text-white/50 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
+                title="Refresh Spotify URLs for all songs missing links"
+              >
+                {refreshingSpotifyUrls ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Refreshing...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Music className="w-4 h-4" />
+                    Refresh Spotify URLs
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-          {syncMessage && (
-            <div className="mt-2 text-sm text-white">{syncMessage}</div>
+          {(syncMessage || refreshSpotifyMessage) && (
+            <div className="mt-2 text-sm text-white space-y-1">
+              {syncMessage && <div>{syncMessage}</div>}
+              {refreshSpotifyMessage && <div>{refreshSpotifyMessage}</div>}
+            </div>
           )}
         </div>
       )}

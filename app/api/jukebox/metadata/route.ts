@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
           release_year: null, // Media Library doesn't store this
           album_cover_url: mediaLibraryData.album_art_url,
           spotify_id: mediaLibraryData.spotify_track_id,
+          spotify_url: mediaLibraryData.spotify_url || null, // Add Spotify external URL
           cached: true,
           source: 'media_library'
         });
@@ -121,6 +122,7 @@ export async function GET(request: NextRequest) {
         release_year: null,
         album_cover_url: null,
         spotify_id: null,
+        spotify_url: null, // No Spotify URL without token
         cached: false
       });
     }
@@ -141,6 +143,7 @@ export async function GET(request: NextRequest) {
       const album = track.album;
       const releaseYear = album.release_date ? new Date(album.release_date).getFullYear() : null;
       const albumCover = album.images.length > 0 ? album.images[0].url : null;
+      const spotifyUrl = track.external_urls?.spotify || null; // Get Spotify web URL
 
       const metadata = {
         sequence_name: storageKey,
@@ -150,10 +153,11 @@ export async function GET(request: NextRequest) {
         release_year: releaseYear,
         album_cover_url: albumCover,
         spotify_id: track.id,
+        spotify_url: spotifyUrl, // Include Spotify URL in response
         cached: true
       };
 
-      // Cache the metadata
+      // Cache the metadata with Spotify URL
       upsertSequenceMetadata.run(
         storageKey,
         track.name,
@@ -161,7 +165,8 @@ export async function GET(request: NextRequest) {
         album.name,
         releaseYear,
         albumCover,
-        track.id
+        track.id,
+        spotifyUrl // Store Spotify URL in database
       );
 
       return NextResponse.json(metadata);
@@ -175,6 +180,7 @@ export async function GET(request: NextRequest) {
         release_year: null,
         album_cover_url: null,
         spotify_id: null,
+        spotify_url: null, // No Spotify URL available
         cached: false
       };
 
@@ -185,7 +191,8 @@ export async function GET(request: NextRequest) {
         fallbackMetadata.album,
         fallbackMetadata.release_year,
         fallbackMetadata.album_cover_url,
-        fallbackMetadata.spotify_id
+        fallbackMetadata.spotify_id,
+        fallbackMetadata.spotify_url // Store null for Spotify URL
       );
 
       return NextResponse.json(fallbackMetadata);
@@ -202,6 +209,7 @@ export async function GET(request: NextRequest) {
       release_year: null,
       album_cover_url: null,
       spotify_id: null,
+      spotify_url: null, // No Spotify URL on error
       cached: false,
       error: 'Failed to fetch metadata'
     };
