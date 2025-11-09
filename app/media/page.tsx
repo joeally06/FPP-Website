@@ -466,22 +466,6 @@ export default function MediaLibrary() {
     }
   };
 
-  const playSequence = async (sequenceName: string) => {
-    if (!isOnline) return;
-    
-    try {
-      await fetch('/api/fppd/command/Start%20Playlist%20At%20Item', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          args: [sequenceName, 0, false, false]
-        })
-      });
-    } catch (error) {
-      console.error('Failed to play sequence:', error);
-    }
-  };
-
   const deletePlaylist = async (playlistName: string) => {
     if (!confirm(`Delete playlist "${playlistName}"?`)) return;
     
@@ -759,17 +743,6 @@ export default function MediaLibrary() {
                               <Music className="w-24 h-24 text-white/30" />
                             </div>
                           )}
-                          
-                          {/* Play Button Overlay */}
-                          <button
-                            onClick={() => playSequence(sequence.name)}
-                            disabled={!isOnline}
-                            className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center disabled:cursor-not-allowed"
-                          >
-                            <div className="bg-white/90 rounded-full p-4">
-                              <Play className="w-8 h-8 text-gray-900" />
-                            </div>
-                          </button>
                         </div>
 
                         {/* Metadata */}
