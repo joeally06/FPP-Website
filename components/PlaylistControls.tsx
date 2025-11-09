@@ -150,7 +150,7 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow-lg p-6 space-y-6">
+    <div className="backdrop-blur-md bg-white/10 rounded-xl p-8 shadow-2xl border border-white/20">
       <h2 className="text-2xl font-bold text-white mb-4">Playlist & Sequence Controls</h2>
 
       {/* Status Message */}
@@ -167,7 +167,7 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
       )}
 
       {/* Playlist Controls */}
-      <div className="space-y-4">
+      <div className="space-y-4 mb-6">
         <h3 className="text-xl font-semibold text-white">Playlists</h3>
         
         <div className="flex gap-3">
