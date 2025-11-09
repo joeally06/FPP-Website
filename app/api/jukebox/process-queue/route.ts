@@ -201,11 +201,12 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
 /**
  * POST /api/jukebox/process-queue
  * Process the jukebox queue (background job)
- * ADMIN ONLY - Manages FPP playlist and queue state
+ * PUBLIC - Processes queue items automatically (anyone can request songs)
  */
 export async function POST() {
   try {
-    await requireAdmin();
+    // Note: No auth required - this processes public queue requests
+    // Queue items are added by anyone, this just plays them in order
     
     console.log('[Queue] Starting queue processing...');
 

@@ -686,6 +686,11 @@ export const getAllSequenceMetadata = db.prepare(`
   SELECT * FROM sequence_metadata ORDER BY last_updated DESC
 `);
 
+// Media Library (spotify_metadata) prepared statements
+export const getMediaLibraryMetadata = db.prepare(`
+  SELECT * FROM spotify_metadata WHERE sequence_name = ?
+`);
+
 // Theme prepared statements
 export const getActiveTheme = db.prepare(`
   SELECT active_theme_id, custom_particles FROM theme_settings WHERE id = 1

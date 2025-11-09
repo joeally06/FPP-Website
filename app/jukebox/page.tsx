@@ -98,20 +98,19 @@ export default function JukeboxPage() {
     fetchYouTubeVideos();
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     
+    // Background queue processor - check every 10 seconds (runs for everyone)
+    const queueProcessorInterval = setInterval(async () => {
+      try {
+        await fetch('/api/jukebox/process-queue', { method: 'POST' });
+      } catch (error) {
+        console.error('Queue processor failed:', error);
+      }
+    }, 10000); // 10 seconds
+    
     // Admin-only background operations
-    let queueProcessorInterval: NodeJS.Timeout | undefined;
     let cacheRefreshInterval: NodeJS.Timeout | undefined;
     
     if (isAdmin) {
-      // Queue processor - check every 10 seconds (admin only)
-      queueProcessorInterval = setInterval(async () => {
-        try {
-          await fetch('/api/jukebox/process-queue', { method: 'POST' });
-        } catch (error) {
-          console.error('Queue processor failed:', error);
-        }
-      }, 10000); // 10 seconds
-      
       // Background cache refresh every 10 minutes (admin only)
       cacheRefreshInterval = setInterval(async () => {
         try {
@@ -138,7 +137,7 @@ export default function JukeboxPage() {
     
     return () => {
       clearInterval(interval);
-      if (queueProcessorInterval) clearInterval(queueProcessorInterval);
+      clearInterval(queueProcessorInterval); // Always cleanup queue processor
       if (cacheRefreshInterval) clearInterval(cacheRefreshInterval);
     };
   }, [isAdmin]);

@@ -40,24 +40,22 @@ export async function GET(
       WHERE sequence_name = ?
     `).get(sequenceName) as any;
 
-    // Get average rating from jukebox requests
-    const ratingStats = db.prepare(`
-      SELECT 
-        COUNT(*) as ratedCount,
-        AVG(rating) as avgRating,
-        MIN(rating) as minRating,
-        MAX(rating) as maxRating
-      FROM jukebox_requests 
-      WHERE sequence_name = ? AND rating IS NOT NULL
-    `).get(sequenceName) as any;
+    // Get average rating from jukebox queue (note: rating column doesn't exist in jukebox_queue)
+    // This query will return zeros since jukebox_queue doesn't have rating column
+    const ratingStats = {
+      ratedCount: 0,
+      avgRating: null,
+      minRating: null,
+      maxRating: null
+    };
 
-    // Get play count (completed requests)
+    // Get play count (completed requests from jukebox_queue)
     const playStats = db.prepare(`
       SELECT 
         COUNT(*) as totalRequests,
         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completedPlays,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pendingRequests
-      FROM jukebox_requests 
+      FROM jukebox_queue 
       WHERE sequence_name = ?
     `).get(sequenceName) as any;
 
@@ -66,10 +64,9 @@ export async function GET(
       SELECT 
         id,
         status,
-        rating,
         created_at,
-        requested_by
-      FROM jukebox_requests 
+        requester_name as requested_by
+      FROM jukebox_queue 
       WHERE sequence_name = ?
       ORDER BY created_at DESC
       LIMIT 10
@@ -80,7 +77,7 @@ export async function GET(
       SELECT 
         MIN(created_at) as firstPlayed,
         MAX(created_at) as lastPlayed
-      FROM jukebox_requests 
+      FROM jukebox_queue 
       WHERE sequence_name = ? AND status = 'completed'
     `).get(sequenceName) as any;
 
@@ -92,8 +89,8 @@ export async function GET(
     const downvotes = voteStats.downvotes || 0;
     const voteRatio = totalVotes > 0 ? (upvotes / totalVotes) * 100 : 0;
 
-    const avgRating = ratingStats.avgRating ? parseFloat(ratingStats.avgRating.toFixed(2)) : 0;
-    const ratedCount = ratingStats.ratedCount || 0;
+    const avgRating = 0; // Rating feature not implemented in jukebox_queue
+    const ratedCount = 0;
 
     const totalRequests = playStats.totalRequests || 0;
     const completedPlays = playStats.completedPlays || 0;
@@ -172,13 +169,13 @@ export async function HEAD(
 
     const db = new Database(dbPath);
 
-    // Quick stats query
+    // Quick stats query (note: jukebox_queue doesn't have rating column)
     const stats = db.prepare(`
       SELECT 
         (SELECT COUNT(*) FROM votes WHERE sequence_name = ?) as votes,
-        (SELECT AVG(rating) FROM jukebox_requests WHERE sequence_name = ? AND rating IS NOT NULL) as rating,
-        (SELECT COUNT(*) FROM jukebox_requests WHERE sequence_name = ? AND status = 'completed') as plays
-    `).get(sequenceName, sequenceName, sequenceName) as any;
+        0 as rating,
+        (SELECT COUNT(*) FROM jukebox_queue WHERE sequence_name = ? AND status = 'completed') as plays
+    `).get(sequenceName, sequenceName) as any;
 
     db.close();
 

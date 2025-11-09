@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import SpotifyWebApi from 'spotify-web-api-node';
-import { getSequenceMetadata, upsertSequenceMetadata } from '@/lib/database';
+import { getSequenceMetadata, upsertSequenceMetadata, getMediaLibraryMetadata } from '@/lib/database';
 
 // Initialize Spotify API
 const spotifyApi = new SpotifyWebApi({
@@ -72,7 +72,36 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Check if we already have metadata cached
+    // PRIORITY 1: Check Media Library for user-customized metadata
+    // Try exact match first, then try without file extension
+    if (storageKey) {
+      let mediaLibraryData = getMediaLibraryMetadata.get(storageKey) as any;
+      
+      // If not found and storageKey has extension, try without extension
+      if (!mediaLibraryData) {
+        const nameWithoutExt = storageKey.replace(/\.(fseq|mp3|wav)$/i, '');
+        if (nameWithoutExt !== storageKey) {
+          mediaLibraryData = getMediaLibraryMetadata.get(nameWithoutExt) as any;
+        }
+      }
+      
+      if (mediaLibraryData && mediaLibraryData.track_name) {
+        // Return Media Library metadata (respects user customizations)
+        return NextResponse.json({
+          sequence_name: storageKey,
+          song_title: mediaLibraryData.track_name,
+          artist: mediaLibraryData.artist_name || 'Unknown',
+          album: mediaLibraryData.album_name || 'Unknown',
+          release_year: null, // Media Library doesn't store this
+          album_cover_url: mediaLibraryData.album_art_url,
+          spotify_id: mediaLibraryData.spotify_track_id,
+          cached: true,
+          source: 'media_library'
+        });
+      }
+    }
+
+    // PRIORITY 2: Check if we already have metadata cached in sequence_metadata
     const cached = getSequenceMetadata.get(storageKey) as any;
     if (cached && cached.song_title) {
       return NextResponse.json({
