@@ -5,6 +5,11 @@
 
 set -e
 
+# Fix permissions on this script and all other scripts FIRST
+# Git doesn't preserve executable bit, so we fix it on every run
+chmod +x "$0" 2>/dev/null || true
+find scripts/ -name "*.sh" -type f -exec chmod +x {} \; 2>/dev/null || true
+
 # Silent mode flag (for API calls)
 SILENT=false
 if [ "$1" = "--silent" ]; then

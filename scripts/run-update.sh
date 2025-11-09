@@ -90,6 +90,9 @@ chmod +x ./update.sh 2>/dev/null || {
     exit 1
 }
 
+# Also fix all script permissions
+chmod +x scripts/*.sh 2>/dev/null || true
+
 log "✅ Environment validation passed"
 log "📍 PM2 location: $(which pm2)"
 log "📍 Node version: $(node --version 2>/dev/null || echo 'unknown')"
