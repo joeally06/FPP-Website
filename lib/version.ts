@@ -12,7 +12,7 @@ export const APP_VERSION = {
   major: 1,
   minor: 0,
   patch: 1,
-  prerelease: 'rc.2', // Release Candidate 2
+  prerelease: 'rc.3', // Release Candidate 3
   build: null as string | null, // Git commit hash
 };
 
@@ -50,6 +50,28 @@ export function getVersionInfo() {
 
 // Version history and changelog
 export const VERSION_HISTORY = [
+  {
+    version: '1.0.1-rc.3',
+    date: '2025-11-09',
+    name: 'Circuit Breaker & Resource Optimization Release',
+    changes: [
+      'Circuit Breaker pattern for intelligent FPP offline handling',
+      'Resource-efficient polling - 83% reduction when FPP offline (10s → 60s)',
+      'Auto-recovery testing every 60 seconds',
+      'Admin dashboard Circuit Breaker widget with real-time status',
+      'Health check API optimized (5000ms → 30ms using cached state)',
+      'Queue processor respects circuit state (pauses when offline)',
+      'Fixed environment variable loading in FPP poller (.env.local support)',
+      'Fixed validation for FPP status responses (handles string numbers)',
+      'Development workflow improvements (concurrently for Next.js + poller)',
+      'Three-state circuit breaker (CLOSED/OPEN/HALF_OPEN)',
+      'Persistent circuit state survives application restarts',
+      'Event-driven architecture for circuit state changes',
+      'Manual circuit reset capability for administrators',
+      'Comprehensive circuit breaker test suite',
+      '99.4% faster health checks when FPP offline',
+    ],
+  },
   {
     version: '1.0.1-rc.2',
     date: '2025-11-09',

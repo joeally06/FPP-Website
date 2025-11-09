@@ -1,13 +1,18 @@
 /**
- * FPP State Polling Service
+ * FPP State Polling Service with Circuit Breaker
  * 
  * Background service that polls FPP device periodically and caches
  * the state in the database for efficient frontend queries.
  * 
+ * CIRCUIT BREAKER INTEGRATION:
+ * - Automatically pauses polling when FPP is offline (saves resources)
+ * - Reduces poll interval from 10s → 60s when circuit is OPEN
+ * - Tests recovery automatically after configured timeout
+ * - Resumes normal operation when FPP comes back online
+ * 
  * SECURITY FEATURES:
  * - Input validation on all FPP responses
- * - Exponential backoff on failures
- * - Rate limiting to prevent API abuse
+ * - Circuit breaker prevents resource exhaustion
  * - Graceful error handling
  * - Database transaction safety
  * 
@@ -17,6 +22,16 @@
 
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
+import { config } from 'dotenv';
+import { getCircuitBreaker, CircuitState } from './circuit-breaker';
+
+// Load environment variables from .env.local
+const envPath = path.join(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  config({ path: envPath });
+  console.log('[FPP Poller] Loaded environment from .env.local');
+}
 
 // ============================================================================
 // Configuration
@@ -33,6 +48,36 @@ const MAX_CONSECUTIVE_FAILURES = 10; // Max failures before longer backoff
 console.log('[FPP Poller] Starting FPP State Polling Service');
 console.log(`[FPP Poller] Target: http://${FPP_HOST}:${FPP_PORT}`);
 console.log(`[FPP Poller] Poll Interval: ${POLL_INTERVAL}ms`);
+
+// ============================================================================
+// Circuit Breaker Setup
+// ============================================================================
+
+const circuitBreaker = getCircuitBreaker();
+
+// Listen to circuit state changes
+circuitBreaker.on('stateChange', (newState: CircuitState, previousState: CircuitState) => {
+  if (newState === CircuitState.OPEN) {
+    console.log('[FPP Poller] 🛑 Circuit OPEN - Pausing aggressive polling');
+    console.log('[FPP Poller] Poll interval increased to 60s to save resources');
+    currentPollInterval = MAX_POLL_INTERVAL; // 60 seconds
+  } else if (newState === CircuitState.HALF_OPEN) {
+    console.log('[FPP Poller] 🔄 Circuit HALF_OPEN - Testing recovery');
+  } else if (newState === CircuitState.CLOSED) {
+    console.log('[FPP Poller] ✅ Circuit CLOSED - Normal operations resumed');
+    console.log('[FPP Poller] Poll interval restored to 10s');
+    currentPollInterval = POLL_INTERVAL; // 10 seconds
+    consecutiveFailures = 0;
+  }
+});
+
+// Log initial circuit state
+console.log(`[FPP Poller] Circuit Breaker: ${circuitBreaker.getState()}`);
+const initialStats = circuitBreaker.getStats();
+if (initialStats.state === CircuitState.OPEN && initialStats.nextRetryIn !== null) {
+  console.log(`[FPP Poller] FPP offline - next retry in ${Math.ceil(initialStats.nextRetryIn / 1000)}s`);
+}
+
 
 // ============================================================================
 // Database Setup
@@ -144,9 +189,13 @@ function validateFPPStatus(data: any): boolean {
     return false;
   }
   
-  if (data.seconds_played !== undefined && typeof data.seconds_played !== 'number') {
-    console.warn('[FPP Poller] Invalid seconds_played');
-    return false;
+  // seconds_played can be number, string number, or missing when idle
+  if (data.seconds_played !== undefined && data.seconds_played !== null) {
+    const secondsNum = typeof data.seconds_played === 'string' ? parseFloat(data.seconds_played) : data.seconds_played;
+    if (typeof secondsNum !== 'number' || isNaN(secondsNum)) {
+      console.warn('[FPP Poller] Invalid seconds_played:', data.seconds_played);
+      return false;
+    }
   }
   
   return true;
@@ -254,6 +303,10 @@ async function fetchPlaylistDetails(playlistName: string): Promise<any | null> {
  */
 function updateDatabase(status: any, responseTime: number): void {
   try {
+    // Normalize numeric fields that might be strings
+    const secondsPlayed = typeof status.seconds_played === 'string' ? parseFloat(status.seconds_played) : status.seconds_played;
+    const secondsRemaining = typeof status.seconds_remaining === 'string' ? parseFloat(status.seconds_remaining) : status.seconds_remaining;
+    
     // Start transaction for atomic update
     const transaction = db.transaction(() => {
       // Update FPP state
@@ -263,8 +316,8 @@ function updateDatabase(status: any, responseTime: number): void {
         sanitizeString(status.current_playlist?.playlist) || null,
         status.current_playlist?.index ?? null,
         status.current_playlist?.count ?? null,
-        status.seconds_played ?? 0,
-        status.seconds_remaining ?? 0,
+        secondsPlayed ?? 0,
+        secondsRemaining ?? 0,
         status.volume ?? 0,
         sanitizeString(status.mode_name) || 'player',
         status.uptime ?? 0
@@ -299,6 +352,9 @@ function updateDatabase(status: any, responseTime: number): void {
     // Reset failure counter on success
     consecutiveFailures = 0;
     currentPollInterval = POLL_INTERVAL;
+
+    // ✅ CIRCUIT BREAKER: Record success
+    circuitBreaker.recordSuccess();
 
     console.log(`[FPP Poller] ✓ Updated state: ${status.status_name} | ${status.current_sequence || 'idle'} (${responseTime}ms)`);
 
@@ -355,6 +411,9 @@ function handleError(error: string, responseTime: number): void {
   try {
     consecutiveFailures++;
 
+    // ✅ CIRCUIT BREAKER: Record failure
+    circuitBreaker.recordFailure(error);
+
     const transaction = db.transaction(() => {
       updateStateError.run(sanitizeString(error));
       logPoll.run(
@@ -369,8 +428,18 @@ function handleError(error: string, responseTime: number): void {
 
     transaction();
 
-    // Exponential backoff on repeated failures
-    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+    // Circuit breaker handles poll interval adjustments
+    const cbState = circuitBreaker.getState();
+    
+    if (cbState === CircuitState.OPEN) {
+      // Circuit is OPEN - minimal polling to save resources
+      currentPollInterval = MAX_POLL_INTERVAL; // 60 seconds
+      const stats = circuitBreaker.getStats();
+      if (stats.nextRetryIn !== null) {
+        console.error(`[FPP Poller] ⚠️  FPP offline - next retry in ${Math.ceil(stats.nextRetryIn / 1000)}s`);
+      }
+    } else if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      // Exponential backoff for repeated failures (circuit still CLOSED)
       currentPollInterval = Math.min(
         POLL_INTERVAL * Math.pow(RETRY_BACKOFF_MULTIPLIER, consecutiveFailures - MAX_CONSECUTIVE_FAILURES),
         MAX_POLL_INTERVAL
@@ -393,6 +462,19 @@ function handleError(error: string, responseTime: number): void {
  */
 async function pollLoop(): Promise<void> {
   while (true) {
+    // ✅ CIRCUIT BREAKER: Check if request is allowed
+    if (!circuitBreaker.allowRequest()) {
+      const stats = circuitBreaker.getStats();
+      if (stats.nextRetryIn !== null) {
+        // Only log every 30 seconds to avoid spam
+        if (Math.floor(stats.nextRetryIn / 30000) !== Math.floor((stats.nextRetryIn + currentPollInterval) / 30000)) {
+          console.log(`[FPP Poller] 🛑 Circuit OPEN - skipping poll (retry in ${Math.ceil(stats.nextRetryIn / 1000)}s)`);
+        }
+      }
+      await sleep(currentPollInterval);
+      continue;
+    }
+
     if (isPolling) {
       console.warn('[FPP Poller] Previous poll still running, skipping...');
       await sleep(currentPollInterval);
@@ -428,6 +510,12 @@ function shutdown(signal: string): void {
   console.log(`\n[FPP Poller] Received ${signal}, shutting down gracefully...`);
   
   try {
+    // Close circuit breaker first (persists state)
+    if (circuitBreaker) {
+      circuitBreaker.close();
+      console.log('[FPP Poller] Circuit breaker closed');
+    }
+    
     if (db) {
       db.close();
       console.log('[FPP Poller] Database closed');

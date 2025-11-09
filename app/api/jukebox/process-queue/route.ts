@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
+import { getCircuitBreaker } from '@/lib/circuit-breaker';
 import { 
   getCurrentlyPlaying, 
   getQueue, 
@@ -202,9 +203,24 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
  * POST /api/jukebox/process-queue
  * Process the jukebox queue (background job)
  * PUBLIC - Processes queue items automatically (anyone can request songs)
+ * 
+ * CIRCUIT BREAKER: Skips processing when FPP is offline to save resources
  */
 export async function POST() {
   try {
+    // ✅ CIRCUIT BREAKER: Check if FPP is online before processing
+    const circuitBreaker = getCircuitBreaker();
+    
+    if (circuitBreaker.isFPPOffline()) {
+      console.log('[Queue] ⚠️  Circuit breaker OPEN - FPP offline, skipping queue processing');
+      return NextResponse.json({ 
+        success: false, 
+        message: 'FPP offline - queue processing paused',
+        circuitState: circuitBreaker.getState(),
+        retryAfter: circuitBreaker.getStats().nextRetryIn
+      }, { status: 503 });
+    }
+    
     // Note: No auth required - this processes public queue requests
     // Queue items are added by anyone, this just plays them in order
     
@@ -214,6 +230,7 @@ export async function POST() {
     const fppStatus = await makeFppCall('/api/fppd/status') as FppStatus;
     if (!fppStatus) {
       console.error('[Queue] Could not fetch FPP status');
+      // Circuit breaker will handle this failure via poller
       return NextResponse.json({ error: 'Could not connect to FPP' }, { status: 500 });
     }
 

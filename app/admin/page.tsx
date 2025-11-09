@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
+import CircuitBreakerWidget from '@/components/CircuitBreakerWidget';
 import { VotingTrendChart, VotingByHourChart, TopSongsVoteDistribution } from '@/components/analytics/VotingCharts';
 import AlertsPanel from '@/components/analytics/AlertsPanel';
 import { exportRequestAnalytics, exportVoteAnalytics } from '@/lib/csv-export';
@@ -186,6 +187,11 @@ export default function AdminAnalytics() {
 
       {/* Alerts Panel */}
       <AlertsPanel />
+
+      {/* Circuit Breaker Widget */}
+      <div className="mb-8">
+        <CircuitBreakerWidget />
+      </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
