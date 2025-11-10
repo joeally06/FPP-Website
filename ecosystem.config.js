@@ -56,12 +56,10 @@ module.exports = {
       cwd: './',
       instances: 1,
       exec_mode: 'fork',
-      autorestart: true,
+      autorestart: false,
       watch: false,
       max_memory_restart: '100M',
-      min_uptime: '10s',
-      max_restarts: 10,
-      restart_delay: 4000,
+      cron_restart: '0 */6 * * *',
       env: {
         NODE_ENV: 'production'
       },
