@@ -48,6 +48,29 @@ module.exports = {
       time: true,
       merge_logs: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
+    },
+    {
+      name: 'update-daemon',
+      script: './scripts/update-daemon.sh',
+      interpreter: 'bash',
+      cwd: './',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '100M',
+      min_uptime: '10s',
+      max_restarts: 10,
+      restart_delay: 4000,
+      env: {
+        NODE_ENV: 'production'
+      },
+      error_file: './logs/pm2-update-daemon-error.log',
+      out_file: './logs/pm2-update-daemon-out.log',
+      log_file: './logs/pm2-update-daemon-combined.log',
+      time: true,
+      merge_logs: true,
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
     }
   ]
 };
