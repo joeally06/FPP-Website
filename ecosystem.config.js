@@ -26,8 +26,9 @@ module.exports = {
     },
     {
       name: 'fpp-poller',
-      script: 'node',
-      args: '-r esbuild-register lib/fpp-poller.ts',
+      script: './lib/fpp-poller.ts',
+      interpreter: 'npx',
+      interpreter_args: 'tsx',
       cwd: './',
       instances: 1,
       exec_mode: 'fork',
