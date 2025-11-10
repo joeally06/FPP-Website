@@ -8,6 +8,8 @@ import { useTheme } from '@/lib/themes/theme-context';
 import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
 import LetterToSantaModal from '@/components/LetterToSantaModal';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
+import EnhancedVotingCard from '@/components/EnhancedVotingCard';
+import { LayoutGrid, List } from 'lucide-react';
 
 interface QueueItem {
   id: number;
@@ -88,6 +90,7 @@ export default function JukeboxPage() {
   const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
   const [selectedYouTubeVideo, setSelectedYouTubeVideo] = useState<YouTubeVideo | null>(null);
   const [loadingYouTubeVideos, setLoadingYouTubeVideos] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Re-fetch YouTube videos when theme changes
   useEffect(() => {
@@ -781,40 +784,84 @@ export default function JukeboxPage() {
 
         {/* All Available Songs with Voting */}
         <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mt-6 border ${theme.cardBorder}`}>
-          <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
-            <span className="text-3xl">{theme.icons.vote}</span>
-            All Available Songs - Vote for Your Favorites!
-          </h2>
-          <p className="text-sm text-white/80 mb-4">
-            Help us know what songs you love! Your votes help determine which songs appear in the popular list.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
-            {availableSequences.map((sequence) => {
-              const counts = voteCounts[sequence] || { upvotes: 0, downvotes: 0 };
-              const userVote = userVotes[sequence];
-              return (
-                <div key={sequence} className="p-4 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all">
-                  <h3 className="font-medium mb-3 text-sm text-white">{sequence}</h3>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleVote(sequence, 'up')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${userVote === 'up' ? 'bg-green-500 text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                    >
-                      👍 {counts.upvotes}
-                    </button>
-                    <button
-                      onClick={() => handleVote(sequence, 'down')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${userVote === 'down' ? 'bg-red-500 text-white shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                    >
-                      👎 {counts.downvotes}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-white themed-font flex items-center gap-2">
+                <span className="text-3xl">{theme.icons.vote}</span>
+                All Available Songs - Vote for Your Favorites!
+              </h2>
+              <p className="text-sm text-white/80 mt-2">
+                Help us know what songs you love! Your votes help determine which songs appear in the popular list.
+              </p>
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-white/20 text-white'
+                    : 'text-white/60 hover:text-white/80'
+                }`}
+                title="Grid View"
+              >
+                <LayoutGrid size={20} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-white/20 text-white'
+                    : 'text-white/60 hover:text-white/80'
+                }`}
+                title="List View"
+              >
+                <List size={20} />
+              </button>
+            </div>
           </div>
+
+          <div className={`max-h-[600px] overflow-y-auto ${
+            viewMode === 'grid' 
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+              : 'space-y-3'
+          }`}>
+            {availableSequences
+              .sort((a, b) => {
+                // Sort by votes (descending)
+                const votesA = (voteCounts[a]?.upvotes || 0) - (voteCounts[a]?.downvotes || 0);
+                const votesB = (voteCounts[b]?.upvotes || 0) - (voteCounts[b]?.downvotes || 0);
+                return votesB - votesA;
+              })
+              .map((sequence, index) => {
+                const counts = voteCounts[sequence] || { upvotes: 0, downvotes: 0 };
+                const userVote = userVotes[sequence];
+                const netVotes = counts.upvotes - counts.downvotes;
+                
+                return (
+                  <EnhancedVotingCard
+                    key={sequence}
+                    song={{
+                      id: index,
+                      name: sequence,
+                      votes: counts.upvotes,
+                      position: index + 1 <= 10 ? index + 1 : undefined,
+                      hasVoted: userVote === 'up',
+                      playCount: undefined
+                    }}
+                    onVote={async () => {
+                      await handleVote(sequence, 'up');
+                    }}
+                    loading={loading}
+                    compact={viewMode === 'list'}
+                  />
+                );
+              })}
+          </div>
+          
           {availableSequences.length === 0 && !loadingSequences && (
-            <p className="text-white/60 text-center py-4">
+            <p className="text-white/60 text-center py-8">
               No songs available. Try refreshing the sequence cache.
             </p>
           )}
