@@ -12,11 +12,13 @@ export async function GET() {
 
     // NEW: Use cached FPP state instead of direct polling
     // This eliminates redundant FPP API calls and improves performance
+    let usedCache = false;
     try {
       const fppState = getFPPState.get() as any;
 
       if (fppState && fppState.status === 'playing' && fppState.current_sequence) {
         // Return cached FPP status
+        usedCache = true;
         return NextResponse.json({
           id: null, // No database ID since it's not from queue
           sequence_name: fppState.current_sequence,
@@ -32,22 +34,28 @@ export async function GET() {
         });
       }
 
-      // If FPP is not playing (idle/stopped), check if state is stale
+      // If FPP state exists but not playing, check if cache is stale
       if (fppState) {
         const cacheAge = Math.floor(
           (Date.now() - new Date(fppState.last_updated).getTime()) / 1000
         );
 
-        // If cache is very stale (> 60 seconds), indicate poller may be down
-        if (cacheAge > 60 && !fppState.last_poll_success) {
-          console.warn('FPP cache is stale (>60s) and last poll failed');
+        // If cache is very stale (> 60 seconds) or status is unknown, fall through to direct query
+        if (cacheAge > 60 || fppState.status === 'unknown') {
+          console.warn(`FPP cache is stale (age: ${cacheAge}s, status: ${fppState.status}) - querying FPP directly`);
+          // Don't return, fall through to direct FPP query below
+        } else {
+          // Cache is fresh and FPP is not playing
+          return NextResponse.json(null);
         }
       }
     } catch (cacheError) {
       console.warn('Could not fetch cached FPP status:', cacheError);
-      
-      // FALLBACK: Only poll FPP directly if cache is unavailable
-      // This maintains backward compatibility but shouldn't normally be hit
+    }
+
+    // FALLBACK: Query FPP directly if cache unavailable or stale
+    // This maintains backward compatibility and handles poller downtime
+    if (!usedCache) {
       try {
         const fppResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/fppd/status`);
         if (fppResponse.ok) {

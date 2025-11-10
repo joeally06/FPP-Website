@@ -53,6 +53,7 @@
     "luxon": "^3.7.2",
     "next": "16.0.0",
     "next-auth": "^4.24.12",
+    "node-cache": "^5.1.2",
     "nodemailer": "^7.0.10",
     "react": "19.2.0",
     "react-dom": "19.2.0",

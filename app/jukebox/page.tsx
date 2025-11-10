@@ -65,6 +65,15 @@ interface YouTubeVideo {
   created_at: string;
 }
 
+interface ScheduleStatus {
+  isActive: boolean;
+  currentPlaylist: string | null;
+  status: string;
+  message: string;
+  nextShowTime: string | null;
+  lastChecked: string;
+}
+
 export default function JukeboxPage() {
   // Track visitor engagement
   useVisitorTracking('/jukebox');
@@ -91,6 +100,8 @@ export default function JukeboxPage() {
   const [selectedYouTubeVideo, setSelectedYouTubeVideo] = useState<YouTubeVideo | null>(null);
   const [loadingYouTubeVideos, setLoadingYouTubeVideos] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [scheduleStatus, setScheduleStatus] = useState<ScheduleStatus | null>(null);
+  const [loadingSchedule, setLoadingSchedule] = useState(true);
 
   // Re-fetch YouTube videos when theme changes
   useEffect(() => {
@@ -102,7 +113,10 @@ export default function JukeboxPage() {
     fetchData();
     fetchVotes();
     fetchYouTubeVideos();
+    fetchScheduleStatus(); // Check schedule status
+    
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
+    const scheduleInterval = setInterval(fetchScheduleStatus, 30000); // Check every 30 seconds
     
     // Background queue processor - check every 10 seconds (runs for everyone)
     const queueProcessorInterval = setInterval(async () => {
@@ -143,6 +157,7 @@ export default function JukeboxPage() {
     
     return () => {
       clearInterval(interval);
+      clearInterval(scheduleInterval); // Cleanup schedule status check
       clearInterval(queueProcessorInterval); // Always cleanup queue processor
       if (cacheRefreshInterval) clearInterval(cacheRefreshInterval);
     };
@@ -217,6 +232,20 @@ export default function JukeboxPage() {
       console.error('Failed to fetch YouTube videos:', error);
     } finally {
       setLoadingYouTubeVideos(false);
+    }
+  };
+
+  const fetchScheduleStatus = async () => {
+    try {
+      const response = await fetch('/api/jukebox/schedule-status');
+      if (response.ok) {
+        const data = await response.json();
+        setScheduleStatus(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch schedule status:', error);
+    } finally {
+      setLoadingSchedule(false);
     }
   };
 
@@ -416,6 +445,75 @@ export default function JukeboxPage() {
     }
   }, [currentlyPlaying?.media_name, currentlyPlaying?.sequence_name]);
 
+  // Determine if interactive features should be shown
+  const showInteractiveFeatures = scheduleStatus?.isActive || isAdmin;
+
+  // Format next show time
+  const formatNextShowTime = (isoString: string | null) => {
+    if (!isoString) return null;
+    const date = new Date(isoString);
+    const now = new Date();
+    
+    // Calculate time until show
+    const msUntil = date.getTime() - now.getTime();
+    const hoursUntil = Math.floor(msUntil / (1000 * 60 * 60));
+    const minutesUntil = Math.floor((msUntil % (1000 * 60 * 60)) / (1000 * 60));
+    
+    const formattedDate = date.toLocaleString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    // Add countdown if less than 24 hours away
+    if (hoursUntil < 24 && hoursUntil >= 0) {
+      if (hoursUntil > 0) {
+        return `${formattedDate} (in ${hoursUntil}h ${minutesUntil}m)`;
+      } else if (minutesUntil > 0) {
+        return `${formattedDate} (in ${minutesUntil} minutes!)`;
+      } else {
+        return `${formattedDate} (Starting soon!)`;
+      }
+    }
+    
+    return formattedDate;
+  };
+
+  // Theme-based banner styles
+  const getBannerStyles = () => {
+    switch (theme.id) {
+      case 'christmas':
+        return {
+          container: 'bg-gradient-to-r from-red-600/30 via-green-600/30 to-red-600/30 border-2 border-red-500/50 shadow-xl shadow-red-500/20',
+          icon: '🎄',
+          title: 'text-red-100',
+          text: 'text-white/90',
+          subtext: 'text-red-100/80'
+        };
+      case 'halloween':
+        return {
+          container: 'bg-gradient-to-r from-orange-600/30 via-purple-600/30 to-orange-600/30 border-2 border-orange-500/50 shadow-xl shadow-orange-500/20',
+          icon: '🎃',
+          title: 'text-orange-100',
+          text: 'text-white/90',
+          subtext: 'text-orange-100/80'
+        };
+      default:
+        return {
+          container: 'bg-yellow-500/20 border-2 border-yellow-500/40',
+          icon: '⏰',
+          title: 'text-white',
+          text: 'text-white/90',
+          subtext: 'text-white/70'
+        };
+    }
+  };
+
+  const bannerStyles = getBannerStyles();
+
   return (
     <ThemedJukeboxWrapper>
       <div className="max-w-6xl mx-auto">
@@ -460,6 +558,62 @@ export default function JukeboxPage() {
             )}
           </div>
         </div>
+
+        {/* Schedule Status Banner - Themed */}
+        {!loadingSchedule && !scheduleStatus?.isActive && !isAdmin && (
+          <div className={`backdrop-blur-md ${bannerStyles.container} rounded-xl shadow-2xl p-6 mb-6 animate-pulse-subtle`}>
+            <div className="text-center">
+              <h2 className={`text-3xl font-bold ${bannerStyles.title} mb-3 themed-font flex items-center justify-center gap-3`}>
+                <span className="text-5xl animate-bounce">{bannerStyles.icon}</span>
+                Show is Currently Inactive
+                <span className="text-5xl animate-bounce" style={{ animationDelay: '0.2s' }}>{bannerStyles.icon}</span>
+              </h2>
+              <p className={`${bannerStyles.text} text-lg mb-2 font-medium`}>
+                {scheduleStatus?.message}
+              </p>
+              {scheduleStatus?.nextShowTime ? (
+                <div className="mt-4 p-4 bg-white/10 rounded-lg backdrop-blur-sm border-2 border-white/20">
+                  <p className={`${bannerStyles.text} text-xl font-bold flex items-center gap-3 justify-center mb-1`}>
+                    <span className="text-3xl">🕐</span>
+                    <span>Next Show:</span>
+                  </p>
+                  <p className={`${bannerStyles.text} text-2xl font-extrabold`}>
+                    {formatNextShowTime(scheduleStatus.nextShowTime)}
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 p-3 bg-white/10 rounded-lg backdrop-blur-sm">
+                  <p className={`${bannerStyles.text} text-base font-medium`}>
+                    🎭 The show is currently off-season
+                  </p>
+                  <p className={`${bannerStyles.subtext} text-sm mt-2`}>
+                    No upcoming shows are scheduled at this time
+                  </p>
+                </div>
+              )}
+              <p className={`${bannerStyles.subtext} text-sm mt-4`}>
+                🎵 Song requests and voting will be available when the show is running.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Admin Override Notice - Also Themed */}
+        {isAdmin && !scheduleStatus?.isActive && (
+          <div className={`backdrop-blur-md ${
+            theme.id === 'christmas' 
+              ? 'bg-blue-600/20 border-2 border-blue-500/40 shadow-lg shadow-blue-500/20'
+              : theme.id === 'halloween'
+              ? 'bg-purple-600/20 border-2 border-purple-500/40 shadow-lg shadow-purple-500/20'
+              : 'bg-blue-500/20 border-2 border-blue-500/40'
+          } rounded-xl shadow-2xl p-4 mb-6`}>
+            <p className="text-white text-center text-sm flex items-center justify-center gap-2">
+              <span className="text-xl">🔧</span>
+              <span className="font-semibold">Admin Mode:</span> 
+              <span>Show is inactive but you can still test requests and voting</span>
+            </p>
+          </div>
+        )}
 
         {/* Write to Santa Button (Christmas theme only) */}
         {isChristmasTheme && (
@@ -605,9 +759,12 @@ export default function JukeboxPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Request Form */}
-          <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 border ${theme.cardBorder}`}>
+        {/* Interactive Features - Only show when active or admin */}
+        {showInteractiveFeatures && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Request Form */}
+              <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 border ${theme.cardBorder}`}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold text-white themed-font flex items-center gap-2">
                 <span className="text-3xl">{theme.icons.queue}</span>
@@ -870,6 +1027,8 @@ export default function JukeboxPage() {
             </p>
           )}
         </div>
+          </>
+        )}
 
         {/* YouTube Videos */}
         {youtubeVideos.length > 0 && (
@@ -948,7 +1107,7 @@ export default function JukeboxPage() {
       {/* Letter to Santa Modal */}
       <LetterToSantaModal isOpen={showSantaModal} onClose={() => setShowSantaModal(false)} />
 
-      {/* Custom Animation Styles */}
+      {/* Enhanced Animation Styles */}
       <style jsx>{`
         @keyframes gradient {
           0%, 100% {
@@ -957,6 +1116,19 @@ export default function JukeboxPage() {
           50% {
             background-position: 100% 50%;
           }
+        }
+        
+        @keyframes pulse-subtle {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.95;
+          }
+        }
+        
+        .animate-pulse-subtle {
+          animation: pulse-subtle 3s ease-in-out infinite;
         }
         
         h2.bg-gradient-to-r {
