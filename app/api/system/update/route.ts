@@ -1,18 +1,27 @@
 ﻿import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
+/**
+ * POST /api/system/update
+ * Trigger system update using FPP-inspired atomic daemon
+ * 
+ * Security:
+ * - Admin authentication required
+ * - Uses detached daemon process
+ * - Atomic updates with rollback on failure
+ * - Lock file prevents concurrent updates
+ */
 export async function POST() {
   try {
     await requireAdmin();
 
-    console.log('[System Update] Starting detached update process...');
+    console.log('[Update API] Starting update daemon...');
 
     const projectRoot = process.cwd();
-    const updateScript = path.join(projectRoot, 'scripts', 'run-update.sh');
-    const logFile = path.join(projectRoot, 'logs', 'update.log');
+    const updateDaemon = path.join(projectRoot, 'scripts', 'update-daemon.sh');
     const statusFile = path.join(projectRoot, 'logs', 'update_status');
 
     // Ensure directories exist
@@ -21,79 +30,145 @@ export async function POST() {
       fs.mkdirSync(logsDir, { recursive: true });
     }
 
-    // Check if script exists
-    if (!fs.existsSync(updateScript)) {
+    // Check if daemon script exists
+    if (!fs.existsSync(updateDaemon)) {
       return NextResponse.json({
         success: false,
-        error: 'Update script not found at: ' + updateScript
+        error: 'Update daemon script not found at: ' + updateDaemon
       }, { status: 500 });
     }
 
-    // Make script executable
+    // Make daemon executable
     try {
-      fs.chmodSync(updateScript, '755');
+      fs.chmodSync(updateDaemon, '755');
     } catch (error) {
-      console.warn('[System Update] Failed to chmod:', error);
+      console.warn('[Update API] Failed to chmod:', error);
     }
 
-    // Clear old status (log is cleared by run-update.sh)
+    // Clear old status
     try {
       if (fs.existsSync(statusFile)) {
-        fs.writeFileSync(statusFile, 'STARTING');
+        fs.unlinkSync(statusFile);
       }
     } catch (error) {
-      console.warn('[System Update] Failed to clear status:', error);
+      console.warn('[Update API] Failed to clear status:', error);
     }
 
-    console.log('[System Update] Spawning update process...');
-    console.log('[System Update] Script:', updateScript);
-    console.log('[System Update] PATH:', process.env.PATH);
-    console.log('[System Update] This will:');
-    console.log('[System Update]   1. Validate environment (PM2, git, npm)');
-    console.log('[System Update]   2. Run update.sh in background');
-    console.log('[System Update]   3. Track status in logs/update_status');
-    console.log('[System Update]   4. Log output to logs/update.log');
-    console.log('[System Update]   5. Continue even after server restart');
+    console.log('[Update API] Spawning daemon:', updateDaemon);
+    console.log('[Update API] Project root:', projectRoot);
+    console.log('[Update API] 8-Phase Atomic Update Process:');
+    console.log('[Update API]   Phase 1: Download - Fetch and verify updates');
+    console.log('[Update API]   Phase 2: Backup - Create timestamped backup');
+    console.log('[Update API]   Phase 3: Stop - Gracefully stop PM2 services');
+    console.log('[Update API]   Phase 4: Update - Apply git updates with rollback');
+    console.log('[Update API]   Phase 5: Install - Install dependencies with rollback');
+    console.log('[Update API]   Phase 6: Build - Build application with rollback');
+    console.log('[Update API]   Phase 7: Restart - Restart PM2 services');
+    console.log('[Update API]   Phase 8: Verify - Health check application');
 
-    // Spawn the update script as a completely detached process
-    // CRITICAL: Pass full environment to ensure PM2, git, npm are available
-    const child = spawn('bash', [updateScript], {
-      detached: true,        // Run independently from parent
-      stdio: 'ignore',       // Don't keep pipes open (allows parent to exit)
-      cwd: projectRoot,      // Run in project directory
+    // Spawn completely detached daemon process
+    // This process will survive even when PM2 kills this Node.js process
+    const daemon = spawn('bash', [updateDaemon, projectRoot], {
+      detached: true,
+      stdio: 'ignore',  // Fully detached - no pipes
       env: {
-        ...process.env,      // Inherit ALL environment variables
-        PATH: process.env.PATH,   // Explicitly ensure PATH is set
-        HOME: process.env.HOME,   // Explicitly ensure HOME is set
-        USER: process.env.USER,   // Explicitly ensure USER is set
+        ...process.env,
+        PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+        HOME: process.env.HOME || '/root',
+        USER: process.env.USER || 'root',
       },
-      shell: false           // Don't wrap in shell (direct execution)
     });
 
-    // Unref allows parent to exit independently
-    child.unref();
+    // Unref so parent process can exit
+    daemon.unref();
 
-    console.log('[System Update] Update process spawned (PID:', child.pid, ')');
-    console.log('[System Update] Monitor: tail -f logs/update.log');
+    console.log(`[Update API] Update daemon spawned (PID: ${daemon.pid})`);
 
-    // Return immediately - update continues in background
+    // Wait briefly to check if daemon started
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Check if status file was created
+    let status = 'STARTING';
+    if (fs.existsSync(statusFile)) {
+      status = fs.readFileSync(statusFile, 'utf-8').trim();
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Update started successfully',
+      message: 'Update daemon started successfully',
       updated: true,
       requiresReload: true,
-      pid: child.pid,
+      daemonPid: daemon.pid,
+      status,
       logFile: 'logs/update.log',
       statusFile: 'logs/update_status',
-      note: 'Update runs in background. Server will restart automatically.'
+      note: 'Atomic update in progress. Monitor /api/system/update-status',
     });
 
   } catch (error: any) {
-    console.error('[System Update] Fatal error:', error);
+    console.error('[Update API] Error:', error);
     
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: 'Failed to start update daemon',
+      details: error.message
+    }, { status: 500 });
+  }
+}
+
+/**
+ * GET /api/system/update
+ * Check for available updates
+ */
+export async function GET() {
+  try {
+    await requireAdmin();
+
+    const projectRoot = process.cwd();
+    
+    // Fetch latest from remote
+    execSync('git fetch origin master', { 
+      cwd: projectRoot,
+      stdio: 'pipe' 
+    });
+
+    // Compare commits
+    const localCommit = execSync('git rev-parse HEAD', { 
+      cwd: projectRoot,
+      encoding: 'utf-8' 
+    }).trim();
+
+    const remoteCommit = execSync('git rev-parse origin/master', { 
+      cwd: projectRoot,
+      encoding: 'utf-8' 
+    }).trim();
+
+    const upToDate = localCommit === remoteCommit;
+
+    // Get commit messages if update available
+    let updateMessage = '';
+    if (!upToDate) {
+      updateMessage = execSync(
+        `git log --oneline ${localCommit}..${remoteCommit}`,
+        { cwd: projectRoot, encoding: 'utf-8' }
+      ).trim();
+    }
+
+    return NextResponse.json({
+      upToDate,
+      localCommit: localCommit.substring(0, 7),
+      remoteCommit: remoteCommit.substring(0, 7),
+      updateAvailable: !upToDate,
+      changes: updateMessage ? updateMessage.split('\n') : [],
+    });
+
+  } catch (error: any) {
+    console.error('[Update Check] Error:', error);
+    
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to check for updates',
+      details: error.message
     }, { status: 500 });
   }
 }
