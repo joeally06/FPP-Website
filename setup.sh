@@ -1023,14 +1023,30 @@ fi
 print_header "Starting Application"
 
 print_step "Stopping any existing instances..."
-pm2 stop fpp-control 2>/dev/null || true
 pm2 delete fpp-control 2>/dev/null || true
+pm2 delete fpp-poller 2>/dev/null || true
 
-print_step "Starting FPP Control Center with PM2..."
-pm2 start npm --name "fpp-control" -- start
+print_step "Starting FPP Control Center services with PM2..."
+pm2 start ecosystem.config.js
 pm2 save
 
-print_success "Application started!"
+# Verify both services are running
+sleep 2
+CONTROL_RUNNING=$(pm2 jlist 2>/dev/null | grep -c '"name":"fpp-control".*"status":"online"' || echo "0")
+POLLER_RUNNING=$(pm2 jlist 2>/dev/null | grep -c '"name":"fpp-poller".*"status":"online"' || echo "0")
+
+if [ "$CONTROL_RUNNING" -eq 0 ]; then
+    print_error "fpp-control failed to start"
+    pm2 logs fpp-control --lines 20 --nostream
+    exit 1
+fi
+
+if [ "$POLLER_RUNNING" -eq 0 ]; then
+    print_warning "fpp-poller failed to start - app will use fallback direct FPP queries"
+    print_info "Check logs: pm2 logs fpp-poller"
+else
+    print_success "Both services started successfully!"
+fi
 
 # Setup auto-start
 echo ""
