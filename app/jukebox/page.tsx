@@ -71,6 +71,11 @@ interface ScheduleStatus {
   status: string;
   message: string;
   nextShowTime: string | null;
+  nextShowDate: string | null;
+  nextShowDay: string | null;
+  nextShowStartTime: string | null;
+  nextShowEndTime: string | null;
+  countdown: string | null;
   lastChecked: string;
 }
 
@@ -448,6 +453,24 @@ export default function JukeboxPage() {
   // Determine if interactive features should be shown
   const showInteractiveFeatures = scheduleStatus?.isActive || isAdmin;
 
+  // Format time in both standard and military format
+  const formatTime = (timeStr: string) => {
+    // timeStr is in HH:MM:SS or HH:MM format
+    const parts = timeStr.split(':');
+    const hours = parseInt(parts[0]);
+    const minutes = parts[1];
+    
+    // Convert to 12-hour format
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const standardTime = `${hours12}:${minutes} ${period}`;
+    
+    // Military time (already in 24-hour format)
+    const militaryTime = `${String(hours).padStart(2, '0')}:${minutes}`;
+    
+    return `${standardTime} (${militaryTime})`;
+  };
+
   // Format next show time
   const formatNextShowTime = (isoString: string | null) => {
     if (!isoString) return null;
@@ -571,15 +594,21 @@ export default function JukeboxPage() {
               <p className={`${bannerStyles.text} text-lg mb-2 font-medium`}>
                 {scheduleStatus?.message}
               </p>
-              {scheduleStatus?.nextShowTime ? (
+              {scheduleStatus?.nextShowDate && scheduleStatus?.nextShowStartTime && scheduleStatus?.nextShowEndTime ? (
                 <div className="mt-4 p-4 bg-white/10 rounded-lg backdrop-blur-sm border-2 border-white/20">
                   <p className={`${bannerStyles.text} text-xl font-bold flex items-center gap-3 justify-center mb-1`}>
-                    <span className="text-3xl">🕐</span>
-                    <span>Next Show:</span>
+                    <span className="text-3xl">{bannerStyles.icon}</span>
+                    <span>Next Show: {scheduleStatus.nextShowDay}, {scheduleStatus.nextShowDate}</span>
                   </p>
-                  <p className={`${bannerStyles.text} text-2xl font-extrabold`}>
-                    {formatNextShowTime(scheduleStatus.nextShowTime)}
+                  <p className={`${bannerStyles.text} text-xl font-semibold`}>
+                    {formatTime(scheduleStatus.nextShowStartTime)} - {formatTime(scheduleStatus.nextShowEndTime)}
                   </p>
+                  {scheduleStatus.countdown && (
+                    <p className={`${bannerStyles.text} text-3xl font-extrabold mt-3 flex items-center gap-3 justify-center`}>
+                      <span className="text-4xl">{bannerStyles.icon}</span>
+                      <span>{scheduleStatus.countdown} until showtime!</span>
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="mt-4 p-3 bg-white/10 rounded-lg backdrop-blur-sm">
@@ -1139,3 +1168,5 @@ export default function JukeboxPage() {
     </ThemedJukeboxWrapper>
   );
 }
+
+
