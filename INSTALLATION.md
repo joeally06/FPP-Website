@@ -1276,6 +1276,48 @@ curl http://YOUR_FPP_IP/api/playlists
 Settings  Email  Send Test Email
 </details>
 
+<details>
+<summary><strong>Update failed or stuck</strong></summary>
+
+**Check update logs:**
+```bash
+tail -f logs/update.log
+```
+
+**If update is stuck:**
+```bash
+# Check if daemon is running
+ps aux | grep update-daemon
+
+# Remove stale lock file (if >30 min old)
+rm logs/update.lock logs/update.pid
+```
+
+**If only one PM2 app running:**
+```bash
+pm2 stop all
+pm2 start ecosystem.config.js
+pm2 save
+pm2 status  # Both fpp-control and fpp-poller should be online
+```
+
+**Manual update:**
+```bash
+cd ~/FPP-Website
+git pull origin master
+npm install
+npm run build
+pm2 stop all
+pm2 start ecosystem.config.js
+```
+
+**Clear build cache (if build fails):**
+```bash
+rm -rf .next
+npm run build
+```
+</details>
+
 ---
 
 ##  Advanced Configuration
@@ -1392,7 +1434,7 @@ Your FPP Control Center is now fully installed and configured!
 ### **Need Help?**
 
 -  [README.md](README.md) - Feature documentation
--  [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md) - Security guide
+-  [SECURITY.md](SECURITY.md) - Security guide
 -  [CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md) - Public deployment
 -  [GitHub Issues](https://github.com/joeally06/FPP-Control-Center/issues) - Report bugs
 -  [Discussions](https://github.com/joeally06/FPP-Control-Center/discussions) - Ask questions

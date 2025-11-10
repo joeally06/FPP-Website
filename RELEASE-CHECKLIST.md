@@ -257,7 +257,7 @@ Full guide: [INSTALLATION.md](INSTALLATION.md)
 ## 📖 Documentation
 
 - [README.md](README.md) - Project overview
-- [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md) - Security details
+- [SECURITY.md](SECURITY.md) - Security details
 - [CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md) - Public access setup
 
 ## 💪 Upgrade from RC

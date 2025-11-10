@@ -234,7 +234,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Documentation
 - Complete installation guide (INSTALLATION.md)
 - Quick start guide
-- Security implementation details (SECURITY-IMPLEMENTATION.md)
+- Security implementation details (SECURITY.md)
 - Cloudflare Tunnel guide (CLOUDFLARE-TUNNEL.md)
 - Santa letter system documentation
 - Device monitoring guide

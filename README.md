@@ -58,6 +58,14 @@ FPP Control Center is a **complete web-based control panel** for your Falcon Pla
 - **Session Management** - Automatic timeout and refresh
 - **HTTPS Ready** - Works with Cloudflare Tunnel for public deployment
 
+### 🔄 **Automatic Updates**
+- **One-Click Updates** - Update from admin dashboard
+- **Atomic Updates** - 8-phase process with automatic rollback
+- **Zero Downtime** - Survives service restarts
+- **Automatic Backups** - Database saved before every update
+- **Rollback Protection** - Automatically reverts failed updates
+- **Manual Fallback** - SSH command: `./scripts/run-update.sh`
+
 ---
 
 ## 🚀 Quick Start
@@ -119,7 +127,7 @@ See the complete [INSTALLATION.md](INSTALLATION.md) guide for step-by-step instr
 
 - **📋 [INSTALLATION.md](INSTALLATION.md)** - Complete setup guide with every detail
 - **🌐 [CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md)** - Public deployment guide
-- **🔒 [SECURITY-IMPLEMENTATION.md](SECURITY-IMPLEMENTATION.md)** - Security features
+- **🔒 [SECURITY.md](SECURITY.md)** - Security features and implementation
 - **🐛 [Troubleshooting](INSTALLATION.md#-troubleshooting)** - Common issues and solutions
 
 ---

@@ -55,7 +55,7 @@
 The FPP Control Center is now fully documented and includes:
 - ✅ Interactive setup wizard (./setup.sh or setup.ps1)
 - ✅ Complete installation guides (QUICKSTART.md, INSTALLATION.md)
-- ✅ Security implementation (SECURITY-IMPLEMENTATION.md)
+- ✅ Security implementation (SECURITY.md)
 - ✅ Production deployment scripts (deploy-production.sh)
 - ✅ Cross-platform support (Linux, Mac, Windows)
 - ✅ Cloudflare Tunnel with headless server support
