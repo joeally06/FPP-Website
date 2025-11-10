@@ -85,7 +85,7 @@ The interactive wizard walks you through everything in **10-15 minutes**.
 
 ### **Option 2: Manual Setup**
 
-See the complete [INSTALLATION.md](INSTALLATION.md) guide for step-by-step instructions.
+See the complete [INSTALLATION.md](docs/INSTALLATION.md) guide for step-by-step instructions.
 
 ---
 
@@ -125,10 +125,10 @@ See the complete [INSTALLATION.md](INSTALLATION.md) guide for step-by-step instr
 
 ## 📚 Documentation
 
-- **📋 [INSTALLATION.md](INSTALLATION.md)** - Complete setup guide with every detail
+- **📋 [INSTALLATION.md](docs/INSTALLATION.md)** - Complete setup guide with every detail
 - **🌐 [CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md)** - Public deployment guide
 - **🔒 [SECURITY.md](SECURITY.md)** - Security features and implementation
-- **🐛 [Troubleshooting](INSTALLATION.md#-troubleshooting)** - Common issues and solutions
+- **🐛 [Troubleshooting](docs/INSTALLATION.md#-troubleshooting)** - Common issues and solutions
 
 ---
 
@@ -180,12 +180,12 @@ See the complete [INSTALLATION.md](INSTALLATION.md) guide for step-by-step instr
 ## 🆘 Support
 
 ### **Getting Help:**
-- 📖 Check [INSTALLATION.md](INSTALLATION.md) for setup issues
+- 📖 Check [INSTALLATION.md](docs/INSTALLATION.md) for setup issues
 - 🐛 [GitHub Issues](https://github.com/joeally06/FPP-Control-Center/issues) for bugs
 - 💬 [Discussions](https://github.com/joeally06/FPP-Control-Center/discussions) for questions
 
 ### **Common Issues:**
-- **Setup wizard won't run** → See [Troubleshooting](INSTALLATION.md#-troubleshooting)
+- **Setup wizard won't run** → See [Troubleshooting](docs/INSTALLATION.md#-troubleshooting)
 - **OAuth not working** → Check redirect URIs in Google Console
 - **FPP connection failed** → Verify FPP IP address and network
 - **Email not sending** → Verify SMTP credentials and ports
