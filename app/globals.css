@@ -114,4 +114,18 @@ body {
   .admin-section {
     @apply mb-6;
   }
+  
+  /* Custom Animations */
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse-slow 3s ease-in-out infinite;
+  }
 }

@@ -18,7 +18,7 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
         {(title || subtitle) && (
           <div className="mb-8">
             {title && (
-              <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
+              <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg animate-pulse-slow">
                 {title}
               </h1>
             )}
