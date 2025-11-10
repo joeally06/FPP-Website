@@ -19,6 +19,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2-rc.1] - 2025-11-10
+
+### Schedule-Aware Jukebox & Service Management Release
+
+#### 🎉 Added
+
+- **Schedule-Aware Jukebox**
+  - New `/api/jukebox/schedule-status` endpoint detects active show times
+  - Themed banners for off-season messaging (Christmas 🎄, Halloween 🎃, Default ⏰)
+  - Countdown timer showing time until next show ("in 5h 30m", "in 15 minutes!")
+  - Conditional rendering: hides requests/voting/queue when show is inactive (admins always see features)
+  - Three-source active detection: schedule time windows, playing status, current playlist
+  - Auto-refresh every 30 seconds to stay synchronized with FPP scheduler
+
+- **Enhanced Service Management**
+  - `install.sh` now starts both PM2 services: `fpp-control` (main app) + `fpp-poller` (background service)
+  - Automatic PM2 installation if missing
+  - Service verification checks both processes are online before completion
+  - Helpful post-install commands displayed (pm2 logs, pm2 status, pm2 restart)
+
+#### 🐛 Fixed
+
+- **Schedule Detection**: Now correctly detects shows running via FPP scheduler (which doesn't set `current_playlist` field)
+  - Parses schedule `startDate`/`endDate` ranges
+  - Checks if current time is within `startTime` to `endTime` window
+  - Handles day-of-week restrictions (e.g., only Monday/Wednesday)
+
+- **Now Playing Display**: Fixed status not showing when cache is stale
+  - Detects stale cache (>60 seconds old or status='unknown')
+  - Automatically falls back to direct FPP API query
+  - Prevents double returns with `usedCache` flag
+
+- **Service Startup**: Fixed `install.sh` only starting `fpp-control`, missing `fpp-poller`
+  - Now uses `pm2 start ecosystem.config.js` to start both services from configuration
+  - Verifies both services are running before declaring success
+
+#### 🔧 Changed
+
+- Jukebox UI now dynamically shows/hides interactive features based on schedule
+- Non-admin users see friendly off-season messages instead of broken UI
+- Schedule check integrated with existing theme system for consistent styling
+
+---
+
 ## [1.0.1-rc.2] - 2025-11-09
 
 ### Performance & Architecture Release
