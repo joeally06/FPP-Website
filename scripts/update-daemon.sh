@@ -203,32 +203,49 @@ log "🔄 Phase 7: Restarting services..."
 write_status "RESTARTING"
 
 if [ -n "$PM2_BIN" ]; then
-    # Try restart first
-    if "$PM2_BIN" restart all >> "$LOG_FILE" 2>&1; then
-        log "✅ Services restarted via restart command"
-    else
-        log "⚠️  Restart failed, trying start..."
-        
-        # If restart failed, try starting from ecosystem config
-        if [ -f "ecosystem.config.js" ]; then
-            "$PM2_BIN" start ecosystem.config.js >> "$LOG_FILE" 2>&1 || {
-                log "❌ Could not start services from ecosystem.config.js"
-                write_status "FAILED"
-                exit 1
-            }
-            log "✅ Services started from ecosystem.config.js"
-        else
-            log "❌ No ecosystem.config.js found"
+    # Stop all services first to ensure clean restart
+    log "Stopping all PM2 services..."
+    "$PM2_BIN" stop all >> "$LOG_FILE" 2>&1 || {
+        log "⚠️  PM2 stop had issues (services may not be running)"
+    }
+    
+    sleep 2
+    
+    # Start from ecosystem config to ensure both apps start
+    if [ -f "ecosystem.config.js" ]; then
+        log "Starting services from ecosystem.config.js..."
+        "$PM2_BIN" start ecosystem.config.js >> "$LOG_FILE" 2>&1 || {
+            log "❌ Could not start services from ecosystem.config.js"
             write_status "FAILED"
             exit 1
-        fi
+        }
+        log "✅ Services started from ecosystem.config.js"
+    else
+        # Fallback: try restart all
+        log "No ecosystem.config.js, trying restart all..."
+        "$PM2_BIN" restart all >> "$LOG_FILE" 2>&1 || {
+            log "❌ Could not restart services"
+            write_status "FAILED"
+            exit 1
+        }
+        log "✅ Services restarted"
     fi
     
     sleep 3
     
     # Show current status
     "$PM2_BIN" status >> "$LOG_FILE" 2>&1
-    log "✅ Services are running"
+    
+    # Verify both services started (expect 2: fpp-control + fpp-poller)
+    ONLINE_COUNT=$("$PM2_BIN" list | grep -c "online" || echo "0")
+    EXPECTED_COUNT=2
+    
+    if [ "$ONLINE_COUNT" -ge "$EXPECTED_COUNT" ]; then
+        log "✅ All services running ($ONLINE_COUNT/$EXPECTED_COUNT online)"
+    else
+        log "⚠️  Only $ONLINE_COUNT/$EXPECTED_COUNT services online"
+        log "⚠️  Some services may not have started correctly"
+    fi
 else
     log "⚠️  PM2 not found, cannot restart services"
     log "ℹ️  Please manually restart: pm2 restart all"
@@ -243,10 +260,11 @@ sleep 5
 # Check if services are running
 if [ -n "$PM2_BIN" ]; then
     RUNNING=$("$PM2_BIN" list | grep -c "online" || echo "0")
-    if [ "$RUNNING" -gt 0 ]; then
-        log "✅ Services are running ($RUNNING online)"
+    EXPECTED=2
+    if [ "$RUNNING" -ge "$EXPECTED" ]; then
+        log "✅ All services running ($RUNNING/$EXPECTED online)"
     else
-        log "⚠️  No services detected as online"
+        log "⚠️  Only $RUNNING/$EXPECTED services online"
     fi
 fi
 
