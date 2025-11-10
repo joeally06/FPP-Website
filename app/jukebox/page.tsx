@@ -9,7 +9,7 @@ import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
 import LetterToSantaModal from '@/components/LetterToSantaModal';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import EnhancedVotingCard from '@/components/EnhancedVotingCard';
-import { LayoutGrid, List } from 'lucide-react';
+import { LayoutGrid, List, Music, Radio } from 'lucide-react';
 
 interface QueueItem {
   id: number;
@@ -784,14 +784,18 @@ export default function JukeboxPage() {
 
         {/* All Available Songs with Voting */}
         <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mt-6 border ${theme.cardBorder}`}>
-          <div className="flex items-center justify-between mb-4">
+          {/* Enhanced Header with Animation */}
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-semibold text-white themed-font flex items-center gap-2">
-                <span className="text-3xl">{theme.icons.vote}</span>
-                All Available Songs - Vote for Your Favorites!
-              </h2>
-              <p className="text-sm text-white/80 mt-2">
-                Help us know what songs you love! Your votes help determine which songs appear in the popular list.
+              <div className="flex items-center gap-3 mb-2">
+                <Radio className="w-8 h-8 text-purple-400 animate-pulse" />
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                  🎵 Music Jukebox
+                </h2>
+                <Music className="w-8 h-8 text-blue-400 animate-bounce" />
+              </div>
+              <p className="text-lg text-gray-300 font-light ml-11">
+                Vote for your favorite songs and help build the perfect playlist! 🎶
               </p>
             </div>
             
@@ -799,10 +803,10 @@ export default function JukeboxPage() {
             <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded transition-all ${
+                className={`p-2 rounded-lg transition-all duration-300 ${
                   viewMode === 'grid'
-                    ? 'bg-white/20 text-white'
-                    : 'text-white/60 hover:text-white/80'
+                    ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:scale-105'
                 }`}
                 title="Grid View"
               >
@@ -810,10 +814,10 @@ export default function JukeboxPage() {
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded transition-all ${
+                className={`p-2 rounded-lg transition-all duration-300 ${
                   viewMode === 'list'
-                    ? 'bg-white/20 text-white'
-                    : 'text-white/60 hover:text-white/80'
+                    ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:scale-105'
                 }`}
                 title="List View"
               >
@@ -943,6 +947,23 @@ export default function JukeboxPage() {
 
       {/* Letter to Santa Modal */}
       <LetterToSantaModal isOpen={showSantaModal} onClose={() => setShowSantaModal(false)} />
+
+      {/* Custom Animation Styles */}
+      <style jsx>{`
+        @keyframes gradient {
+          0%, 100% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+        }
+        
+        h2.bg-gradient-to-r {
+          background-size: 200% 200%;
+          animation: gradient 3s ease infinite;
+        }
+      `}</style>
     </ThemedJukeboxWrapper>
   );
 }
