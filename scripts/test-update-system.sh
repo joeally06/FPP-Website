@@ -26,21 +26,21 @@ fi
 echo ""
 
 # Test 2: Check scripts exist
-echo "2️⃣  Checking scripts..."
-if [ -f "./update.sh" ]; then
-    echo "   ✅ update.sh found"
-    if [ -x "./update.sh" ]; then
-        echo "   ✅ update.sh is executable"
+echo "2️⃣  Checking update scripts..."
+if [ -f "./scripts/update-daemon.sh" ]; then
+    echo "   ✅ update-daemon.sh found (atomic 8-phase system)"
+    if [ -x "./scripts/update-daemon.sh" ]; then
+        echo "   ✅ update-daemon.sh is executable"
     else
-        echo "   ⚠️  update.sh not executable (will be fixed automatically)"
+        echo "   ⚠️  update-daemon.sh not executable (will be fixed automatically)"
     fi
 else
-    echo "   ❌ update.sh not found"
+    echo "   ❌ update-daemon.sh not found"
     ERRORS=$((ERRORS + 1))
 fi
 
 if [ -f "./scripts/run-update.sh" ]; then
-    echo "   ✅ run-update.sh found"
+    echo "   ✅ run-update.sh found (launcher)"
     if [ -x "./scripts/run-update.sh" ]; then
         echo "   ✅ run-update.sh is executable"
     else

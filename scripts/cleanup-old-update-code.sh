@@ -18,15 +18,7 @@ mkdir -p "$BACKUP_DIR"
 
 echo "📦 Creating backup in: $BACKUP_DIR"
 
-# Move old update.sh to backup (keep for reference)
-if [ -f "$PROJECT_DIR/update.sh" ]; then
-    echo "  ✓ Backing up old update.sh"
-    cp "$PROJECT_DIR/update.sh" "$BACKUP_DIR/"
-else
-    echo "  ℹ️  No old update.sh found (already cleaned)"
-fi
-
-# Move old stream endpoint to backup
+# Backup old stream endpoint
 if [ -f "$PROJECT_DIR/app/api/system/update/stream/route.ts" ]; then
     echo "  ✓ Backing up old stream endpoint"
     cp "$PROJECT_DIR/app/api/system/update/stream/route.ts" "$BACKUP_DIR/"
@@ -37,13 +29,8 @@ fi
 echo ""
 echo "🗑️  Removing old update code..."
 
-# Remove old update.sh (replaced by update-daemon.sh)
-if [ -f "$PROJECT_DIR/update.sh" ]; then
-    echo "  ✓ Removing update.sh (replaced by update-daemon.sh)"
-    rm "$PROJECT_DIR/update.sh"
-else
-    echo "  ℹ️  update.sh already removed"
-fi
+# Note: update.sh is kept as reference/backup (not removed)
+echo "  ℹ️  update.sh kept as reference (no longer used by system)"
 
 # Remove old stream endpoint (replaced by polling)
 if [ -f "$PROJECT_DIR/app/api/system/update/stream/route.ts" ]; then

@@ -65,7 +65,7 @@ pm2 status
 
 ```bash
 git config core.autocrlf input
-git restore scripts/*.sh update.sh package-lock.json
+git restore scripts/*.sh package-lock.json
 rm -f "tash pop"
 git status
 ```
@@ -113,20 +113,18 @@ Fast-forward
 ```
 🧹 Cleaning up old update system code...
 📦 Creating backup in: backups/old-update-code-YYYYMMDD_HHMMSS
-  ✓ Backing up old update.sh
   ℹ️  No old stream endpoint found (already cleaned)
 
 🗑️  Removing old update code...
-  ✓ Removing update.sh (replaced by update-daemon.sh)
+  ℹ️  update.sh kept as reference (no longer used by system)
   ℹ️  stream endpoint already removed
 
 ✅ Cleanup complete!
 ```
 
 **What this does:**
-- Backs up old `update.sh` to `backups/` folder
-- Removes `update.sh` (replaced by `update-daemon.sh`)
-- Removes conflicting stream endpoint
+- Removes old `/api/system/update/stream` endpoint (replaced by polling)
+- Keeps `update.sh` as backup/reference (no longer called by system)
 - Ensures only new atomic update system is active
 
 ---
@@ -248,7 +246,7 @@ You've succeeded when:
 - [x] Dashboard title has pulse animation (proves latest code deployed)
 - [x] Footer has rainbow gradient (proves recent updates work)
 - [x] No errors in `tail -f logs/update.log`
-- [x] Old `update.sh` removed (only `update-daemon.sh` exists)
+- [x] System uses new atomic daemon (`scripts/update-daemon.sh`)
 
 ---
 

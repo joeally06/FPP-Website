@@ -29,15 +29,12 @@ scripts/update-daemon.sh (Atomic Update Process)
 
 ### Deprecated Components ❌
 
-These files are **NO LONGER USED** and should be removed:
+These components are **NO LONGER USED**:
 
-1. ~~`update.sh`~~ - Old unreliable update script (replaced by `update-daemon.sh`)
+1. ~~`update.sh`~~ - Old unreliable update script (kept as reference, not called by system)
 2. ~~`app/api/system/update/stream/route.ts`~~ - Old streaming endpoint (replaced by polling)
 
-If these files exist in your installation, run:
-```bash
-./scripts/cleanup-old-update-code.sh
-```
+The cleanup script removes the stream endpoint but keeps `update.sh` as a backup reference.
 
 ## 8-Phase Update Process
 
@@ -144,7 +141,7 @@ The update still succeeds as long as PM2 shows both apps online.
 
 ## Migration from Old System
 
-If you have the old update system installed (update.sh exists):
+If you have the old streaming endpoint active:
 
 ### Step 1: Backup Current Installation
 ```bash
@@ -156,7 +153,7 @@ tar -czf fpp-control-backup-$(date +%Y%m%d).tar.gz FPP-Website/
 ```bash
 cd ~/FPP-Website
 git config core.autocrlf input
-git restore scripts/*.sh update.sh package-lock.json
+git restore scripts/*.sh package-lock.json
 rm -f "tash pop"
 git status  # Should show clean
 ```

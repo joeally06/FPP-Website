@@ -1,5 +1,8 @@
 # Auto-Update System - Diagnosis & Testing Guide
 
+> ⚠️ **DEPRECATED**: This guide is for the old update system.  
+> **Current System**: See [UPDATE-SYSTEM.md](./UPDATE-SYSTEM.md) for the new FPP-inspired atomic update system with 8-phase rollback.
+
 ## ✅ What Was Fixed
 
 ### Root Causes Identified:

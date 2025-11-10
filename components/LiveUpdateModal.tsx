@@ -27,57 +27,10 @@ export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProp
     setHasError(false);
     setAutoCloseCountdown(null);
 
-    // Start the update stream
-    const eventSource = new EventSource('/api/system/update/stream');
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      console.log('[Update Modal] Stream opened');
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('[Update Modal] Received:', data);
-
-        if (data.type === 'start' || data.type === 'stdout' || data.type === 'stderr') {
-          setOutput((prev) => [...prev, data.message]);
-        } else if (data.type === 'complete') {
-          setOutput((prev) => [...prev, '', data.message]);
-          setIsComplete(true);
-          
-          // Start auto-close countdown
-          let countdown = 5;
-          setAutoCloseCountdown(countdown);
-          
-          const interval = setInterval(() => {
-            countdown--;
-            setAutoCloseCountdown(countdown);
-            
-            if (countdown <= 0) {
-              clearInterval(interval);
-              // Reload the page to get the new version
-              window.location.reload();
-            }
-          }, 1000);
-        } else if (data.type === 'error') {
-          setOutput((prev) => [...prev, '', data.message]);
-          setHasError(true);
-          setIsComplete(true);
-        }
-      } catch (error) {
-        console.error('[Update Modal] Parse error:', error);
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('[Update Modal] Stream error:', error);
-      setOutput((prev) => [...prev, '', '📡 Stream disconnected (server restarting). Switching to status polling...']);
-      eventSource.close();
-      
-      // Switch to polling mode when stream fails (happens when PM2 stops)
-      setUsePolling(true);
-    };
+    // Start with polling mode (no streaming endpoint)
+    console.log('[Update Modal] Starting update with status polling...');
+    setOutput(['🔄 Starting update process...', '📊 Monitoring update progress...', '']);
+    setUsePolling(true);
 
     return () => {
       if (eventSourceRef.current) {

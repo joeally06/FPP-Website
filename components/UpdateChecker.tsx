@@ -325,7 +325,7 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
       {/* Manual fallback */}
       <div className="p-4 bg-white/5 rounded-lg border border-white/10">
         <AdminText className="text-white/80 text-sm">
-          <strong>💡 Manual Update:</strong> SSH to server and run <code className="px-2 py-1 bg-black/30 rounded font-mono">./update.sh</code>
+          <strong>💡 Manual Update:</strong> SSH to server and run <code className="px-2 py-1 bg-black/30 rounded font-mono">./scripts/run-update.sh</code>
         </AdminText>
         <AdminTextSmall className="mt-2 text-white/60">
           For the safest updates during busy periods, use manual SSH method.
