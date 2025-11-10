@@ -1,125 +1,90 @@
 #!/bin/bash
 
-# Update Wrapper - Runs update.sh completely detached from Node.js
-# This ensures the update continues even when PM2 stops the app
+# Update Launcher - Runs update-daemon.sh in detached mode
+# Version: 3.0.0 - Uses FPP-inspired atomic update daemon
 #
 # SECURITY:
 # - Runs with inherited permissions (no sudo escalation)
-# - Validates PM2 is available before starting
+# - Lock file prevents concurrent updates
 # - Creates backup before any changes
 # - Full audit trail in log file
 #
 # RESILIENCE:
 # - Survives PM2 restart
-# - Proper exit code handling
-# - Status tracking at each step
-# - Automatic rollback on critical failures
+# - Atomic updates with automatic rollback on failure
+# - 8-phase update process with health verification
+# - Independent daemon process
 
-# DON'T use set -e - we want to capture errors and log them
-# set -e would exit immediately on any error without logging
+set -e
 
-LOG_FILE="logs/update.log"
-PID_FILE="logs/update.pid"
-STATUS_FILE="logs/update_status"
-ERROR_FILE="logs/update_error"
+# Get absolute paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+DAEMON_SCRIPT="$SCRIPT_DIR/update-daemon.sh"
+LOG_FILE="$PROJECT_DIR/logs/update.log"
+PID_FILE="$PROJECT_DIR/logs/update.pid"
 
-# Create logs directory
-mkdir -p logs
+# Ensure logs directory exists
+mkdir -p "$PROJECT_DIR/logs"
 
-# Clear old status, log, and errors
-> "$STATUS_FILE"
-> "$LOG_FILE"
-> "$ERROR_FILE"
-
-# Write our PID
-echo $$ > "$PID_FILE"
-
-# Log function with timestamp
+# Log function
 log() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo "[$timestamp] $1" | tee -a "$LOG_FILE"
 }
 
-# Error log function
-log_error() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[$timestamp] ERROR: $1" | tee -a "$LOG_FILE" >> "$ERROR_FILE"
-}
-
-# Status function
-set_status() {
-    echo "$1" > "$STATUS_FILE"
-    log "STATUS: $1"
-}
-
-log "==========================================="
-log "🚀 Update Wrapper Started (PID: $$)"
-log "==========================================="
-
-# Change to project directory
-cd "$(dirname "$0")/.."
-PROJECT_DIR=$(pwd)
+# Initialize log
+{
+    echo ""
+    echo "=================================="
+    echo "Update Launcher Started (PID: $$)"
+    echo "=================================="
+} | tee -a "$LOG_FILE"
 
 log "📁 Project directory: $PROJECT_DIR"
+log "� Daemon script: $DAEMON_SCRIPT"
 
-# Validate environment BEFORE starting
-log "🔍 Validating environment..."
-
-# Check if PM2 is available
-if ! command -v pm2 &> /dev/null; then
-    log_error "PM2 not found in PATH"
-    log_error "PATH: $PATH"
-    set_status "FAILED"
-    log "❌ Update aborted - PM2 not available"
+# Check if daemon script exists
+if [ ! -f "$DAEMON_SCRIPT" ]; then
+    log "❌ ERROR: update-daemon.sh not found at $DAEMON_SCRIPT"
     exit 1
 fi
 
-# Check if update.sh exists
-if [ ! -f "./update.sh" ]; then
-    log_error "update.sh not found in $PROJECT_DIR"
-    set_status "FAILED"
-    log "❌ Update aborted - update.sh missing"
-    exit 1
-fi
-
-# Make update.sh executable
-chmod +x ./update.sh 2>/dev/null || {
-    log_error "Failed to make update.sh executable"
-    set_status "FAILED"
-    log "❌ Update aborted - permission issue"
-    exit 1
+# Ensure daemon is executable
+chmod +x "$DAEMON_SCRIPT" 2>/dev/null || {
+    log "⚠️  WARNING: Could not set execute permissions on daemon"
 }
 
-# Also fix all script permissions
-chmod +x scripts/*.sh 2>/dev/null || true
+log "🚀 Launching atomic update daemon..."
+log "📋 8-Phase Update Process:"
+log "   Phase 1: Download updates"
+log "   Phase 2: Backup database & config"
+log "   Phase 3: Stop PM2 services"
+log "   Phase 4: Apply git updates (with rollback)"
+log "   Phase 5: Install dependencies (with rollback)"
+log "   Phase 6: Build application (with rollback)"
+log "   Phase 7: Restart PM2 services"
+log "   Phase 8: Verify health"
 
-log "✅ Environment validation passed"
-log "📍 PM2 location: $(which pm2)"
-log "📍 Node version: $(node --version 2>/dev/null || echo 'unknown')"
-log "📍 npm version: $(npm --version 2>/dev/null || echo 'unknown')"
-log ""
-log "🔄 Executing update.sh..."
-log ""
+# Launch daemon in fully detached mode
+nohup bash "$DAEMON_SCRIPT" "$PROJECT_DIR" >> "$LOG_FILE" 2>&1 &
+DAEMON_PID=$!
 
-set_status "STARTING"
+# Save PID
+echo $DAEMON_PID > "$PID_FILE"
 
-# Use nohup and background execution to survive PM2 death
-# Direct all output to log file
-log "🔄 Starting update process (detached)..."
-log "📝 This process will continue even after server restarts"
-log ""
+log "✅ Update daemon launched (PID: $DAEMON_PID)"
+log "📊 Monitor progress: tail -f logs/update.log"
+log "📍 Status file: logs/update_status"
 
-# Run update.sh in background with nohup (survives parent death)
-nohup bash ./update.sh --silent </dev/null >> "$LOG_FILE" 2>&1 &
+# Wait briefly to verify it started
+sleep 2
 
-# Get the PID
-UPDATE_PID=$!
-echo $UPDATE_PID > "$PID_FILE"
-
-log "✅ Update process started (PID: $UPDATE_PID)"
-log "📊 Monitor progress: tail -f $LOG_FILE"
-log "📍 Status file: $STATUS_FILE"
-
-# This script exits here, but update.sh continues in background
-exit 0
+if ps -p $DAEMON_PID > /dev/null 2>&1; then
+    log "✓ Update daemon confirmed running"
+    exit 0
+else
+    log "✗ Update daemon failed to start"
+    exit 1
+fi
 
