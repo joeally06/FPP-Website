@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addToQueue, getQueue, incrementSequenceRequests, getMediaNameForSequence } from '@/lib/database';
-import { songRequestLimiter, getClientIP } from '@/lib/rate-limit';
+import { songRequestLimiter, getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
 import db from '@/lib/database';
 
 export async function GET() {
@@ -18,14 +18,17 @@ export async function POST(request: NextRequest) {
     const { sequence_name, requester_name } = await request.json();
     const requester_ip = getClientIP(request);
 
-    // Rate limiting check
-    const rateLimitResult = songRequestLimiter.check(requester_ip);
+    // Get current rate limit from settings
+    const rateLimit = getSongRequestRateLimit();
+
+    // Rate limiting check with dynamic limit
+    const rateLimitResult = songRequestLimiter.check(requester_ip, rateLimit);
     if (!rateLimitResult.success) {
       const errorMessage = rateLimitResult.blocked 
         ? `Too many requests. You are blocked until ${rateLimitResult.blockedUntil?.toLocaleString()}`
-        : `Rate limit exceeded. Try again after ${rateLimitResult.resetAt.toLocaleString()}`;
+        : `Rate limit exceeded. You can request ${rateLimit} songs per hour. Try again after ${rateLimitResult.resetAt.toLocaleString()}`;
       
-      console.warn(`[SECURITY] Rate limit exceeded for ${requester_ip} (song request)`);
+      console.warn(`[SECURITY] Rate limit exceeded for ${requester_ip} (song request, limit: ${rateLimit})`);
       
       return NextResponse.json({ 
         error: errorMessage,

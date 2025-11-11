@@ -7,6 +7,8 @@ import {
   updateQueueStatus,
   updateStartTimeAndDuration
 } from '@/lib/database';
+import Database from 'better-sqlite3';
+import path from 'path';
 
 interface QueueItem {
   id: number;
@@ -45,6 +47,42 @@ let currentQueueItemId: number | null = null;
 
 // Helper function to sleep
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Get jukebox insert mode from settings
+// Returns: 'interrupt', 'after_current', or 'end_of_playlist'
+// Default: 'after_current' (safest, best UX)
+function getInsertMode(): string {
+  try {
+    const dbPath = path.join(process.cwd(), 'votes.db');
+    const db = new Database(dbPath, { readonly: true });
+    
+    const setting = db.prepare(
+      'SELECT value FROM settings WHERE key = ?'
+    ).get('jukebox_insert_mode') as { value: string } | undefined;
+    
+    db.close();
+    
+    if (setting && ['interrupt', 'after_current', 'end_of_playlist'].includes(setting.value)) {
+      return setting.value;
+    }
+  } catch (error) {
+    console.error('[Queue] Error reading insert mode setting:', error);
+  }
+  
+  // Safe default: after_current (best user experience)
+  return 'after_current';
+}
+
+// Get the appropriate FPP command based on insert mode setting
+function getFppCommand(insertMode: string): string {
+  const commandMap: Record<string, string> = {
+    'interrupt': 'Insert Playlist Immediate',        // Pause current, play request, resume
+    'after_current': 'Insert Playlist After Current', // Wait for current to finish
+    'end_of_playlist': 'Insert Playlist Immediate'   // Add to queue (legacy behavior)
+  };
+  
+  return commandMap[insertMode] || commandMap['after_current'];
+}
 
 // Helper to make FPP API calls
 async function makeFppCall(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
@@ -86,19 +124,24 @@ async function makeFppCall(endpoint: string, method: string = 'GET', body?: any)
   }
 }
 
-// Insert playlist immediately - FPP pauses current, plays this, then resumes
+// Insert playlist based on admin settings
 async function insertPlaylistImmediate(sequenceName: string): Promise<boolean> {
   const fullSequenceName = sequenceName.endsWith('.fseq') 
     ? sequenceName
     : `${sequenceName}.fseq`;
 
-  console.log(`[Queue] Inserting playlist immediate: ${fullSequenceName}`);
+  // Get insert mode from settings (admin-configurable)
+  const insertMode = getInsertMode();
+  const command = getFppCommand(insertMode);
+  
+  console.log(`[Queue] Inserting playlist with mode: ${insertMode} (${command})`);
+  console.log(`[Queue] Sequence: ${fullSequenceName}`);
 
-  // Use Insert Playlist Immediate command
+  // Use the command determined by settings
   // Args: [name, startItem, endItem, ifNotRunning]
   // startItem=0, endItem=0 to play just the first item
   const result = await makeFppCall('/api/command', 'POST', {
-    command: 'Insert Playlist Immediate',
+    command: command,
     args: [fullSequenceName, 0, 0, false]
   });
 

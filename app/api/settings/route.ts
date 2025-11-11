@@ -67,6 +67,28 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Validate jukebox-specific settings
+    if ('jukebox_rate_limit' in settings) {
+      const rateLimit = parseInt(String(settings.jukebox_rate_limit), 10);
+      if (isNaN(rateLimit) || rateLimit < 1 || rateLimit > 10) {
+        return NextResponse.json(
+          { error: 'jukebox_rate_limit must be between 1 and 10' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if ('jukebox_insert_mode' in settings) {
+      const validModes = ['interrupt', 'after_current', 'end_of_playlist'];
+      const mode = String(settings.jukebox_insert_mode);
+      if (!validModes.includes(mode)) {
+        return NextResponse.json(
+          { error: `jukebox_insert_mode must be one of: ${validModes.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Convert all values to strings
     const stringSettings: Record<string, string> = {};
     for (const [key, value] of Object.entries(settings)) {

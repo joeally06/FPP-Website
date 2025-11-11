@@ -69,9 +69,27 @@ export default function AnalyticsPage() {
     try {
       const response = await fetch(`/api/analytics?range=${timeRange}`);
       const result = await response.json();
+      
+      console.log('[Analytics] Response status:', response.status);
+      console.log('[Analytics] Response data:', result);
+      
+      if (!response.ok) {
+        console.error('[Analytics] API error:', result.error || 'Unknown error');
+        alert(`Failed to load analytics: ${result.error || 'Unknown error'}`);
+        return;
+      }
+      
+      if (!result.data) {
+        console.error('[Analytics] No data in response:', result);
+        alert('No analytics data received from server');
+        return;
+      }
+      
+      console.log('[Analytics] Top sequences:', result.data.topContent.sequences);
       setData(result.data);
     } catch (error) {
-      console.error('Failed to fetch analytics:', error);
+      console.error('[Analytics] Failed to fetch analytics:', error);
+      alert(`Error loading analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }

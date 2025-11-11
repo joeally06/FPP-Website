@@ -4,6 +4,36 @@ import path from 'path';
 const dbPath = path.join(process.cwd(), 'fpp-control.db');
 const db = new Database(dbPath);
 
+// Separate database for settings (votes.db)
+const votesDbPath = path.join(process.cwd(), 'votes.db');
+let settingsDb: Database.Database | null = null;
+
+/**
+ * Get the rate limit for song requests from settings
+ */
+export function getSongRequestRateLimit(): number {
+  try {
+    if (!settingsDb) {
+      settingsDb = new Database(votesDbPath, { readonly: true });
+    }
+    
+    const row = settingsDb.prepare('SELECT value FROM settings WHERE key = ?')
+      .get('jukebox_rate_limit') as { value: string } | undefined;
+    
+    if (row) {
+      const limit = parseInt(row.value, 10);
+      if (!isNaN(limit) && limit >= 1 && limit <= 10) {
+        return limit;
+      }
+    }
+  } catch (error) {
+    console.error('[RATE LIMIT] Error reading jukebox_rate_limit setting:', error);
+  }
+  
+  // Default to 3 if not set or error
+  return 3;
+}
+
 // Initialize rate limiting tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS rate_limits (
@@ -54,10 +84,12 @@ export class RateLimiter {
   /**
    * Check if request is allowed
    * @param identifier - Unique identifier (usually IP address)
+   * @param dynamicPoints - Optional override for points limit (useful for configurable limiters)
    * @returns Rate limit result
    */
-  check(identifier: string): RateLimitResult {
+  check(identifier: string, dynamicPoints?: number): RateLimitResult {
     const now = Date.now();
+    const points = dynamicPoints ?? this.config.points;
     const expiresAt = now + (this.config.duration * 1000);
 
     // Check if currently blocked
@@ -100,10 +132,10 @@ export class RateLimiter {
     `).get(identifier, this.name, now) as { total: number };
 
     const consumed = currentPoints.total;
-    const remaining = Math.max(0, this.config.points - consumed - 1);
+    const remaining = Math.max(0, points - consumed - 1);
 
     // Check if limit exceeded
-    if (consumed >= this.config.points) {
+    if (consumed >= points) {
       // Create block
       const blockedUntil = now + (this.config.blockDuration * 1000);
       
@@ -115,7 +147,7 @@ export class RateLimiter {
         this.name, 
         blockedUntil, 
         now,
-        `Exceeded ${this.config.points} requests in ${this.config.duration}s`
+        `Exceeded ${points} requests in ${this.config.duration}s`
       );
 
       console.warn(`[RATE LIMIT] Blocking ${identifier} for ${this.config.blockDuration}s (limiter: ${this.name})`);

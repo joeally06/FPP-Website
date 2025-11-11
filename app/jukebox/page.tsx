@@ -110,6 +110,7 @@ export default function JukeboxPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [scheduleStatus, setScheduleStatus] = useState<ScheduleStatus | null>(null);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
+  const [jukeboxRateLimit, setJukeboxRateLimit] = useState<number>(3);
 
   // Re-fetch YouTube videos when theme changes
   useEffect(() => {
@@ -122,6 +123,7 @@ export default function JukeboxPage() {
     fetchVotes();
     fetchYouTubeVideos();
     fetchScheduleStatus(); // Check schedule status
+    fetchJukeboxSettings(); // Fetch jukebox rate limit and insert mode
     
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     const scheduleInterval = setInterval(fetchScheduleStatus, 30000); // Check every 30 seconds
@@ -254,6 +256,20 @@ export default function JukeboxPage() {
       console.error('Failed to fetch schedule status:', error);
     } finally {
       setLoadingSchedule(false);
+    }
+  };
+
+  const fetchJukeboxSettings = async () => {
+    try {
+      const response = await fetch('/api/jukebox/settings');
+      if (response.ok) {
+        const data = await response.json();
+        setJukeboxRateLimit(data.rateLimit || 3);
+        // Insert mode is used server-side only, visitors don't need to see it
+      }
+    } catch (error) {
+      console.error('Failed to fetch jukebox settings:', error);
+      // Keep defaults on error
     }
   };
 
@@ -812,6 +828,14 @@ export default function JukeboxPage() {
                 </button>
               )}
             </div>
+
+            {/* Rate Limit Info */}
+            <div className="mb-4 p-3 bg-blue-500/20 rounded-lg border border-blue-500/30 backdrop-blur-sm">
+              <p className="text-white/90 text-sm text-center">
+                💡 You can request up to <strong className="text-blue-300">{jukeboxRateLimit} {jukeboxRateLimit === 1 ? 'song' : 'songs'} per hour</strong>
+              </p>
+            </div>
+
             <form onSubmit={handleRequest} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-white/90 mb-2">

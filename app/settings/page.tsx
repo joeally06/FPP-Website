@@ -20,7 +20,7 @@ import {
 } from '@/components/admin/Typography';
 import Link from 'next/link';
 
-type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database' | 'updates' | 'youtube';
+type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database' | 'updates' | 'youtube' | 'jukebox';
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>('themes');
@@ -101,6 +101,16 @@ export default function SettingsPage() {
               >
                 🎬 YouTube Videos
               </button>
+              <button
+                onClick={() => setActiveSection('jukebox')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-all font-semibold ${
+                  activeSection === 'jukebox'
+                    ? 'bg-white text-black shadow-lg'
+                    : 'text-white hover:bg-white/10'
+                }`}
+              >
+                🎵 Jukebox
+              </button>
             </div>
           </div>
 
@@ -112,6 +122,7 @@ export default function SettingsPage() {
             {activeSection === 'monitoring' && <MonitoringSettings />}
             {activeSection === 'database' && <DatabaseSettings />}
             {activeSection === 'youtube' && <YouTubeVideoSettings />}
+            {activeSection === 'jukebox' && <JukeboxSettings />}
           </div>
         </div>
       </div>
@@ -1141,6 +1152,224 @@ function YouTubeVideoSettings() {
           <li><AdminTextSmall>• YouTube handles all video streaming and playback</AdminTextSmall></li>
           <li><AdminTextSmall>• Titles and thumbnails are automatically fetched from YouTube</AdminTextSmall></li>
           <li><AdminTextSmall>• Only you (admin) can add, edit, or delete videos</AdminTextSmall></li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function JukeboxSettings() {
+  const [rateLimit, setRateLimit] = useState<number>(3);
+  const [insertMode, setInsertMode] = useState<string>('after_current');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  async function fetchSettings() {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        setRateLimit(parseInt(data.settings.jukebox_rate_limit || '3', 10));
+        setInsertMode(data.settings.jukebox_insert_mode || 'after_current');
+      }
+    } catch (err) {
+      console.error('Error fetching jukebox settings:', err);
+      setError('Failed to load settings');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSuccess('');
+    setError('');
+
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: {
+            jukebox_rate_limit: rateLimit.toString(),
+            jukebox_insert_mode: insertMode
+          }
+        })
+      });
+
+      if (response.ok) {
+        setSuccess('✅ Settings saved successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to save settings');
+      }
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      setError('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+        <AdminH2>🎵 Jukebox Settings</AdminH2>
+        <AdminTextMuted>Loading...</AdminTextMuted>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+        <AdminH2>🎵 Jukebox Settings</AdminH2>
+        <AdminTextMuted>
+          Configure song request behavior and rate limiting
+        </AdminTextMuted>
+
+        {success && <AdminSuccess className="mt-4">{success}</AdminSuccess>}
+        {error && <AdminError className="mt-4">{error}</AdminError>}
+
+        {/* Rate Limit Section */}
+        <div className="mt-6 space-y-4">
+          <div>
+            <AdminH3>⏱️ Rate Limit</AdminH3>
+            <AdminTextMuted>
+              Maximum number of song requests per hour per visitor
+            </AdminTextMuted>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={rateLimit}
+                onChange={(e) => setRateLimit(parseInt(e.target.value, 10))}
+                className="flex-1 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                style={{
+                  background: `linear-gradient(to right, #10b981 0%, #10b981 ${((rateLimit - 1) / 9) * 100}%, rgba(255,255,255,0.2) ${((rateLimit - 1) / 9) * 100}%, rgba(255,255,255,0.2) 100%)`
+                }}
+              />
+              <div className="text-white font-bold text-2xl w-16 text-center">
+                {rateLimit}
+              </div>
+            </div>
+
+            <div className="flex justify-between text-sm text-white/60">
+              <span>1 (Strict)</span>
+              <span>5 (Moderate)</span>
+              <span>10 (Generous)</span>
+            </div>
+
+            <AdminInfo>
+              Current setting: <strong>{rateLimit} requests per hour</strong>
+            </AdminInfo>
+          </div>
+        </div>
+
+        {/* Insert Mode Section */}
+        <div className="mt-8 space-y-4">
+          <div>
+            <AdminH3>🎶 Queue Insertion Behavior</AdminH3>
+            <AdminTextMuted>
+              How requested songs are inserted into the playlist
+            </AdminTextMuted>
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-start gap-3 p-4 bg-white/5 rounded-lg border border-white/20 cursor-pointer hover:bg-white/10 transition-all">
+              <input
+                type="radio"
+                name="insertMode"
+                value="after_current"
+                checked={insertMode === 'after_current'}
+                onChange={(e) => setInsertMode(e.target.value)}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <AdminLabel>🎵 After Current (Recommended)</AdminLabel>
+                <AdminTextSmall className="text-white/60">
+                  Request plays after the current song finishes. Provides smooth transitions without interruption.
+                </AdminTextSmall>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-4 bg-white/5 rounded-lg border border-white/20 cursor-pointer hover:bg-white/10 transition-all">
+              <input
+                type="radio"
+                name="insertMode"
+                value="interrupt"
+                checked={insertMode === 'interrupt'}
+                onChange={(e) => setInsertMode(e.target.value)}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <AdminLabel>⚡ Interrupt</AdminLabel>
+                <AdminTextSmall className="text-white/60">
+                  Pauses current song, plays request, then resumes. Immediate but disruptive.
+                </AdminTextSmall>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-4 bg-white/5 rounded-lg border border-white/20 cursor-pointer hover:bg-white/10 transition-all">
+              <input
+                type="radio"
+                name="insertMode"
+                value="end_of_playlist"
+                checked={insertMode === 'end_of_playlist'}
+                onChange={(e) => setInsertMode(e.target.value)}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <AdminLabel>📋 End of Playlist</AdminLabel>
+                <AdminTextSmall className="text-white/60">
+                  Adds request to the end of the queue. Longer wait time but no interruption.
+                </AdminTextSmall>
+              </div>
+            </label>
+          </div>
+
+          <AdminInfo>
+            Current mode: <strong>
+              {insertMode === 'after_current' && '🎵 After Current'}
+              {insertMode === 'interrupt' && '⚡ Interrupt'}
+              {insertMode === 'end_of_playlist' && '📋 End of Playlist'}
+            </strong>
+          </AdminInfo>
+        </div>
+
+        {/* Save Button */}
+        <div className="mt-8 flex gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? '⏳ Saving...' : '💾 Save Settings'}
+          </button>
+        </div>
+      </div>
+
+      {/* Info Section */}
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+        <AdminH3>ℹ️ How It Works</AdminH3>
+        <ul className="space-y-2 mt-4">
+          <li><AdminTextSmall>• <strong>Rate Limiting:</strong> Prevents spam by limiting requests per visitor (tracked by IP)</AdminTextSmall></li>
+          <li><AdminTextSmall>• <strong>After Current:</strong> Best user experience - no interruption, smooth transitions</AdminTextSmall></li>
+          <li><AdminTextSmall>• <strong>Interrupt:</strong> Fastest response - request plays immediately</AdminTextSmall></li>
+          <li><AdminTextSmall>• <strong>End of Playlist:</strong> Traditional queue - maintains playlist order</AdminTextSmall></li>
+          <li><AdminTextSmall>• Settings take effect immediately for all new requests</AdminTextSmall></li>
+          <li><AdminTextSmall>• Visitors see the current rate limit and queue behavior on the request page</AdminTextSmall></li>
         </ul>
       </div>
     </div>
