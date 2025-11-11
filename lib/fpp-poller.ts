@@ -178,12 +178,11 @@ const cleanupOldFPPStatus = db.prepare(`
   )
 `);
 
-const upsertCachedPlaylist = db.prepare(`
+// Note: We INSERT new records instead of UPSERT because cached_playlists
+// uses a partial unique index (name + recent cached_at), not a full UNIQUE constraint
+const insertCachedPlaylist = db.prepare(`
   INSERT INTO cached_playlists (name, data)
   VALUES (?, ?)
-  ON CONFLICT(name) DO UPDATE SET
-    data = excluded.data,
-    cached_at = CURRENT_TIMESTAMP
 `);
 
 const cleanupOldCachedPlaylists = db.prepare(`
@@ -478,7 +477,7 @@ function syncPlaylistSequences(playlistName: string, sequences: any[]): void {
  */
 function cachePlaylistData(playlistName: string, data: any): void {
   try {
-    upsertCachedPlaylist.run(
+    insertCachedPlaylist.run(
       playlistName,
       JSON.stringify(data)
     );
