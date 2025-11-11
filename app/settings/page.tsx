@@ -476,7 +476,7 @@ function MonitoringSettings() {
                   className="flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
                 >
                   {Array.from({ length: 24 }, (_, i) => (
-                    <option key={i} value={i}>{formatTime(i, 0).split(':')[0]} {formatTime(i, 0).split(' ')[1]}</option>
+                    <option key={i} value={i} className="bg-gray-900 text-white">{formatTime(i, 0).split(':')[0]} {formatTime(i, 0).split(' ')[1]}</option>
                   ))}
                 </select>
                 <select
@@ -484,10 +484,10 @@ function MonitoringSettings() {
                   onChange={(e) => setStartMinute(parseInt(e.target.value, 10))}
                   className="w-20 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
                 >
-                  <option value={0}>:00</option>
-                  <option value={15}>:15</option>
-                  <option value={30}>:30</option>
-                  <option value={45}>:45</option>
+                  <option value={0} className="bg-gray-900 text-white">:00</option>
+                  <option value={15} className="bg-gray-900 text-white">:15</option>
+                  <option value={30} className="bg-gray-900 text-white">:30</option>
+                  <option value={45} className="bg-gray-900 text-white">:45</option>
                 </select>
               </div>
             </div>
@@ -501,7 +501,7 @@ function MonitoringSettings() {
                   className="flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
                 >
                   {Array.from({ length: 24 }, (_, i) => (
-                    <option key={i} value={i}>{formatTime(i, 0).split(':')[0]} {formatTime(i, 0).split(' ')[1]}</option>
+                    <option key={i} value={i} className="bg-gray-900 text-white">{formatTime(i, 0).split(':')[0]} {formatTime(i, 0).split(' ')[1]}</option>
                   ))}
                 </select>
                 <select
@@ -509,10 +509,10 @@ function MonitoringSettings() {
                   onChange={(e) => setEndMinute(parseInt(e.target.value, 10))}
                   className="w-20 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
                 >
-                  <option value={0}>:00</option>
-                  <option value={15}>:15</option>
-                  <option value={30}>:30</option>
-                  <option value={45}>:45</option>
+                  <option value={0} className="bg-gray-900 text-white">:00</option>
+                  <option value={15} className="bg-gray-900 text-white">:15</option>
+                  <option value={30} className="bg-gray-900 text-white">:30</option>
+                  <option value={45} className="bg-gray-900 text-white">:45</option>
                 </select>
               </div>
             </div>
@@ -1024,8 +1024,8 @@ function YouTubeVideoSettings() {
                 onChange={(e) => setFormData(prev => ({ ...prev, theme: e.target.value as 'christmas' | 'halloween' }))}
                 className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
               >
-                <option value="christmas">🎄 Christmas</option>
-                <option value="halloween">🎃 Halloween</option>
+                <option value="christmas" className="bg-gray-900 text-white">🎄 Christmas</option>
+                <option value="halloween" className="bg-gray-900 text-white">🎃 Halloween</option>
               </select>
               <AdminTextSmall className="mt-1">
                 Video will only show on the jukebox when this theme is active
