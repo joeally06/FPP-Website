@@ -42,12 +42,12 @@ const getAllVideosStmt = (db: Database.Database) => db.prepare(`
     title,
     description,
     thumbnail_url,
-    video_id,
-    published_at,
-    view_count
+    youtube_id,
+    created_at,
+    duration_seconds,
+    theme
   FROM youtube_videos
-  WHERE active = 1
-  ORDER BY published_at DESC
+  ORDER BY created_at DESC
   LIMIT ?
 `);
 
@@ -57,12 +57,13 @@ const getVideosByThemeStmt = (db: Database.Database) => db.prepare(`
     title,
     description,
     thumbnail_url,
-    video_id,
-    published_at,
-    view_count
+    youtube_id,
+    created_at,
+    duration_seconds,
+    theme
   FROM youtube_videos
-  WHERE active = 1 AND theme = ?
-  ORDER BY published_at DESC
+  WHERE theme = ?
+  ORDER BY created_at DESC
   LIMIT ?
 `);
 
@@ -115,11 +116,12 @@ export async function GET(request: NextRequest) {
         title: video.title,
         description: video.description,
         thumbnailUrl: video.thumbnail_url,
-        videoId: video.video_id,
-        publishedAt: video.published_at,
-        viewCount: video.view_count,
-        youtubeUrl: `https://www.youtube.com/watch?v=${video.video_id}`,
-        embedUrl: `https://www.youtube.com/embed/${video.video_id}`
+        videoId: video.youtube_id,
+        publishedAt: video.created_at, // Use created_at as publishedAt
+        durationSeconds: video.duration_seconds,
+        theme: video.theme,
+        youtubeUrl: `https://www.youtube.com/watch?v=${video.youtube_id}`,
+        embedUrl: `https://www.youtube.com/embed/${video.youtube_id}`
       }))
     };
 
@@ -152,8 +154,7 @@ export async function HEAD(request: NextRequest) {
     const database = getDatabase();
     const countStmt = database.prepare(`
       SELECT COUNT(*) as count 
-      FROM youtube_videos 
-      WHERE active = 1
+      FROM youtube_videos
     `);
     const result = countStmt.get() as any;
 

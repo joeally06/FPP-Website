@@ -61,8 +61,9 @@ interface YouTubeVideo {
   videoId: string;
   description: string | null;
   thumbnailUrl: string | null;
-  viewCount: number | null;
+  durationSeconds: number | null;
   publishedAt: string;
+  theme?: string;
   youtubeUrl?: string;
   embedUrl?: string;
 }
