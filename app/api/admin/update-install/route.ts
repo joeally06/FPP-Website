@@ -20,13 +20,18 @@ export async function POST() {
 
     console.log('[Update Install] Manual update triggered by admin:', session.user.email);
 
-    // Spawn update daemon in background
+    // Path to update script
     const scriptPath = path.join(process.cwd(), 'scripts', 'update-daemon.sh');
     
-    const updateProcess = spawn('bash', [scriptPath], {
+    console.log(`[Update Install] Spawning: ${scriptPath}`);
+
+    // Spawn update daemon in background
+    // Use /bin/bash explicitly for better compatibility
+    const updateProcess = spawn('/bin/bash', [scriptPath, process.cwd()], {
       detached: true,
-      stdio: 'ignore',
-      cwd: process.cwd()
+      stdio: ['ignore', 'ignore', 'ignore'],
+      cwd: process.cwd(),
+      env: { ...process.env }
     });
 
     updateProcess.unref();
@@ -35,7 +40,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: 'Update started',
+      message: 'Update started - check status for progress',
       pid: updateProcess.pid
     });
 

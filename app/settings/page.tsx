@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import UpdateChecker from '@/components/UpdateChecker';
-import LiveUpdateModal from '@/components/LiveUpdateModal';
 import { 
   AdminH1, 
   AdminH2, 
@@ -131,19 +130,10 @@ export default function SettingsPage() {
 }
 
 function UpdateSettings() {
-  const [showLiveUpdateModal, setShowLiveUpdateModal] = useState(false);
-  
   return (
-    <>
-      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-        <UpdateChecker onInstallClick={() => setShowLiveUpdateModal(true)} />
-      </div>
-      
-      <LiveUpdateModal
-        isOpen={showLiveUpdateModal}
-        onClose={() => setShowLiveUpdateModal(false)}
-      />
-    </>
+    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+      <UpdateChecker />
+    </div>
   );
 }
 

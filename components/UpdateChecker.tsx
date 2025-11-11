@@ -14,10 +14,10 @@ interface UpdateStatus {
 }
 
 interface UpdateCheckerProps {
-  onInstallClick?: () => void;
+  // Component is fully self-contained, no external callbacks needed
 }
 
-export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
+export default function UpdateChecker({}: UpdateCheckerProps = {}) {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [hasUpdates, setHasUpdates] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -114,11 +114,6 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
     }
 
     setInstalling(true);
-    
-    // Open live update modal if provided
-    if (onInstallClick) {
-      onInstallClick();
-    }
 
     try {
       const response = await fetch('/api/admin/update-install', {
