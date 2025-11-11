@@ -332,11 +332,16 @@ export default function UpdateChecker({ onInstallClick }: UpdateCheckerProps) {
         </AdminTextSmall>
       </div>
 
-      {/* Update Watcher Status */}
+      {/* Automatic Update Schedule */}
       <div className="p-4 bg-green-500/20 rounded-lg border border-green-500/30">
-        <AdminSuccess className="font-semibold mb-2">✅ Update Watcher Service</AdminSuccess>
+        <AdminSuccess className="font-semibold mb-2">✅ Automatic Update Schedule</AdminSuccess>
         <AdminTextSmall className="text-green-100">
-          The update watcher monitors for update requests every 30 seconds. When you click "Install Update", the watcher safely stops the server, closes the database, and runs the full update process automatically.
+          The update daemon runs automatically <strong>every 6 hours</strong> (12am, 6am, 12pm, 6pm) via PM2 cron. 
+          It checks GitHub for new commits and safely updates if available. You can also trigger updates manually 
+          using the button above or by clicking "Install Update" when available.
+        </AdminTextSmall>
+        <AdminTextSmall className="mt-2 text-green-100/80">
+          💡 <em>Note:</em> If logs show "Already up to date", this means you already have the latest version - the system is working correctly!
         </AdminTextSmall>
       </div>
     </div>
