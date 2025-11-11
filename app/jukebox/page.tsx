@@ -58,11 +58,13 @@ interface SequenceMetadata {
 interface YouTubeVideo {
   id: number;
   title: string;
-  youtube_id: string;
+  videoId: string;
   description: string | null;
-  thumbnail_url: string | null;
-  duration_seconds: number | null;
-  created_at: string;
+  thumbnailUrl: string | null;
+  viewCount: number | null;
+  publishedAt: string;
+  youtubeUrl?: string;
+  embedUrl?: string;
 }
 
 interface ScheduleStatus {
@@ -226,7 +228,7 @@ export default function JukeboxPage() {
   const fetchYouTubeVideos = async () => {
     try {
       setLoadingYouTubeVideos(true);
-      const response = await fetch('/api/youtube-videos');
+      const response = await fetch('/api/jukebox/videos');
       if (response.ok) {
         const data = await response.json();
         const videos = data.videos || [];
@@ -1075,7 +1077,7 @@ export default function JukeboxPage() {
               <div className="space-y-4">
                 <div className="bg-black/50 rounded-lg overflow-hidden aspect-video">
                   <YouTubePlayer
-                    videoId={selectedYouTubeVideo.youtube_id}
+                    videoId={selectedYouTubeVideo.videoId}
                     width="100%"
                     height="100%"
                   />
@@ -1092,7 +1094,7 @@ export default function JukeboxPage() {
                     </p>
                   )}
                   <p className="text-white/60 text-xs">
-                    Added {new Date(selectedYouTubeVideo.created_at).toLocaleDateString()}
+                    Published {new Date(selectedYouTubeVideo.publishedAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -1110,9 +1112,9 @@ export default function JukeboxPage() {
                       : 'border-white/20 hover:border-white/40'
                   }`}
                 >
-                  {video.thumbnail_url ? (
+                  {video.thumbnailUrl ? (
                     <img
-                      src={video.thumbnail_url}
+                      src={video.thumbnailUrl}
                       alt={video.title}
                       className="w-full h-24 object-cover"
                     />
