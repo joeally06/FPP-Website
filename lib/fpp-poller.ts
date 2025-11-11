@@ -158,6 +158,40 @@ const insertSequence = db.prepare(`
 `);
 
 // ============================================================================
+// NEW: Security Cache - Prepared Statements for fpp_status_cache and cached_playlists
+// ============================================================================
+
+const insertFPPStatus = db.prepare(`
+  INSERT INTO fpp_status_cache (
+    status_name, current_playlist, current_sequence,
+    seconds_played, seconds_remaining, time_elapsed, time_remaining,
+    volume, mode_name, scheduler_status, next_playlist, raw_data
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const cleanupOldFPPStatus = db.prepare(`
+  DELETE FROM fpp_status_cache 
+  WHERE id NOT IN (
+    SELECT id FROM fpp_status_cache 
+    ORDER BY updated_at DESC 
+    LIMIT 100
+  )
+`);
+
+const upsertCachedPlaylist = db.prepare(`
+  INSERT INTO cached_playlists (name, data)
+  VALUES (?, ?)
+  ON CONFLICT(name) DO UPDATE SET
+    data = excluded.data,
+    cached_at = CURRENT_TIMESTAMP
+`);
+
+const cleanupOldCachedPlaylists = db.prepare(`
+  DELETE FROM cached_playlists 
+  WHERE cached_at < datetime('now', '-5 minutes')
+`);
+
+// ============================================================================
 // State Management
 // ============================================================================
 
@@ -300,16 +334,19 @@ async function fetchPlaylistDetails(playlistName: string): Promise<any | null> {
 /**
  * Update database with FPP state
  * Uses transactions for atomic updates
+ * SECURITY: Now also caches to fpp_status table for frontend API consumption
  */
 function updateDatabase(status: any, responseTime: number): void {
   try {
     // Normalize numeric fields that might be strings
     const secondsPlayed = typeof status.seconds_played === 'string' ? parseFloat(status.seconds_played) : status.seconds_played;
     const secondsRemaining = typeof status.seconds_remaining === 'string' ? parseFloat(status.seconds_remaining) : status.seconds_remaining;
+    const timeElapsed = typeof status.time_elapsed === 'string' ? status.time_elapsed : null;
+    const timeRemaining = typeof status.time_remaining === 'string' ? status.time_remaining : null;
     
     // Start transaction for atomic update
     const transaction = db.transaction(() => {
-      // Update FPP state
+      // Update FPP state (existing table)
       updateState.run(
         sanitizeString(status.status_name) || 'unknown',
         sanitizeString(status.current_sequence) || null,
@@ -321,6 +358,22 @@ function updateDatabase(status: any, responseTime: number): void {
         status.volume ?? 0,
         sanitizeString(status.mode_name) || 'player',
         status.uptime ?? 0
+      );
+
+      // ✅ NEW: Insert into fpp_status_cache (for secure frontend API)
+      insertFPPStatus.run(
+        sanitizeString(status.status_name) || 'unknown',
+        sanitizeString(status.current_playlist?.playlist) || null,
+        sanitizeString(status.current_sequence) || null,
+        secondsPlayed ?? 0,
+        secondsRemaining ?? 0,
+        timeElapsed,
+        timeRemaining,
+        status.volume ?? 0,
+        sanitizeString(status.mode_name) || 'player',
+        status.scheduler?.status || null,
+        status.scheduler?.nextPlaylist?.playlistName || null,
+        JSON.stringify(status) // Store full response for debugging
       );
 
       // Log successful poll
@@ -344,6 +397,9 @@ function updateDatabase(status: any, responseTime: number): void {
       } else {
         clearActiveFlags.run();
       }
+
+      // ✅ NEW: Cleanup old fpp_status_cache records (keep last 100)
+      cleanupOldFPPStatus.run();
     });
 
     // Execute transaction
@@ -364,11 +420,23 @@ function updateDatabase(status: any, responseTime: number): void {
         .then(details => {
           if (details?.mainPlaylist) {
             syncPlaylistSequences(status.current_playlist.playlist, details.mainPlaylist);
+            
+            // ✅ NEW: Cache full playlist data for frontend API
+            cachePlaylistData(status.current_playlist.playlist, details);
           }
         })
         .catch(err => {
           console.error('[FPP Poller] Failed to fetch playlist details:', err.message);
         });
+    }
+
+    // ✅ NEW: Periodic cleanup of old cached playlists (every 10th poll ≈ 100 seconds)
+    if (Math.random() < 0.1) {
+      try {
+        cleanupOldCachedPlaylists.run();
+      } catch (err: any) {
+        console.error('[FPP Poller] Playlist cache cleanup error:', err.message);
+      }
     }
   } catch (error: any) {
     console.error('[FPP Poller] Database update error:', error.message);
@@ -401,6 +469,22 @@ function syncPlaylistSequences(playlistName: string, sequences: any[]): void {
     console.log(`[FPP Poller] ✓ Synced ${sequences.length} sequences for playlist: ${playlistName}`);
   } catch (error: any) {
     console.error('[FPP Poller] Sequence sync error:', error.message);
+  }
+}
+
+/**
+ * ✅ NEW: Cache playlist data for frontend API consumption
+ * SECURITY: Stores playlist JSON for secure backend API access
+ */
+function cachePlaylistData(playlistName: string, data: any): void {
+  try {
+    upsertCachedPlaylist.run(
+      playlistName,
+      JSON.stringify(data)
+    );
+    console.log(`[FPP Poller] ✓ Cached playlist data: ${playlistName}`);
+  } catch (error: any) {
+    console.error('[FPP Poller] Playlist cache error:', error.message);
   }
 }
 

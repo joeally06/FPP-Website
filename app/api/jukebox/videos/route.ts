@@ -1,0 +1,169 @@
+/**
+ * Secure Backend API: YouTube Videos (Public)
+ * 
+ * Returns YouTube videos from database for jukebox display.
+ * 
+ * SECURITY FEATURES:
+ * - Public endpoint (no auth) - videos are publicly viewable content
+ * - Read-only database access
+ * - No sensitive data exposed (only public YouTube metadata)
+ * - Rate limiting applied by middleware
+ * - Theme filtering support
+ * 
+ * REPLACES:
+ * - Previous /api/admin/videos endpoint (admin-only)
+ * - Now public endpoint specifically for jukebox display
+ * 
+ * @route GET /api/jukebox/videos
+ * @query theme - Optional theme filter
+ * @query limit - Optional result limit (default: 50, max: 100)
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import Database from 'better-sqlite3';
+import path from 'path';
+
+// Database connection (read-only for security)
+const dbPath = path.join(process.cwd(), 'votes.db');
+let db: Database.Database | null = null;
+
+function getDatabase(): Database.Database {
+  if (!db) {
+    db = new Database(dbPath, { readonly: true });
+    db.pragma('query_only = ON'); // Extra security: prevent writes
+  }
+  return db;
+}
+
+// Prepared statements
+const getAllVideosStmt = (db: Database.Database) => db.prepare(`
+  SELECT 
+    id,
+    title,
+    description,
+    thumbnail_url,
+    video_id,
+    published_at,
+    view_count
+  FROM youtube_videos
+  WHERE active = 1
+  ORDER BY published_at DESC
+  LIMIT ?
+`);
+
+const getVideosByThemeStmt = (db: Database.Database) => db.prepare(`
+  SELECT 
+    id,
+    title,
+    description,
+    thumbnail_url,
+    video_id,
+    published_at,
+    view_count
+  FROM youtube_videos
+  WHERE active = 1 AND theme = ?
+  ORDER BY published_at DESC
+  LIMIT ?
+`);
+
+/**
+ * GET /api/jukebox/videos
+ * Returns public YouTube videos for jukebox display
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    
+    // Parse query parameters
+    const theme = searchParams.get('theme');
+    const limitParam = searchParams.get('limit');
+    
+    // Validate and sanitize limit
+    let limit = 50; // default
+    if (limitParam) {
+      const parsedLimit = parseInt(limitParam, 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1) {
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid limit parameter',
+          message: 'Limit must be a positive integer',
+        }, { status: 400 });
+      }
+      limit = Math.min(parsedLimit, 100); // max 100
+    }
+
+    // Fetch videos from database
+    const database = getDatabase();
+    let videos: any[];
+
+    if (theme) {
+      const stmt = getVideosByThemeStmt(database);
+      videos = stmt.all(theme, limit) as any[];
+    } else {
+      const stmt = getAllVideosStmt(database);
+      videos = stmt.all(limit) as any[];
+    }
+
+    // Format response
+    const response = {
+      success: true,
+      count: videos.length,
+      theme: theme || 'all',
+      limit,
+      videos: videos.map(video => ({
+        id: video.id,
+        title: video.title,
+        description: video.description,
+        thumbnailUrl: video.thumbnail_url,
+        videoId: video.video_id,
+        publishedAt: video.published_at,
+        viewCount: video.view_count,
+        youtubeUrl: `https://www.youtube.com/watch?v=${video.video_id}`,
+        embedUrl: `https://www.youtube.com/embed/${video.video_id}`
+      }))
+    };
+
+    return NextResponse.json(response, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300' // Cache for 5 minutes (videos don't change often)
+      }
+    });
+
+  } catch (error: any) {
+    console.error('[API] /api/jukebox/videos error:', error);
+    
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to fetch videos from database',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}
+
+/**
+ * HEAD /api/jukebox/videos
+ * Quick count check (doesn't return body)
+ */
+export async function HEAD(request: NextRequest) {
+  try {
+    const database = getDatabase();
+    const countStmt = database.prepare(`
+      SELECT COUNT(*) as count 
+      FROM youtube_videos 
+      WHERE active = 1
+    `);
+    const result = countStmt.get() as any;
+
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'X-Video-Count': String(result.count)
+      }
+    });
+  } catch (error) {
+    return new NextResponse(null, { status: 500 });
+  }
+}
