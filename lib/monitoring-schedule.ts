@@ -18,9 +18,14 @@ export function isMonitoringActive(): boolean {
   try {
     const schedule = getMonitoringSchedule.get() as MonitoringSchedule | undefined;
     
-    // If no schedule found or schedule is disabled, always monitor
-    if (!schedule || !schedule.enabled) {
-      return true;
+    // If no schedule found, default to disabled
+    if (!schedule) {
+      return false;
+    }
+    
+    // If schedule is disabled, don't monitor
+    if (!schedule.enabled) {
+      return false;
     }
 
     // Use app timezone from env or schedule timezone
