@@ -330,12 +330,12 @@ export default function DeviceStatusPage() {
               Real-time monitoring of network devices. Auto-refreshes every 30 seconds.
             </AdminText>
             {schedule && (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${schedule.enabled ? 'bg-green-500/20 border border-green-500/30' : 'bg-gray-500/20 border border-gray-500/30'}`}>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${schedule.enabled ? 'bg-green-500/20 border border-green-500/30' : 'bg-red-500/20 border border-red-500/30'}`}>
                 <AdminTextSmall>
                   {schedule.enabled ? (
                     <>⏰ Monitoring Hours: {formatTime12Hour(schedule.start_time)} - {formatTime12Hour(schedule.end_time)}</>
                   ) : (
-                    <>🔕 Schedule Disabled - Monitoring 24/7</>
+                    <>🔕 Monitoring Disabled - No Checks Running</>
                   )}
                 </AdminTextSmall>
               </div>
