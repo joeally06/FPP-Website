@@ -111,6 +111,7 @@ export default function JukeboxPage() {
   const [scheduleStatus, setScheduleStatus] = useState<ScheduleStatus | null>(null);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [jukeboxRateLimit, setJukeboxRateLimit] = useState<number>(3);
+  const [requestsRemaining, setRequestsRemaining] = useState<number | null>(null);
 
   // Re-fetch YouTube videos when theme changes
   useEffect(() => {
@@ -127,6 +128,13 @@ export default function JukeboxPage() {
     
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     const scheduleInterval = setInterval(fetchScheduleStatus, 30000); // Check every 30 seconds
+    
+    // Refresh request status every 10 seconds to keep it up to date
+    const requestStatusInterval = setInterval(() => {
+      if (jukeboxRateLimit > 0) {
+        fetchRequestStatus(jukeboxRateLimit);
+      }
+    }, 10000);
     
     // Background queue processor - check every 10 seconds (runs for everyone)
     const queueProcessorInterval = setInterval(async () => {
@@ -168,6 +176,7 @@ export default function JukeboxPage() {
     return () => {
       clearInterval(interval);
       clearInterval(scheduleInterval); // Cleanup schedule status check
+      clearInterval(requestStatusInterval); // Cleanup request status check
       clearInterval(queueProcessorInterval); // Always cleanup queue processor
       if (cacheRefreshInterval) clearInterval(cacheRefreshInterval);
     };
@@ -266,10 +275,28 @@ export default function JukeboxPage() {
         const data = await response.json();
         setJukeboxRateLimit(data.rateLimit || 3);
         // Insert mode is used server-side only, visitors don't need to see it
+        
+        // After getting rate limit, fetch current request status
+        await fetchRequestStatus(data.rateLimit || 3);
       }
     } catch (error) {
       console.error('Failed to fetch jukebox settings:', error);
       // Keep defaults on error
+    }
+  };
+
+  const fetchRequestStatus = async (rateLimit: number) => {
+    try {
+      // Get user's IP-based request count from the queue
+      const response = await fetch('/api/jukebox/request-status');
+      if (response.ok) {
+        const data = await response.json();
+        const used = data.requestsUsed || 0;
+        const remaining = Math.max(0, rateLimit - used);
+        setRequestsRemaining(remaining);
+      }
+    } catch (error) {
+      console.error('Failed to fetch request status:', error);
     }
   };
 
@@ -385,7 +412,13 @@ export default function JukeboxPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('✅ Song added to queue!');
+        setMessage(data.message || '✅ Song added to queue!');
+        
+        // Update remaining requests count
+        if (typeof data.requestsRemaining === 'number') {
+          setRequestsRemaining(data.requestsRemaining);
+        }
+        
         setNewRequest('');
         fetchData(); // Refresh the queue
       } else {
@@ -415,7 +448,13 @@ export default function JukeboxPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`✅ "${sequenceName}" added to queue!`);
+        setMessage(data.message || `✅ "${sequenceName}" added to queue!`);
+        
+        // Update remaining requests count
+        if (typeof data.requestsRemaining === 'number') {
+          setRequestsRemaining(data.requestsRemaining);
+        }
+        
         fetchData();
       } else {
         setMessage(`❌ ${data.error || 'Failed to add sequence'}`);
@@ -830,10 +869,52 @@ export default function JukeboxPage() {
             </div>
 
             {/* Rate Limit Info */}
-            <div className="mb-4 p-3 bg-blue-500/20 rounded-lg border border-blue-500/30 backdrop-blur-sm">
-              <p className="text-white/90 text-sm text-center">
-                💡 You can request up to <strong className="text-blue-300">{jukeboxRateLimit} {jukeboxRateLimit === 1 ? 'song' : 'songs'} per hour</strong>
-              </p>
+            <div className="mb-4 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">💡</span>
+                  <div>
+                    <p className="text-white/90 text-sm font-medium">
+                      You can request up to <strong className="text-blue-300">{jukeboxRateLimit} {jukeboxRateLimit === 1 ? 'song' : 'songs'} per hour</strong>
+                    </p>
+                    {requestsRemaining !== null && (
+                      <p className="text-white/70 text-xs mt-1">
+                        {requestsRemaining > 0 
+                          ? `${requestsRemaining} ${requestsRemaining === 1 ? 'request' : 'requests'} remaining` 
+                          : 'No requests remaining this hour'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Show remaining count badge */}
+                {requestsRemaining !== null && (
+                  <div className="text-right">
+                    <div className={`text-3xl font-bold ${requestsRemaining > 0 ? 'text-blue-300' : 'text-red-300'}`}>
+                      {requestsRemaining}
+                    </div>
+                    <p className="text-white/70 text-xs">
+                      left
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Visual progress bar */}
+              {requestsRemaining !== null && (
+                <div className="mt-3">
+                  <div className="w-full bg-blue-900/30 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        requestsRemaining > 0 ? 'bg-blue-400' : 'bg-red-400'
+                      }`}
+                      style={{ 
+                        width: `${(requestsRemaining / jukeboxRateLimit) * 100}%` 
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleRequest} className="space-y-4">

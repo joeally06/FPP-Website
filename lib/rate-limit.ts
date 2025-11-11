@@ -6,16 +6,17 @@ const db = new Database(dbPath);
 
 // Separate database for settings (votes.db)
 const votesDbPath = path.join(process.cwd(), 'votes.db');
-let settingsDb: Database.Database | null = null;
 
 /**
  * Get the rate limit for song requests from settings
+ * Opens a fresh connection each time to avoid caching stale values
  */
 export function getSongRequestRateLimit(): number {
+  let settingsDb: Database.Database | null = null;
+  
   try {
-    if (!settingsDb) {
-      settingsDb = new Database(votesDbPath, { readonly: true });
-    }
+    // Open fresh connection each time to get latest value
+    settingsDb = new Database(votesDbPath, { readonly: true });
     
     const row = settingsDb.prepare('SELECT value FROM settings WHERE key = ?')
       .get('jukebox_rate_limit') as { value: string } | undefined;
@@ -23,14 +24,21 @@ export function getSongRequestRateLimit(): number {
     if (row) {
       const limit = parseInt(row.value, 10);
       if (!isNaN(limit) && limit >= 1 && limit <= 10) {
+        console.log(`[RATE LIMIT] Current rate limit: ${limit} requests/hour`);
         return limit;
       }
     }
   } catch (error) {
     console.error('[RATE LIMIT] Error reading jukebox_rate_limit setting:', error);
+  } finally {
+    // Always close the connection
+    if (settingsDb) {
+      settingsDb.close();
+    }
   }
   
   // Default to 3 if not set or error
+  console.log('[RATE LIMIT] Using default rate limit: 3 requests/hour');
   return 3;
 }
 

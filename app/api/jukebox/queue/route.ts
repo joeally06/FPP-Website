@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addToQueue, getQueue, incrementSequenceRequests, getMediaNameForSequence } from '@/lib/database';
-import { songRequestLimiter, getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
+import { getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
 import db from '@/lib/database';
 
 export async function GET() {
@@ -21,23 +21,27 @@ export async function POST(request: NextRequest) {
     // Get current rate limit from settings
     const rateLimit = getSongRequestRateLimit();
 
-    // Rate limiting check with dynamic limit
-    const rateLimitResult = songRequestLimiter.check(requester_ip, rateLimit);
-    if (!rateLimitResult.success) {
-      const errorMessage = rateLimitResult.blocked 
-        ? `Too many requests. You are blocked until ${rateLimitResult.blockedUntil?.toLocaleString()}`
-        : `Rate limit exceeded. You can request ${rateLimit} songs per hour. Try again after ${rateLimitResult.resetAt.toLocaleString()}`;
-      
-      console.warn(`[SECURITY] Rate limit exceeded for ${requester_ip} (song request, limit: ${rateLimit})`);
-      
-      return NextResponse.json({ 
-        error: errorMessage,
-        resetAt: rateLimitResult.resetAt.toISOString()
-      }, { status: 429 });
-    }
-
     if (!sequence_name) {
       return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
+    }
+
+    // Check rate limit BEFORE adding to queue (using database count)
+    const rateLimitCheck = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM jukebox_queue 
+      WHERE requester_ip = ? 
+        AND created_at > datetime('now', '-1 hour')
+    `).get(requester_ip) as { count: number };
+
+    if (rateLimitCheck.count >= rateLimit) {
+      console.warn(`[SECURITY] Rate limit exceeded for ${requester_ip} (${rateLimitCheck.count}/${rateLimit} used)`);
+      
+      return NextResponse.json({ 
+        error: `Rate limit exceeded. You can request ${rateLimit} songs per hour.`,
+        rateLimit,
+        requestsUsed: rateLimitCheck.count,
+        requestsRemaining: 0
+      }, { status: 429 });
     }
 
     // Check for duplicate request within 5 minutes
@@ -114,10 +118,50 @@ export async function POST(request: NextRequest) {
     // Track sequence requests
     incrementSequenceRequests.run(sequence_name);
 
+    // Calculate how many requests the user has used in the last hour
+    // Use SQLite's datetime functions to properly compare times
+    const now = new Date().toISOString();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    
+    console.log(`[Queue DEBUG] Request just added - ID: ${result.lastInsertRowid}`);
+    console.log(`[Queue DEBUG] Current time: ${now}`);
+    console.log(`[Queue DEBUG] One hour ago: ${oneHourAgo}`);
+    
+    // Get all recent entries to see what's being counted
+    const recentEntries = db.prepare(`
+      SELECT id, sequence_name, created_at, status
+      FROM jukebox_queue 
+      WHERE requester_ip = ? 
+        AND created_at > datetime('now', '-1 hour')
+      ORDER BY created_at DESC
+    `).all(requester_ip);
+    
+    console.log(`[Queue DEBUG] Entries in last hour for IP ${requester_ip}:`);
+    recentEntries.forEach((entry: any) => {
+      console.log(`  ID ${entry.id}: ${entry.sequence_name} | ${entry.created_at} | ${entry.status}`);
+    });
+    
+    const usedRequests = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM jukebox_queue 
+      WHERE requester_ip = ? 
+        AND created_at > datetime('now', '-1 hour')
+    `).get(requester_ip) as { count: number };
+
+    const requestsUsed = usedRequests.count;
+    const requestsRemaining = Math.max(0, rateLimit - requestsUsed);
+
+    console.log(`[Jukebox] Request added by ${requester_ip}: ${requestsUsed}/${rateLimit} used, ${requestsRemaining} remaining`);
+
     return NextResponse.json({ 
       success: true, 
       id: result.lastInsertRowid,
-      message: 'Sequence added to queue' 
+      message: requestsRemaining > 0 
+        ? `Song requested! You have ${requestsRemaining} request${requestsRemaining !== 1 ? 's' : ''} remaining this hour.`
+        : `Song requested! You've used all ${rateLimit} requests this hour.`,
+      rateLimit,
+      requestsUsed,
+      requestsRemaining
     });
   } catch (error: any) {
     console.error('Error adding to queue:', error);

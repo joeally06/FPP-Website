@@ -1158,6 +1158,14 @@ function YouTubeVideoSettings() {
   );
 }
 
+interface JukeboxUser {
+  ip: string;
+  name: string;
+  requestCount: number;
+  lastRequest: string;
+  firstRequest: string;
+}
+
 function JukeboxSettings() {
   const [rateLimit, setRateLimit] = useState<number>(3);
   const [insertMode, setInsertMode] = useState<string>('after_current');
@@ -1165,9 +1173,12 @@ function JukeboxSettings() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [jukeboxUsers, setJukeboxUsers] = useState<JukeboxUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
     fetchSettings();
+    fetchJukeboxUsers();
   }, []);
 
   async function fetchSettings() {
@@ -1183,6 +1194,48 @@ function JukeboxSettings() {
       setError('Failed to load settings');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchJukeboxUsers() {
+    setLoadingUsers(true);
+    try {
+      const response = await fetch('/api/jukebox/users');
+      if (response.ok) {
+        const data = await response.json();
+        setJukeboxUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error('Error fetching jukebox users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
+
+  async function handleClearUserRateLimit(userIp: string, userName: string) {
+    if (!confirm(`Clear rate limit for ${userName}? This will allow them to make new requests immediately.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/jukebox/users?ip=${encodeURIComponent(userIp)}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(data.message);
+        setTimeout(() => setSuccess(''), 3000);
+        fetchJukeboxUsers(); // Refresh the list
+      } else {
+        setError(data.error || 'Failed to clear rate limit');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error clearing rate limit:', error);
+      setError('Failed to clear rate limit');
+      setTimeout(() => setError(''), 3000);
     }
   }
 
@@ -1371,6 +1424,109 @@ function JukeboxSettings() {
           <li><AdminTextSmall>• Settings take effect immediately for all new requests</AdminTextSmall></li>
           <li><AdminTextSmall>• Visitors see the current rate limit and queue behavior on the request page</AdminTextSmall></li>
         </ul>
+      </div>
+
+      {/* User Rate Limit Management */}
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <AdminH3>👥 User Rate Limits</AdminH3>
+            <AdminTextMuted>
+              View and manage users with active requests in the last hour
+            </AdminTextMuted>
+          </div>
+          <button
+            onClick={fetchJukeboxUsers}
+            disabled={loadingUsers}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          >
+            {loadingUsers ? '🔄 Loading...' : '🔄 Refresh'}
+          </button>
+        </div>
+
+        {jukeboxUsers.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">👻</div>
+            <AdminH4 className="text-white/80 mb-2">No Active Users</AdminH4>
+            <AdminTextMuted>No song requests in the last hour</AdminTextMuted>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {jukeboxUsers.map((user) => {
+              const lastRequestDate = new Date(user.lastRequest);
+              const timeAgo = lastRequestDate.toLocaleString();
+              const percentage = Math.min(100, (user.requestCount / rateLimit) * 100);
+              const isAtLimit = user.requestCount >= rateLimit;
+              
+              return (
+                <div 
+                  key={user.ip}
+                  className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:border-blue-400/50 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <AdminH4 className="text-white">{user.name}</AdminH4>
+                        {isAtLimit && (
+                          <span className="px-2 py-0.5 bg-red-500/20 text-red-300 text-xs font-semibold rounded border border-red-500/30">
+                            🚫 RATE LIMITED
+                          </span>
+                        )}
+                      </div>
+                      <AdminTextSmall className="text-white/50">
+                        IP: {user.ip}
+                      </AdminTextSmall>
+                      <AdminTextSmall className="text-white/60">
+                        Last request: {timeAgo}
+                      </AdminTextSmall>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleClearUserRateLimit(user.ip, user.name)}
+                      className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded transition-all shadow-md hover:shadow-lg"
+                      title="Clear rate limit for this user"
+                    >
+                      🗑️ Clear
+                    </button>
+                  </div>
+
+                  {/* Request count progress bar */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <AdminTextSmall className="text-white/70">
+                        {user.requestCount} / {rateLimit} requests
+                      </AdminTextSmall>
+                      <AdminTextSmall className="text-white/70 font-semibold">
+                        {Math.round(percentage)}%
+                      </AdminTextSmall>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          percentage >= 100 ? 'bg-red-500' : 
+                          percentage >= 80 ? 'bg-yellow-500' : 
+                          'bg-green-500'
+                        }`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-6 p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+          <div className="flex items-start gap-2">
+            <span className="text-yellow-400 text-xl">💡</span>
+            <div className="flex-1">
+              <AdminTextSmall className="text-yellow-200">
+                <strong>Tip:</strong> Clearing a user's rate limit removes their request history for the last hour, allowing them to make new requests immediately. Songs currently playing are preserved.
+              </AdminTextSmall>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
