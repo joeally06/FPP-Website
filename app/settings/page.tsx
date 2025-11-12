@@ -1167,6 +1167,7 @@ function JukeboxSettings() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [offlineHeading, setOfflineHeading] = useState('Show is Currently Inactive');
   const [offlineSubtitle, setOfflineSubtitle] = useState('Song requests will be available when the show starts');
+  const [showOffSeason, setShowOffSeason] = useState(false);
   const [savingOffline, setSavingOffline] = useState(false);
 
   useEffect(() => {
@@ -1213,6 +1214,7 @@ function JukeboxSettings() {
         const data = await response.json();
         setOfflineHeading(data.heading);
         setOfflineSubtitle(data.subtitle);
+        setShowOffSeason(data.showOffSeason || false);
       }
     } catch (error) {
       console.error('Error fetching offline banner:', error);
@@ -1230,7 +1232,8 @@ function JukeboxSettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           heading: offlineHeading,
-          subtitle: offlineSubtitle
+          subtitle: offlineSubtitle,
+          showOffSeason: showOffSeason
         })
       });
 
@@ -1471,6 +1474,30 @@ function JukeboxSettings() {
         </AdminTextMuted>
 
         <div className="space-y-6">
+          {/* Show Off-Season Toggle */}
+          <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+            <div>
+              <label className="block text-sm font-medium text-white/90 mb-1">
+                🎭 Show Off-Season Message
+              </label>
+              <AdminTextSmall className="text-white/60">
+                When disabled, the off-season message ("The show is currently off-season...") will be hidden from visitors
+              </AdminTextSmall>
+            </div>
+            <button
+              onClick={() => setShowOffSeason(!showOffSeason)}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                showOffSeason ? 'bg-green-500' : 'bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                  showOffSeason ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Heading Input */}
           <div>
             <label className="block text-sm font-medium text-white/80 mb-2">

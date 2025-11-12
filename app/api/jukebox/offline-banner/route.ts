@@ -19,12 +19,16 @@ export async function GET() {
     
     const subtitle = db.prepare('SELECT value FROM settings WHERE key = ?')
       .get('jukebox_offline_subtitle') as { value: string } | undefined;
+    
+    const showOffSeason = db.prepare('SELECT value FROM settings WHERE key = ?')
+      .get('jukebox_show_offseason') as { value: string } | undefined;
 
     db.close();
 
     return NextResponse.json({
       heading: heading?.value || 'Show is Currently Inactive',
-      subtitle: subtitle?.value || 'Song requests will be available when the show starts'
+      subtitle: subtitle?.value || 'Song requests will be available when the show starts',
+      showOffSeason: showOffSeason?.value === 'true'
     });
 
   } catch (error) {
@@ -50,7 +54,7 @@ export async function POST(request: Request) {
       }, { status: 401 });
     }
 
-    const { heading, subtitle } = await request.json();
+    const { heading, subtitle, showOffSeason } = await request.json();
 
     const db = new Database(dbPath);
 
@@ -78,9 +82,21 @@ export async function POST(request: Request) {
         .run('jukebox_offline_subtitle', subtitle);
     }
 
+    // Update or insert show off-season toggle
+    const existingToggle = db.prepare('SELECT value FROM settings WHERE key = ?')
+      .get('jukebox_show_offseason');
+    
+    if (existingToggle) {
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?')
+        .run(showOffSeason ? 'true' : 'false', 'jukebox_show_offseason');
+    } else {
+      db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')
+        .run('jukebox_show_offseason', showOffSeason ? 'true' : 'false');
+    }
+
     db.close();
 
-    console.log(`[Offline Banner] Updated - Heading: "${heading}", Subtitle: "${subtitle}"`);
+    console.log(`[Offline Banner] Updated - Heading: "${heading}", Subtitle: "${subtitle}", Show Off-Season: ${showOffSeason}`);
 
     return NextResponse.json({ success: true });
 

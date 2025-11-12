@@ -101,6 +101,7 @@ export default function JukeboxPage() {
   const [message, setMessage] = useState('');
   const [offlineHeading, setOfflineHeading] = useState('Show is Currently Inactive');
   const [offlineSubtitle, setOfflineSubtitle] = useState('Song requests will be available when the show starts');
+  const [showOffSeason, setShowOffSeason] = useState(false);
   const [loadingSequences, setLoadingSequences] = useState(true);
   const [voteCounts, setVoteCounts] = useState<Record<string, VoteCounts>>({});
   const [userVotes, setUserVotes] = useState<Record<string, string | null>>({});
@@ -310,6 +311,7 @@ export default function JukeboxPage() {
         const data = await response.json();
         setOfflineHeading(data.heading);
         setOfflineSubtitle(data.subtitle);
+        setShowOffSeason(data.showOffSeason || false);
       }
     } catch (error) {
       console.error('Failed to fetch offline banner:', error);
@@ -687,17 +689,23 @@ export default function JukeboxPage() {
                 </div>
               ) : (
                 <div className="mt-4 p-3 bg-white/10 rounded-lg backdrop-blur-sm">
-                  <p className={`${bannerStyles.text} text-base font-medium`}>
-                    🎭 The show is currently off-season
-                  </p>
-                  <p className={`${bannerStyles.subtext} text-sm mt-2`}>
-                    No upcoming shows are scheduled at this time
-                  </p>
+                  {showOffSeason && (
+                    <>
+                      <p className={`${bannerStyles.text} text-base font-medium`}>
+                        🎭 The show is currently off-season
+                      </p>
+                      <p className={`${bannerStyles.subtext} text-sm mt-2`}>
+                        No upcoming shows are scheduled at this time
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
-              <p className={`${bannerStyles.subtext} text-sm mt-4`}>
-                🎵 Song requests and voting will be available when the show is running.
-              </p>
+              {showOffSeason && (
+                <p className={`${bannerStyles.subtext} text-sm mt-4`}>
+                  🎵 Song requests and voting will be available when the show is running.
+                </p>
+              )}
             </div>
           </div>
         )}
