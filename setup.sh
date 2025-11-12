@@ -489,16 +489,6 @@ fi
 # ═══════════════════════════════════════════════════════════
 print_header "Step 4/8: Setting Up Database"
 
-if [ -f "fpp-control.db" ]; then
-    print_warning "Existing database found!"
-    if confirm "Delete existing database and start fresh?"; then
-        mv fpp-control.db fpp-control-backup-$(date +%Y%m%d_%H%M%S).db
-        print_info "Old database backed up"
-    else
-        print_info "Keeping existing database"
-    fi
-fi
-
 print_step "Initializing database..."
 npm run setup
 print_success "Database initialized"

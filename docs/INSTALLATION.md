@@ -1240,12 +1240,12 @@ kill -9 <PID>
 <details>
 <summary><strong>Database errors</strong></summary>
 
-``bash
+```bash
 # Backup and reinitialize
-cp fpp-control.db fpp-control-backup.db
-rm fpp-control.db
+cp votes.db votes-backup.db
+rm votes.db
 npm run setup
-``
+```
 </details>
 
 <details>
