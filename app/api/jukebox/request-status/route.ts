@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       SELECT COUNT(*) as count 
       FROM jukebox_queue 
       WHERE requester_ip = ? 
-        AND created_at > datetime('now', '-1 hour')
+        AND created_at >= datetime('now', '-1 hour')
     `).get(requester_ip) as { count: number };
 
     const requestsUsed = usedRequests.count;
