@@ -99,6 +99,8 @@ export default function JukeboxPage() {
   const [requesterName, setRequesterName] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [offlineHeading, setOfflineHeading] = useState('Show is Currently Inactive');
+  const [offlineSubtitle, setOfflineSubtitle] = useState('Song requests will be available when the show starts');
   const [loadingSequences, setLoadingSequences] = useState(true);
   const [voteCounts, setVoteCounts] = useState<Record<string, VoteCounts>>({});
   const [userVotes, setUserVotes] = useState<Record<string, string | null>>({});
@@ -125,6 +127,7 @@ export default function JukeboxPage() {
     fetchYouTubeVideos();
     fetchScheduleStatus(); // Check schedule status
     fetchJukeboxSettings(); // Fetch jukebox rate limit and insert mode
+    fetchOfflineBanner(); // Fetch custom offline banner text
     
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     const scheduleInterval = setInterval(fetchScheduleStatus, 30000); // Check every 30 seconds
@@ -297,6 +300,20 @@ export default function JukeboxPage() {
       }
     } catch (error) {
       console.error('Failed to fetch request status:', error);
+    }
+  };
+
+  const fetchOfflineBanner = async () => {
+    try {
+      const response = await fetch('/api/jukebox/offline-banner');
+      if (response.ok) {
+        const data = await response.json();
+        setOfflineHeading(data.heading);
+        setOfflineSubtitle(data.subtitle);
+      }
+    } catch (error) {
+      console.error('Failed to fetch offline banner:', error);
+      // Keep defaults on error
     }
   };
 
@@ -646,11 +663,11 @@ export default function JukeboxPage() {
             <div className="text-center">
               <h2 className={`text-3xl font-bold ${bannerStyles.title} mb-3 themed-font flex items-center justify-center gap-3`}>
                 <span className="text-5xl animate-bounce">{bannerStyles.icon}</span>
-                Show is Currently Inactive
+                {offlineHeading}
                 <span className="text-5xl animate-bounce" style={{ animationDelay: '0.2s' }}>{bannerStyles.icon}</span>
               </h2>
               <p className={`${bannerStyles.text} text-lg mb-2 font-medium`}>
-                {scheduleStatus?.message}
+                {offlineSubtitle}
               </p>
               {scheduleStatus?.nextShowDate && scheduleStatus?.nextShowStartTime && scheduleStatus?.nextShowEndTime ? (
                 <div className="mt-4 p-4 bg-white/10 rounded-lg backdrop-blur-sm border-2 border-white/20">
