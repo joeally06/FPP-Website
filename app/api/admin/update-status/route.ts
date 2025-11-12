@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { getUtcNow } from '@/lib/time-utils';
 
 const execAsync = promisify(exec);
 
@@ -85,8 +86,8 @@ export async function GET() {
     return NextResponse.json({
       status,
       message,
-      timestamp: new Date().toISOString(),
-      lastCheck: new Date().toISOString(),
+      timestamp: getUtcNow(),
+      lastCheck: getUtcNow(),
       currentCommit,
       availableCommit,
       logLines

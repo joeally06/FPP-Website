@@ -13,8 +13,21 @@ export function formatDateTime(
   if (!utcTimestamp) return 'Never';
 
   try {
-    const dt = DateTime.fromISO(utcTimestamp, { zone: 'utc' })
+    // SQLite stores as 'YYYY-MM-DD HH:MM:SS', need to convert to ISO format
+    // by replacing space with 'T' and appending 'Z' for UTC
+    let isoString = utcTimestamp;
+    if (utcTimestamp.includes(' ') && !utcTimestamp.includes('T')) {
+      isoString = utcTimestamp.replace(' ', 'T') + 'Z';
+    }
+    
+    const dt = DateTime.fromISO(isoString, { zone: 'utc' })
       .setZone(APP_TIMEZONE);
+
+    // Check if parsing was successful
+    if (!dt.isValid) {
+      console.error('[Time Utils] Invalid datetime:', utcTimestamp, 'Error:', dt.invalidReason);
+      return 'Invalid date';
+    }
 
     switch (format) {
       case 'short':
@@ -124,4 +137,44 @@ export function formatDuration(seconds: number): string {
   } else {
     return `${secs}s`;
   }
+}
+
+/**
+ * Get current UTC timestamp for database storage (ISO 8601 format)
+ * Use this instead of new Date().toISOString()
+ */
+export function getUtcNow(): string {
+  return DateTime.utc().toISO() || '';
+}
+
+/**
+ * Convert local time input to UTC for database storage
+ * Used for form inputs where user enters time in their timezone
+ */
+export function localToUtc(localTimestamp: string): string {
+  try {
+    const dt = DateTime.fromISO(localTimestamp, { zone: APP_TIMEZONE });
+    return dt.toUTC().toISO() || '';
+  } catch (error) {
+    console.error('[Time Utils] Error converting to UTC:', error);
+    return localTimestamp;
+  }
+}
+
+/**
+ * Get timestamp N hours/minutes ago in UTC (for database queries)
+ */
+export function getUtcOffset(amount: number, unit: 'hours' | 'minutes' | 'days' = 'hours'): string {
+  return DateTime.utc().minus({ [unit]: amount }).toISO() || '';
+}
+
+/**
+ * Parse database timestamp and format for display
+ * Handles both UTC strings and null values
+ */
+export function formatDbTimestamp(
+  dbTimestamp: string | null | undefined,
+  format: 'short' | 'medium' | 'long' | 'relative' = 'medium'
+): string {
+  return formatDateTime(dbTimestamp || null, format);
 }

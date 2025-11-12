@@ -27,7 +27,7 @@ export async function GET() {
         MAX(created_at) as last_request,
         MIN(created_at) as first_request
       FROM jukebox_queue
-      WHERE created_at > datetime('now', '-1 hour')
+      WHERE created_at >= datetime('now', '-1 hour')
       GROUP BY requester_ip
       ORDER BY request_count DESC, last_request DESC
     `).all() as Array<{
@@ -89,7 +89,7 @@ export async function DELETE(request: Request) {
       DELETE FROM jukebox_queue
       WHERE requester_ip = ?
       AND status IN ('pending', 'completed', 'skipped')
-      AND created_at > datetime('now', '-1 hour')
+      AND created_at >= datetime('now', '-1 hour')
     `).run(userIp);
 
     console.log(`[Jukebox Users] Cleared ${result.changes} requests for IP: ${userIp}`);

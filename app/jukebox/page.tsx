@@ -9,6 +9,7 @@ import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
 import LetterToSantaModal from '@/components/LetterToSantaModal';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import EnhancedVotingCard from '@/components/EnhancedVotingCard';
+import { formatDateTime } from '@/lib/time-utils';
 import { LayoutGrid, List, Music, Radio } from 'lucide-react';
 
 interface QueueItem {
@@ -295,9 +296,9 @@ export default function JukeboxPage() {
       const response = await fetch('/api/jukebox/request-status');
       if (response.ok) {
         const data = await response.json();
-        const used = data.requestsUsed || 0;
-        const remaining = Math.max(0, rateLimit - used);
-        setRequestsRemaining(remaining);
+        // Use the requestsRemaining from the API response directly
+        // instead of recalculating, to avoid race conditions with rate limit updates
+        setRequestsRemaining(data.requestsRemaining);
       }
     } catch (error) {
       console.error('Failed to fetch request status:', error);
@@ -799,7 +800,7 @@ export default function JukeboxPage() {
                   </p>
                   <p className="text-sm text-white/70 flex items-center gap-1">
                     <span>{theme.icons.time}</span>
-                    Started: {new Date(currentlyPlaying.played_at).toLocaleTimeString()}
+                    Started: {formatDateTime(currentlyPlaying.played_at, 'short')}
                   </p>
                 </div>
               </div>
@@ -1071,7 +1072,7 @@ export default function JukeboxPage() {
                       <h3 className="font-medium text-white">{item.sequence_name}</h3>
                       <p className="text-sm text-white/70 flex items-center gap-1">
                         <span>{theme.icons.time}</span>
-                        By: {item.requester_name} • {new Date(item.created_at).toLocaleString()}
+                        By: {item.requester_name} • {formatDateTime(item.created_at, 'medium')}
                       </p>
                     </div>
                   </div>
@@ -1225,7 +1226,7 @@ export default function JukeboxPage() {
                     </p>
                   )}
                   <p className="text-white/60 text-xs">
-                    Published {new Date(selectedYouTubeVideo.publishedAt).toLocaleDateString()}
+                    Published {formatDateTime(selectedYouTubeVideo.publishedAt, 'medium')}
                   </p>
                 </div>
               </div>

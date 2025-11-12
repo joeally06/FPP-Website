@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
+import { formatDateTime } from '@/lib/time-utils';
 import { 
   AdminH1, 
   AdminH2, 
@@ -169,7 +170,7 @@ export default function SantaLettersPage() {
       letter.child_age || 'N/A',
       letter.parent_email,
       letter.status,
-      new Date(letter.created_at).toLocaleDateString(),
+      formatDateTime(letter.created_at, 'medium'),
       letter.letter_content.substring(0, 50) + '...',
       letter.santa_reply ? letter.santa_reply.substring(0, 50) + '...' : 'N/A',
     ]);
@@ -179,7 +180,8 @@ export default function SantaLettersPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `santa-letters-${new Date().toISOString().split('T')[0]}.csv`;
+    const dateStr = formatDateTime(new Date().toISOString(), 'medium').split(',')[0].replace(/\//g, '-');
+    a.download = `santa-letters-${dateStr}.csv`;
     a.click();
   };
 
@@ -369,7 +371,7 @@ export default function SantaLettersPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3"><AdminTextSmall>{new Date(letter.created_at).toLocaleString()}</AdminTextSmall></td>
+                      <td className="px-4 py-3"><AdminTextSmall>{formatDateTime(letter.created_at, 'medium')}</AdminTextSmall></td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => {
@@ -409,7 +411,7 @@ export default function SantaLettersPage() {
                   </button>
                 </div>
                 <AdminTextSmall className="mt-1">
-                  Received: {new Date(selectedLetter.created_at).toLocaleString()}
+                  Received: {formatDateTime(selectedLetter.created_at, 'long')}
                 </AdminTextSmall>
               </div>
 

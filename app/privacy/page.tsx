@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatDateTime } from '@/lib/time-utils';
 import AdminNavigation from '@/components/AdminNavigation';
 import { AdminH1, AdminH2, AdminH3, AdminText, AdminTextSmall } from '@/components/admin/Typography';
 
@@ -253,7 +254,7 @@ export default function PrivacyPage() {
                     </div>
                   </div>
                   <AdminTextSmall className="text-white/50 mt-3">
-                    Last updated: {new Date(consent.timestamp).toLocaleString()}
+                    Last updated: {formatDateTime(consent.timestamp, 'medium')}
                   </AdminTextSmall>
                 </div>
 

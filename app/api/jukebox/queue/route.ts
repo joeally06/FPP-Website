@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addToQueue, getQueue, incrementSequenceRequests, getMediaNameForSequence } from '@/lib/database';
 import { getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
+import { getUtcNow, getUtcOffset } from '@/lib/time-utils';
 import db from '@/lib/database';
 
 export async function GET() {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       SELECT id FROM jukebox_queue 
       WHERE requester_ip = ? 
         AND sequence_name = ? 
-        AND created_at > datetime('now', '-5 minutes')
+        AND created_at >= datetime('now', '-5 minutes')
       LIMIT 1
     `).get(requester_ip, sequence_name);
     
@@ -119,20 +120,19 @@ export async function POST(request: NextRequest) {
     incrementSequenceRequests.run(sequence_name);
 
     // Calculate how many requests the user has used in the last hour
-    // Use SQLite's datetime functions to properly compare times
-    const now = new Date().toISOString();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const now = getUtcNow();
+    const oneHourAgo = getUtcOffset(1, 'hours');
     
     console.log(`[Queue DEBUG] Request just added - ID: ${result.lastInsertRowid}`);
-    console.log(`[Queue DEBUG] Current time: ${now}`);
-    console.log(`[Queue DEBUG] One hour ago: ${oneHourAgo}`);
+    console.log(`[Queue DEBUG] Current time (UTC): ${now}`);
+    console.log(`[Queue DEBUG] One hour ago (UTC): ${oneHourAgo}`);
     
     // Get all recent entries to see what's being counted
     const recentEntries = db.prepare(`
       SELECT id, sequence_name, created_at, status
       FROM jukebox_queue 
       WHERE requester_ip = ? 
-        AND created_at > datetime('now', '-1 hour')
+        AND created_at >= datetime('now', '-1 hour')
       ORDER BY created_at DESC
     `).all(requester_ip);
     
@@ -145,13 +145,13 @@ export async function POST(request: NextRequest) {
       SELECT COUNT(*) as count 
       FROM jukebox_queue 
       WHERE requester_ip = ? 
-        AND created_at > datetime('now', '-1 hour')
+        AND created_at >= datetime('now', '-1 hour')
     `).get(requester_ip) as { count: number };
 
     const requestsUsed = usedRequests.count;
     const requestsRemaining = Math.max(0, rateLimit - requestsUsed);
 
-    console.log(`[Jukebox] Request added by ${requester_ip}: ${requestsUsed}/${rateLimit} used, ${requestsRemaining} remaining`);
+    console.log(`[Queue POST - AFTER INSERT] IP: ${requester_ip} | Rate Limit: ${rateLimit} | Used: ${requestsUsed} | Remaining: ${requestsRemaining}`);
 
     return NextResponse.json({ 
       success: true, 

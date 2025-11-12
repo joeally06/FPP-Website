@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import UpdateChecker from '@/components/UpdateChecker';
+import { formatDateTime } from '@/lib/time-utils';
 import { 
   AdminH1, 
   AdminH2, 
@@ -1105,7 +1106,7 @@ function YouTubeVideoSettings() {
                       </AdminTextSmall>
                     )}
                     <AdminTextSmall className="mt-1 text-white/40">
-                      Added {new Date(video.created_at).toLocaleDateString()}
+                      Added {formatDateTime(video.created_at, 'medium')}
                     </AdminTextSmall>
                   </div>
                 </div>
@@ -1640,8 +1641,6 @@ function JukeboxSettings() {
         ) : (
           <div className="space-y-3">
             {jukeboxUsers.map((user) => {
-              const lastRequestDate = new Date(user.lastRequest);
-              const timeAgo = lastRequestDate.toLocaleString();
               const percentage = Math.min(100, (user.requestCount / rateLimit) * 100);
               const isAtLimit = user.requestCount >= rateLimit;
               
@@ -1664,7 +1663,7 @@ function JukeboxSettings() {
                         IP: {user.ip}
                       </AdminTextSmall>
                       <AdminTextSmall className="text-white/60">
-                        Last request: {timeAgo}
+                        Last request: {formatDateTime(user.lastRequest, 'relative')}
                       </AdminTextSmall>
                     </div>
                     

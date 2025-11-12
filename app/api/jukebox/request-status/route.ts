@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
+import { getUtcNow, getUtcOffset } from '@/lib/time-utils';
 import db from '@/lib/database';
 
 /**
@@ -13,12 +14,12 @@ export async function GET(request: NextRequest) {
     const rateLimit = getSongRequestRateLimit();
 
     // Calculate how many requests the user has made in the last hour
-    // Database stores in UTC, so use plain datetime('now') without localtime
-    const now = new Date().toISOString();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    // Database stores in UTC
+    const now = getUtcNow();
+    const oneHourAgo = getUtcOffset(1, 'hours');
     
-    console.log(`[Request Status DEBUG] Current time: ${now}`);
-    console.log(`[Request Status DEBUG] One hour ago: ${oneHourAgo}`);
+    console.log(`[Request Status DEBUG] Current time (UTC): ${now}`);
+    console.log(`[Request Status DEBUG] One hour ago (UTC): ${oneHourAgo}`);
     
     // Get detailed entries for debugging
     const allEntries = db.prepare(`
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     const requestsUsed = usedRequests.count;
     const requestsRemaining = Math.max(0, rateLimit - requestsUsed);
 
-    console.log(`[Request Status] IP: ${requester_ip} | Rate Limit: ${rateLimit} | Used: ${requestsUsed} | Remaining: ${requestsRemaining}`);
+    console.log(`[Request Status POLL] IP: ${requester_ip} | Rate Limit: ${rateLimit} | Used: ${requestsUsed} | Remaining: ${requestsRemaining}`);
 
     return NextResponse.json({
       success: true,

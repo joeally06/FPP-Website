@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { useFPPConnection } from '@/contexts/FPPConnectionContext';
+import { formatDateTime } from '@/lib/time-utils';
 import { Music, List, Play, Trash2, Search, RefreshCw, Star, TrendingUp, Edit3, X, Check } from 'lucide-react';
 
 interface Playlist {
@@ -531,7 +532,7 @@ export default function MediaLibrary() {
               <div className="text-sm text-white/70">
                 {syncStatus.lastSuccess ? (
                   <>
-                    Last synced: {new Date(syncStatus.lastSuccess).toLocaleString()} 
+                    Last synced: {formatDateTime(syncStatus.lastSuccess, 'relative')} 
                     {' - '}
                     {syncStatus.playlistsCount} playlists, {syncStatus.sequencesCount} sequences
                   </>

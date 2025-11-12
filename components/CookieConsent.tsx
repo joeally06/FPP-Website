@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getUtcNow } from '@/lib/time-utils';
 import Link from 'next/link';
 
 export default function CookieConsent() {
@@ -33,7 +34,7 @@ export default function CookieConsent() {
       necessary: true,
       analytics: true,
       functional: true,
-      timestamp: new Date().toISOString()
+      timestamp: getUtcNow()
     };
     localStorage.setItem('cookie-consent', JSON.stringify(consent));
     applyConsent(consent);
@@ -45,7 +46,7 @@ export default function CookieConsent() {
       necessary: true,
       analytics: false,
       functional: false,
-      timestamp: new Date().toISOString()
+      timestamp: getUtcNow()
     };
     localStorage.setItem('cookie-consent', JSON.stringify(consent));
     applyConsent(consent);
@@ -63,7 +64,7 @@ export default function CookieConsent() {
       necessary: true, // Always required
       analytics: formData.get('analytics') === 'on',
       functional: formData.get('functional') === 'on',
-      timestamp: new Date().toISOString()
+      timestamp: getUtcNow()
     };
     localStorage.setItem('cookie-consent', JSON.stringify(consent));
     applyConsent(consent);

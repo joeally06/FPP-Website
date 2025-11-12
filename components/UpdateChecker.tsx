@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatDateTime, getUtcNow } from '@/lib/time-utils';
 import { AdminH2, AdminH3, AdminH4, AdminText, AdminWarning, AdminSuccess, AdminTextSmall } from './admin/Typography';
 
 interface UpdateStatus {
@@ -75,8 +76,8 @@ export default function UpdateChecker({}: UpdateCheckerProps = {}) {
           message: data.hasUpdates 
             ? `🎉 ${data.commitsAhead} new update${data.commitsAhead > 1 ? 's' : ''} available!` 
             : '✅ Your system is up to date',
-          timestamp: new Date().toISOString(),
-          lastCheck: new Date().toISOString(),
+          timestamp: getUtcNow(),
+          lastCheck: getUtcNow(),
           currentCommit: data.currentCommit,
           availableCommit: data.remoteCommit
         });
@@ -86,7 +87,7 @@ export default function UpdateChecker({}: UpdateCheckerProps = {}) {
       setStatus({
         status: 'error',
         message: '❌ Failed to check for updates',
-        timestamp: new Date().toISOString()
+        timestamp: getUtcNow()
       });
     } finally {
       setChecking(false);
@@ -127,13 +128,13 @@ export default function UpdateChecker({}: UpdateCheckerProps = {}) {
         setStatus({
           status: 'starting',
           message: '🚀 Update started! Monitoring progress...',
-          timestamp: new Date().toISOString()
+          timestamp: getUtcNow()
         });
       } else {
         setStatus({
           status: 'error',
           message: '❌ Failed to start update',
-          timestamp: new Date().toISOString()
+          timestamp: getUtcNow()
         });
         setInstalling(false);
       }
@@ -142,7 +143,7 @@ export default function UpdateChecker({}: UpdateCheckerProps = {}) {
       setStatus({
         status: 'error',
         message: '❌ Failed to install update',
-        timestamp: new Date().toISOString()
+        timestamp: getUtcNow()
       });
       setInstalling(false);
     }
@@ -258,7 +259,7 @@ export default function UpdateChecker({}: UpdateCheckerProps = {}) {
           
           {status?.lastCheck && (
             <AdminTextSmall className="text-white/60">
-              Last checked: {new Date(status.lastCheck).toLocaleTimeString()}
+              Last checked: {formatDateTime(status.lastCheck, 'short')}
             </AdminTextSmall>
           )}
         </div>
