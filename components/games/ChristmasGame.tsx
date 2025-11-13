@@ -97,7 +97,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
     };
   }, [gameStarted, gameActive, isPaused, difficulty, gameSettings]);
 
-  // Game loop - move ornaments
+  // Game loop - move ornaments AND handle collisions
   useEffect(() => {
     if (!gameStarted || !gameActive || isPaused) return;
 
@@ -108,58 +108,45 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
           y: o.y + o.speed
         }));
 
-        // Check for missed ornaments (bottom of screen)
-        const missed = updated.filter(o => 
-          o.y > 100 && 
-          o.type === 'good' && 
-          !processedOrnaments.current.has(o.id) // Only count if not already processed
-        );
+        const toRemove = new Set<number>();
         
-        if (missed.length > 0) {
-          // Mark missed ornaments as processed
-          missed.forEach(o => processedOrnaments.current.add(o.id));
-          setLives(l => Math.max(0, l - missed.length));
-        }
+        // Check collisions in the same update cycle
+        updated.forEach(ornament => {
+          // Skip if already processed
+          if (processedOrnaments.current.has(ornament.id)) return;
+          
+          // Check if ornament is at player height (bottom 10% of screen)
+          if (ornament.y > 85 && ornament.y < 95) {
+            // Check horizontal collision (within player width)
+            if (Math.abs(ornament.x - playerX) < 6) {
+              // Mark as processed and remove
+              processedOrnaments.current.add(ornament.id);
+              toRemove.add(ornament.id);
+              
+              if (ornament.type === 'good') {
+                setScore(s => s + 10);
+              } else {
+                setLives(l => Math.max(0, l - 1));
+              }
+            }
+          }
+          
+          // Check for missed good ornaments (bottom of screen)
+          if (ornament.y > 100 && ornament.type === 'good' && !processedOrnaments.current.has(ornament.id)) {
+            processedOrnaments.current.add(ornament.id);
+            setLives(l => Math.max(0, l - 1));
+          }
+        });
 
-        // Remove ornaments that are off screen
-        return updated.filter(o => o.y < 105);
+        // Remove caught/missed ornaments and those off screen
+        return updated.filter(o => !toRemove.has(o.id) && o.y < 105);
       });
     }, 50);
 
     return () => {
       if (gameLoop.current) clearInterval(gameLoop.current);
     };
-  }, [gameStarted, gameActive, isPaused]);
-
-  // Collision detection
-  useEffect(() => {
-    if (!gameStarted || !gameActive) return;
-    
-    ornaments.forEach(ornament => {
-      // Check if ornament is at player height (bottom 10% of screen)
-      if (ornament.y > 85 && ornament.y < 95) {
-        // Check horizontal collision (within player width)
-        if (Math.abs(ornament.x - playerX) < 6) {
-          // Skip if already processed
-          if (processedOrnaments.current.has(ornament.id)) return;
-          
-          // Mark as processed
-          processedOrnaments.current.add(ornament.id);
-          
-          // Hit! Remove ornament immediately to prevent duplicate hits
-          setOrnaments(prev => prev.filter(o => o.id !== ornament.id));
-          
-          if (ornament.type === 'good') {
-            setScore(s => s + 10);
-            // Play success sound (optional)
-          } else {
-            setLives(l => Math.max(0, l - 1));
-            // Play damage sound (optional)
-          }
-        }
-      }
-    });
-  }, [ornaments, playerX, gameStarted, gameActive]);
+  }, [gameStarted, gameActive, isPaused, playerX]);
 
   // Increase difficulty every 100 points
   useEffect(() => {
