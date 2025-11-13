@@ -9,6 +9,7 @@ import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
 import LetterToSantaModal from '@/components/LetterToSantaModal';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import EnhancedVotingCard from '@/components/EnhancedVotingCard';
+import JukeboxBanner from '@/components/JukeboxBanner';
 import { formatDateTime } from '@/lib/time-utils';
 import { LayoutGrid, List, Music, Radio } from 'lucide-react';
 
@@ -100,9 +101,6 @@ export default function JukeboxPage() {
   const [requesterName, setRequesterName] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [offlineHeading, setOfflineHeading] = useState('Show is Currently Inactive');
-  const [offlineSubtitle, setOfflineSubtitle] = useState('Song requests will be available when the show starts');
-  const [showOffSeason, setShowOffSeason] = useState(false);
   const [loadingSequences, setLoadingSequences] = useState(true);
   const [voteCounts, setVoteCounts] = useState<Record<string, VoteCounts>>({});
   const [userVotes, setUserVotes] = useState<Record<string, string | null>>({});
@@ -129,7 +127,6 @@ export default function JukeboxPage() {
     fetchYouTubeVideos();
     fetchScheduleStatus(); // Check schedule status
     fetchJukeboxSettings(); // Fetch jukebox rate limit and insert mode
-    fetchOfflineBanner(); // Fetch custom offline banner text
     
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     const scheduleInterval = setInterval(fetchScheduleStatus, 30000); // Check every 30 seconds
@@ -302,21 +299,6 @@ export default function JukeboxPage() {
       }
     } catch (error) {
       console.error('Failed to fetch request status:', error);
-    }
-  };
-
-  const fetchOfflineBanner = async () => {
-    try {
-      const response = await fetch('/api/jukebox/offline-banner');
-      if (response.ok) {
-        const data = await response.json();
-        setOfflineHeading(data.heading);
-        setOfflineSubtitle(data.subtitle);
-        setShowOffSeason(data.showOffSeason || false);
-      }
-    } catch (error) {
-      console.error('Failed to fetch offline banner:', error);
-      // Keep defaults on error
     }
   };
 
@@ -583,38 +565,6 @@ export default function JukeboxPage() {
     return formattedDate;
   };
 
-  // Theme-based banner styles
-  const getBannerStyles = () => {
-    switch (theme.id) {
-      case 'christmas':
-        return {
-          container: 'bg-gradient-to-r from-red-600/30 via-green-600/30 to-red-600/30 border-2 border-red-500/50 shadow-xl shadow-red-500/20',
-          icon: '🎄',
-          title: 'text-red-100',
-          text: 'text-white/90',
-          subtext: 'text-red-100/80'
-        };
-      case 'halloween':
-        return {
-          container: 'bg-gradient-to-r from-orange-600/30 via-purple-600/30 to-orange-600/30 border-2 border-orange-500/50 shadow-xl shadow-orange-500/20',
-          icon: '🎃',
-          title: 'text-orange-100',
-          text: 'text-white/90',
-          subtext: 'text-orange-100/80'
-        };
-      default:
-        return {
-          container: 'bg-yellow-500/20 border-2 border-yellow-500/40',
-          icon: '⏰',
-          title: 'text-white',
-          text: 'text-white/90',
-          subtext: 'text-white/70'
-        };
-    }
-  };
-
-  const bannerStyles = getBannerStyles();
-
   return (
     <ThemedJukeboxWrapper>
       <div className="max-w-6xl mx-auto">
@@ -660,56 +610,12 @@ export default function JukeboxPage() {
           </div>
         </div>
 
-        {/* Schedule Status Banner - Themed */}
-        {!loadingSchedule && !scheduleStatus?.isActive && !isAdmin && (
-          <div className={`backdrop-blur-md ${bannerStyles.container} rounded-xl shadow-2xl p-6 mb-6 animate-pulse-subtle`}>
-            <div className="text-center">
-              <h2 className={`text-3xl font-bold ${bannerStyles.title} mb-3 themed-font flex items-center justify-center gap-3`}>
-                <span className="text-5xl animate-bounce">{bannerStyles.icon}</span>
-                {offlineHeading}
-                <span className="text-5xl animate-bounce" style={{ animationDelay: '0.2s' }}>{bannerStyles.icon}</span>
-              </h2>
-              <p className={`${bannerStyles.text} text-lg mb-2 font-medium`}>
-                {offlineSubtitle}
-              </p>
-              {scheduleStatus?.nextShowDate && scheduleStatus?.nextShowStartTime && scheduleStatus?.nextShowEndTime ? (
-                <div className="mt-4 p-4 bg-white/10 rounded-lg backdrop-blur-sm border-2 border-white/20">
-                  <p className={`${bannerStyles.text} text-xl font-bold flex items-center gap-3 justify-center mb-1`}>
-                    <span className="text-3xl">{bannerStyles.icon}</span>
-                    <span>Next Show: {scheduleStatus.nextShowDay}, {scheduleStatus.nextShowDate}</span>
-                  </p>
-                  <p className={`${bannerStyles.text} text-xl font-semibold`}>
-                    {formatTime(scheduleStatus.nextShowStartTime)} - {formatTime(scheduleStatus.nextShowEndTime)}
-                  </p>
-                  {scheduleStatus.countdown && (
-                    <p className={`${bannerStyles.text} text-3xl font-extrabold mt-3 flex items-center gap-3 justify-center`}>
-                      <span className="text-4xl">{bannerStyles.icon}</span>
-                      <span>{scheduleStatus.countdown} until showtime!</span>
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-4 p-3 bg-white/10 rounded-lg backdrop-blur-sm">
-                  {showOffSeason && (
-                    <>
-                      <p className={`${bannerStyles.text} text-base font-medium`}>
-                        🎭 The show is currently off-season
-                      </p>
-                      <p className={`${bannerStyles.subtext} text-sm mt-2`}>
-                        No upcoming shows are scheduled at this time
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-              {showOffSeason && (
-                <p className={`${bannerStyles.subtext} text-sm mt-4`}>
-                  🎵 Song requests and voting will be available when the show is running.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Unified Banner System */}
+        <JukeboxBanner
+          fppStatus={currentlyPlaying ? 'playing' : 'idle'}
+          isMonitoringActive={scheduleStatus?.isActive || false}
+          timeUntilNextShow={scheduleStatus?.countdown || undefined}
+        />
 
         {/* Admin Override Notice - Also Themed */}
         {isAdmin && !scheduleStatus?.isActive && (

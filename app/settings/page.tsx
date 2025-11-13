@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import UpdateChecker from '@/components/UpdateChecker';
+import BannerSettings from '@/components/admin/BannerSettings';
 import { formatDateTime } from '@/lib/time-utils';
 import { 
   AdminH1, 
@@ -1166,15 +1167,10 @@ function JukeboxSettings() {
   const [error, setError] = useState('');
   const [jukeboxUsers, setJukeboxUsers] = useState<JukeboxUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [offlineHeading, setOfflineHeading] = useState('Show is Currently Inactive');
-  const [offlineSubtitle, setOfflineSubtitle] = useState('Song requests will be available when the show starts');
-  const [showOffSeason, setShowOffSeason] = useState(false);
-  const [savingOffline, setSavingOffline] = useState(false);
 
   useEffect(() => {
     fetchSettings();
     fetchJukeboxUsers();
-    fetchOfflineBanner();
   }, []);
 
   async function fetchSettings() {
@@ -1205,51 +1201,6 @@ function JukeboxSettings() {
       console.error('Error fetching jukebox users:', error);
     } finally {
       setLoadingUsers(false);
-    }
-  }
-
-  async function fetchOfflineBanner() {
-    try {
-      const response = await fetch('/api/jukebox/offline-banner');
-      if (response.ok) {
-        const data = await response.json();
-        setOfflineHeading(data.heading);
-        setOfflineSubtitle(data.subtitle);
-        setShowOffSeason(data.showOffSeason || false);
-      }
-    } catch (error) {
-      console.error('Error fetching offline banner:', error);
-    }
-  }
-
-  async function handleSaveOfflineBanner() {
-    setSavingOffline(true);
-    setSuccess('');
-    setError('');
-
-    try {
-      const response = await fetch('/api/jukebox/offline-banner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          heading: offlineHeading,
-          subtitle: offlineSubtitle,
-          showOffSeason: showOffSeason
-        })
-      });
-
-      if (response.ok) {
-        setSuccess('✅ Offline banner saved successfully!');
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to save offline banner');
-      }
-    } catch (error) {
-      console.error('Error saving offline banner:', error);
-      setError('Failed to save offline banner');
-    } finally {
-      setSavingOffline(false);
     }
   }
 
@@ -1467,152 +1418,8 @@ function JukeboxSettings() {
         </ul>
       </div>
 
-      {/* Offline Banner Customization */}
-      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-        <AdminH3 className="mb-4">🔕 Offline Banner Customization</AdminH3>
-        <AdminTextMuted className="mb-6">
-          Customize the message shown when the show is not playing. Both heading and subtitle are editable.
-        </AdminTextMuted>
-
-        <div className="space-y-6">
-          {/* Show Off-Season Toggle */}
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
-                🎭 Show Off-Season Message
-              </label>
-              <AdminTextSmall className="text-white/60">
-                When disabled, the off-season message ("The show is currently off-season...") will be hidden from visitors
-              </AdminTextSmall>
-            </div>
-            <button
-              onClick={() => setShowOffSeason(!showOffSeason)}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                showOffSeason ? 'bg-green-500' : 'bg-gray-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  showOffSeason ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Heading Input */}
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
-              Main Heading
-            </label>
-            <input
-              type="text"
-              value={offlineHeading}
-              onChange={(e) => setOfflineHeading(e.target.value)}
-              placeholder="Show is Currently Inactive"
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Subtitle Input */}
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
-              Subtitle Text
-            </label>
-            <input
-              type="text"
-              value={offlineSubtitle}
-              onChange={(e) => setOfflineSubtitle(e.target.value)}
-              placeholder="Song requests will be available when the show starts"
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Quick Presets */}
-          <div>
-            <AdminTextSmall className="mb-2 font-medium text-white/80">
-              Quick Presets:
-            </AdminTextSmall>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => {
-                  setOfflineHeading('🎄 Santa\'s Workshop is Closed');
-                  setOfflineSubtitle('The elves will return at 7 PM with more holiday music!');
-                }}
-                className="px-3 py-2 text-sm bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition-colors"
-              >
-                🎄 Christmas
-              </button>
-              <button
-                onClick={() => {
-                  setOfflineHeading('🎃 The Haunted House is Resting');
-                  setOfflineSubtitle('The ghosts will rise again soon with spooky tunes!');
-                }}
-                className="px-3 py-2 text-sm bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg transition-colors"
-              >
-                🎃 Halloween
-              </button>
-              <button
-                onClick={() => {
-                  setOfflineHeading('🎵 Taking a Short Break');
-                  setOfflineSubtitle('We\'ll be back soon - stay tuned for more music!');
-                }}
-                className="px-3 py-2 text-sm bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg transition-colors"
-              >
-                🎵 Generic
-              </button>
-              <button
-                onClick={() => {
-                  setOfflineHeading('Show is Currently Inactive');
-                  setOfflineSubtitle('Song requests will be available when the show starts');
-                }}
-                className="px-3 py-2 text-sm bg-gray-500/20 hover:bg-gray-500/30 text-gray-300 rounded-lg transition-colors"
-              >
-                Reset to Default
-              </button>
-            </div>
-          </div>
-
-          {/* Live Preview */}
-          <div>
-            <AdminTextSmall className="mb-2 font-semibold text-white/80">
-              Preview:
-            </AdminTextSmall>
-            <div className="p-8 bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl border-2 border-slate-600 text-center">
-              <h2 className="text-4xl font-bold text-white mb-4">
-                {offlineHeading || 'Show is Currently Inactive'}
-              </h2>
-              <p className="text-slate-300 text-lg">
-                {offlineSubtitle || 'Song requests will be available when the show starts'}
-              </p>
-            </div>
-          </div>
-
-          {/* Character Count Helpers */}
-          <div className="grid grid-cols-2 gap-4 text-sm text-white/60">
-            <div>
-              Heading: {offlineHeading.length} characters
-              {offlineHeading.length > 50 && (
-                <span className="text-yellow-400 ml-2">⚠️ Consider shortening for mobile</span>
-              )}
-            </div>
-            <div>
-              Subtitle: {offlineSubtitle.length} characters
-              {offlineSubtitle.length > 80 && (
-                <span className="text-yellow-400 ml-2">⚠️ Consider shortening for mobile</span>
-              )}
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <button
-            onClick={handleSaveOfflineBanner}
-            disabled={savingOffline}
-            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
-          >
-            {savingOffline ? '💾 Saving...' : '💾 Save Offline Banner Settings'}
-          </button>
-        </div>
-      </div>
+      {/* Unified Banner Configuration */}
+      <BannerSettings />
 
       {/* User Rate Limit Management */}
       <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
