@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import UpdateChecker from '@/components/UpdateChecker';
 import BannerSettings from '@/components/admin/BannerSettings';
+import GameSettings from '@/components/admin/GameSettings';
 import { formatDateTime } from '@/lib/time-utils';
 import { 
   AdminH1, 
@@ -21,7 +22,7 @@ import {
 } from '@/components/admin/Typography';
 import Link from 'next/link';
 
-type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database' | 'updates' | 'youtube' | 'jukebox';
+type SettingSection = 'themes' | 'santa' | 'monitoring' | 'database' | 'updates' | 'youtube' | 'jukebox' | 'games';
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>('themes');
@@ -112,6 +113,16 @@ export default function SettingsPage() {
               >
                 🎵 Jukebox
               </button>
+              <button
+                onClick={() => setActiveSection('games')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-all font-semibold ${
+                  activeSection === 'games'
+                    ? 'bg-white text-black shadow-lg'
+                    : 'text-white hover:bg-white/10'
+                }`}
+              >
+                🎮 Game Settings
+              </button>
             </div>
           </div>
 
@@ -124,6 +135,7 @@ export default function SettingsPage() {
             {activeSection === 'database' && <DatabaseSettings />}
             {activeSection === 'youtube' && <YouTubeVideoSettings />}
             {activeSection === 'jukebox' && <JukeboxSettings />}
+            {activeSection === 'games' && <GameSettingsSection />}
           </div>
         </div>
       </div>
@@ -1156,6 +1168,14 @@ interface JukeboxUser {
   requestCount: number;
   lastRequest: string;
   firstRequest: string;
+}
+
+function GameSettingsSection() {
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+      <GameSettings />
+    </div>
+  );
 }
 
 function JukeboxSettings() {
