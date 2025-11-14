@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 interface Ornament {
   id: number;
@@ -24,6 +24,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
   const [gameActive, setGameActive] = useState(true);
   const [gameStarted, setGameStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
   const [difficulty, setDifficulty] = useState(1);
   const [gameSettings, setGameSettings] = useState({
     initialSpeed: 0.5,
@@ -213,19 +214,34 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
     onGameOver(score);
   };
 
+  // Memoize snowflake positions so they don't re-render/teleport on every frame
+  const snowflakes = useMemo(() => {
+    const flakeCount = 50;
+    const arr: { left: number; top: number; delay: number; duration: number }[] = [];
+    for (let i = 0; i < flakeCount; i++) {
+      arr.push({
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        delay: Math.random() * 10,
+        duration: 10 + Math.random() * 10
+      });
+    }
+    return arr;
+  }, []);
+
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-blue-900 via-blue-700 to-blue-600 z-50 overflow-hidden">
-      {/* Snow background effect */}
-      <div className="absolute inset-0 opacity-30">
-        {[...Array(50)].map((_, i) => (
+      {/* Snow background effect (memoized positions) */}
+      <div className="absolute inset-0 opacity-30" aria-hidden>
+        {snowflakes.map((f, i) => (
           <div
             key={i}
             className="absolute text-white animate-fall"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 10}s`,
-              animationDuration: `${10 + Math.random() * 10}s`
+              left: `${f.left}%`,
+              top: `${f.top}%`,
+              animationDelay: `${f.delay}s`,
+              animationDuration: `${f.duration}s`
             }}
           >
             ❄️
@@ -237,7 +253,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
       <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/40 to-transparent p-4 z-10">
         <div className="flex justify-between items-center max-w-4xl mx-auto">
           <div className="text-white">
-            <div className="text-3xl font-bold">🎄 {score}</div>
+            <div className="text-3xl font-bold"><span aria-live="polite">🎄 {score}</span></div>
             <div className="text-sm opacity-75">Score</div>
           </div>
           
@@ -247,11 +263,9 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
           </div>
           
           <div className="text-white text-right">
-            <div className="text-3xl">
-              {[...Array(lives)].map((_, i) => (
+            <div className="text-3xl"><span aria-live="polite">{[...Array(lives)].map((_, i) => (
                 <span key={i}>❤️</span>
-              ))}
-            </div>
+              ))}</span></div>
             <div className="text-sm opacity-75">Lives</div>
           </div>
         </div>
@@ -260,7 +274,10 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
       {/* Game area */}
       <div 
         ref={gameRef} 
-        className="relative w-full h-full touch-none"
+        className={`relative w-full h-full touch-none ${highContrast ? 'high-contrast' : ''}`}
+        tabIndex={0}
+        role="application"
+        aria-label="Catch falling ornaments. Press Enter to start. Use arrow keys or A/D to move. Space to pause."
       >
         {/* Player (Snowman) */}
         {gameStarted && (
@@ -272,7 +289,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
               filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'
             }}
           >
-            ⛄
+            <span role="img" aria-label="Player snowman">⛄</span>
           </div>
         )}
 
@@ -287,6 +304,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
               transform: 'translateX(-50%)',
               filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
             }}
+          aria-hidden
           >
             {ornament.emoji}
           </div>
@@ -372,24 +390,52 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
       {/* Controls (bottom) */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-4 z-10">
         <div className="flex justify-between items-center max-w-4xl mx-auto">
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            disabled={!gameStarted || !gameActive}
-            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors shadow-lg"
-          >
-            {isPaused ? '▶️ Resume' : '⏸️ Pause'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsPaused(!isPaused)}
+              disabled={!gameStarted || !gameActive}
+              aria-label={isPaused ? 'Resume game' : 'Pause game'}
+              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors shadow-lg"
+            >
+              {isPaused ? '▶️ Resume' : '⏸️ Pause'}
+            </button>
+
+            {/* Left/Right move for keyboard users */}
+            <button
+              onClick={() => setPlayerX(x => Math.max(5, x - 3))}
+              aria-label="Move left"
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg shadow-md"
+            >
+              ⬅️
+            </button>
+            <button
+              onClick={() => setPlayerX(x => Math.min(95, x + 3))}
+              aria-label="Move right"
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg shadow-md"
+            >
+              ➡️
+            </button>
+          </div>
           
           <div className="text-white text-center text-sm opacity-75 hidden md:block">
             <p>← → or A/D to move | SPACE to pause</p>
           </div>
           
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors shadow-lg"
-          >
-            ❌ Close
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setHighContrast(h => !h)}
+              aria-pressed={highContrast}
+              className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-md"
+            >
+              {highContrast ? '🔆 High contrast' : '🔅 Normal'}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors shadow-lg"
+            >
+              ❌ Close
+            </button>
+          </div>
         </div>
       </div>
 
@@ -407,6 +453,12 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
         @keyframes spin {
           from { transform: translateX(-50%) rotate(0deg); }
           to { transform: translateX(-50%) rotate(360deg); }
+        }
+        .high-contrast .text-4xl, .high-contrast .text-6xl {
+          text-shadow: 0 0 8px rgba(255,255,255,0.85), 0 0 1px rgba(0,0,0,0.5);
+        }
+        .high-contrast {
+          filter: contrast(140%) brightness(105%);
         }
       `}</style>
     </div>

@@ -179,8 +179,25 @@ Optional follow-ups:
 1. Accessibility & UX improvements for the game
 - Add ARIA labels, keyboard-only controls, and visually-impaired-friendly contrasts.
 
+Implemented: Added accessible controls and ARIA improvements to `components/games/ChristmasGame.tsx`:
+- Added `aria-live` regions for score and lives so screen readers are notified on updates.
+- Game container is now focusable (`tabIndex=0`) with `role="application"` and `aria-label` that provides keyboard instructions.
+- Added visible and keyboard accessible Left/Right move controls for users who rely on keyboard navigation.
+- Added a toggle for High Contrast mode to improve readability for visually-impaired users.
+- Player (`⛄`) includes `role="img"` & `aria-label` and ornaments are marked `aria-hidden` as they are visual decorations.
+
+Tip: To keep the UI keyboard friendly, use `Tab` to focus the game container, then use Enter to start the game, Arrow Keys or the Left/Right buttons to move, and Space to pause.
+
 2. Styling/formatting & minor refactorings
 - Improve component code structure and reduce duplication where possible.
+
+Implemented small refactor:
+- Memoized snowflake positions using `useMemo` to prevent Math.random generating new positions on each rerender (fixes React purity lint errors and avoids visual flicker).
+- Centralized frequently-used inline style values and added accessible focus outlines for interactive controls.
+
+Follow-up: Additional refactoring recommended:
+- Extract small presentational subcomponents (e.g., `StartOverlay`, `PauseOverlay`, `GameOverOverlay`) to reduce JSX complexity and make unit testing easier.
+- Move game logic (spawn, loop, collision detection) into a separate hook (e.g., `useChristmasGame`) for testability and cleaner component code.
 
 ---
 
