@@ -14,7 +14,7 @@
   "author": "joeally06",
   "license": "MIT",
   "scripts": {
-    "dev": "node scripts/dev-check.js",
+    "dev": "next dev",
     "dev-unsafe": "next dev",
     "dev:with-poller": "concurrently --names \"NEXT,POLLER\" --prefix-colors \"cyan,magenta\" \"npm run dev\" \"npm run poller:dev\"",
     "poller:dev": "node -r esbuild-register lib/fpp-poller.ts",
@@ -40,7 +40,7 @@
     "version:prerelease": "node scripts/bump-version.js prerelease",
     "version:release": "node scripts/bump-version.js release",
     "version:current": "node -e \"console.log(require('./lib/version').getVersion())\"",
-    "test:ci": "node -r esbuild-register scripts/test-email-retries.ts && node -r esbuild-register scripts/test-email-retries-auth-fail.ts && node -r esbuild-register scripts/test-jukebox-queue-transaction.ts && node -r esbuild-register scripts/test-request-status.ts && node -r esbuild-register scripts/test-time-utils.ts && node -r esbuild-register scripts/test-migrations.ts"
+    "test:ci": "node -r esbuild-register scripts/test-email-retries.ts && node -r esbuild-register scripts/test-email-retries-auth-fail.ts && node -r esbuild-register scripts/test-jukebox-queue-transaction.ts && node -r esbuild-register scripts/test-request-status.ts && node -r esbuild-register scripts/test-time-utils.ts && node -r esbuild-register scripts/test-migrations.ts && node -r esbuild-register scripts/test-christmas-game.ts"
   },
   "dependencies": {
     "@types/luxon": "^3.7.1",

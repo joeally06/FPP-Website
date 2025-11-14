@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { updateOrnamentsAndComputeChanges, getInitialGameState, GameSettings } from '../../lib/game-logic';
 
 interface Ornament {
   id: number;
@@ -26,7 +27,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
   const [isPaused, setIsPaused] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [difficulty, setDifficulty] = useState(1);
-  const [gameSettings, setGameSettings] = useState({
+  const [gameSettings, setGameSettings] = useState<GameSettings>({
     initialSpeed: 0.5,
     speedIncrease: 0.15,
     spawnInterval: 2000,
@@ -62,15 +63,16 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
 
   // Start game
   const startGame = () => {
+    const initial = getInitialGameState();
     setGameStarted(true);
     setGameActive(true);
-    setScore(0);
-    setLives(3);
-    setOrnaments([]);
-    setDifficulty(1);
+    setScore(initial.score);
+    setLives(initial.lives);
+    setOrnaments(initial.ornaments);
+    setDifficulty(initial.difficulty);
     setIsPaused(false);
     nextOrnamentId.current = 0;
-    processedOrnaments.current.clear(); // Clear processed ornaments tracker
+    processedOrnaments.current = initial.processed; // Reset processed ornaments tracker
   };
 
   // Spawn ornaments
@@ -104,43 +106,10 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
 
     gameLoop.current = setInterval(() => {
       setOrnaments(prev => {
-        const updated = prev.map(o => ({
-          ...o,
-          y: o.y + o.speed
-        }));
-
-        const toRemove = new Set<number>();
-        
-        // Check collisions in the same update cycle
-        updated.forEach(ornament => {
-          // Skip if already processed
-          if (processedOrnaments.current.has(ornament.id)) return;
-          
-          // Check if ornament is at player height (bottom 10% of screen)
-          if (ornament.y > 85 && ornament.y < 95) {
-            // Check horizontal collision (within player width)
-            if (Math.abs(ornament.x - playerX) < 6) {
-              // Mark as processed and remove
-              processedOrnaments.current.add(ornament.id);
-              toRemove.add(ornament.id);
-              
-              if (ornament.type === 'good') {
-                setScore(s => s + 10);
-              } else {
-                setLives(l => Math.max(0, l - 1));
-              }
-            }
-          }
-          
-          // Check for missed good ornaments (bottom of screen)
-          if (ornament.y > 100 && ornament.type === 'good' && !processedOrnaments.current.has(ornament.id)) {
-            processedOrnaments.current.add(ornament.id);
-            setLives(l => Math.max(0, l - 1));
-          }
-        });
-
-        // Remove caught/missed ornaments and those off screen
-        return updated.filter(o => !toRemove.has(o.id) && o.y < 105);
+        const result = updateOrnamentsAndComputeChanges(prev, playerX, processedOrnaments.current, gameSettings, difficulty);
+        if (result.scoreDelta) setScore(s => s + result.scoreDelta);
+        if (result.livesDelta) setLives(l => Math.max(0, l - result.livesDelta));
+        return result.updatedOrnaments;
       });
     }, 50);
 
