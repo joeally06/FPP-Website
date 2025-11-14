@@ -22,8 +22,13 @@ jobs:
         run: npm ci
 
       - name: Security Checks
-        # Force NODE_ENV to 'production' for security validations in CI
-        run: NODE_ENV=production node -r esbuild-register scripts/check-security.js
+        env:
+          NODE_ENV: production
+          NEXTAUTH_SECRET: testsecret
+          NEXTAUTH_URL: https://example.local
+          SMTP_HOST: 127.0.0.1
+          SMTP_PORT: 1025
+        run: node -r esbuild-register scripts/check-security.js
 
       - name: Lint
         run: npm run lint
