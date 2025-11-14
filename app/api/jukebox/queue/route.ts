@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addToQueue, getQueue, incrementSequenceRequests, getMediaNameForSequence } from '@/lib/database';
+import { addToQueueTransactional } from '@/lib/jukebox-queue';
 import { getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
 import { getUtcNow, getUtcOffset } from '@/lib/time-utils';
 import db from '@/lib/database';
@@ -26,41 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
     }
 
-    // Check rate limit BEFORE adding to queue (using database count)
-    const rateLimitCheck = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM jukebox_queue 
-      WHERE requester_ip = ? 
-        AND created_at >= datetime('now', '-1 hour')
-    `).get(requester_ip) as { count: number };
-
-    if (rateLimitCheck.count >= rateLimit) {
-      console.warn(`[SECURITY] Rate limit exceeded for ${requester_ip} (${rateLimitCheck.count}/${rateLimit} used)`);
-      
-      return NextResponse.json({ 
-        error: `Rate limit exceeded. You can request ${rateLimit} songs per hour.`,
-        rateLimit,
-        requestsUsed: rateLimitCheck.count,
-        requestsRemaining: 0
-      }, { status: 429 });
-    }
-
-    // Check for duplicate request within 5 minutes
-    // SQLite datetime() function to get a datetime 5 minutes ago
-    const duplicate = db.prepare(`
-      SELECT id FROM jukebox_queue 
-      WHERE requester_ip = ? 
-        AND sequence_name = ? 
-        AND created_at >= datetime('now', '-5 minutes')
-      LIMIT 1
-    `).get(requester_ip, sequence_name);
     
-    if (duplicate) {
-      console.warn(`[SECURITY] Duplicate request detected from ${requester_ip} for ${sequence_name}`);
-      return NextResponse.json({ 
-        error: 'You already requested this song recently. Please wait a few minutes.' 
-      }, { status: 429 });
-    }
 
     // Add .fseq extension back to get the full sequence name
     const fullSequenceName = sequence_name + '.fseq';
@@ -113,11 +80,40 @@ export async function POST(request: NextRequest) {
       console.warn('Could not lookup media name from FPP:', error);
     }
 
-    // Add to jukebox queue
-    const result = addToQueue.run(sequence_name, media_name, requester_name || 'Anonymous', requester_ip);
-    
     // Track sequence requests
+    
+    // Now add to jukebox queue with a transactional check for rate limit and duplicates
+    let transactionResult;
+    try {
+      transactionResult = addToQueueTransactional(db, {
+        sequence_name,
+        media_name,
+        requester_name: requester_name || 'Anonymous',
+        requester_ip,
+        rateLimit
+      });
+    } catch (txError: any) {
+      if (txError.code === 'RATE_LIMIT_EXCEEDED') {
+        const used = txError.requestsUsed || rateLimit;
+        console.warn(`[SECURITY] Rate limit exceeded for ${requester_ip} (${used}/${rateLimit} used)`);
+        return NextResponse.json({ 
+          error: `Rate limit exceeded. You can request ${rateLimit} songs per hour.`,
+          rateLimit,
+          requestsUsed: used,
+          requestsRemaining: 0
+        }, { status: 429 });
+      }
+      if (txError.code === 'DUPLICATE_REQUEST') {
+        console.warn(`[SECURITY] Duplicate request detected from ${requester_ip} for ${sequence_name}`);
+        return NextResponse.json({ 
+          error: 'You already requested this song recently. Please wait a few minutes.' 
+        }, { status: 429 });
+      }
+      throw txError; // let outer catch handle other errors
+    }
+
     incrementSequenceRequests.run(sequence_name);
+    const result = { lastInsertRowid: transactionResult.id } as any;
 
     // Calculate how many requests the user has used in the last hour
     const now = getUtcNow();
