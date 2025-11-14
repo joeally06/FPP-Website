@@ -84,6 +84,17 @@ Content-Security-Policy: [strict CSP]
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
 
+**Production Hardening (implemented):**
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` (HSTS) — now enabled via `next.config.ts` on production builds.
+
+**NextAuth Hardening (implemented):**
+- `useSecureCookies` enabled in production (`app/api/auth/[...nextauth]/route.ts`) and `sessionToken` cookie configured to be `httpOnly` and `secure` in production.
+- A runtime warning will log when `NEXTAUTH_SECRET` is missing in production to prevent insecure deployments.
+
+**CI Security Verification (implemented):**
+- `scripts/check-security.js` runs as part of CI and validates production-critical environment variables (`NEXTAUTH_SECRET`, `NEXTAUTH_URL`) and warns if weak or missing values are found.
+
+
 **CSP (Content Security Policy):**
 - Restricts script sources
 - Blocks inline scripts where possible
