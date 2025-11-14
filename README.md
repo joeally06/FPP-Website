@@ -10,6 +10,10 @@
 ---
 
 ## 🌟 What is FPP Control Center?
+Run the development server:
+```bash
+npm run dev
+```
 
 FPP Control Center is a **complete web-based control panel** for your Falcon Player (FPP) Christmas light display. It provides an interactive visitor experience while giving you full control over your show.
 

@@ -14,7 +14,8 @@
   "author": "joeally06",
   "license": "MIT",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-check.js",
+    "dev-unsafe": "next dev",
     "dev:with-poller": "concurrently --names \"NEXT,POLLER\" --prefix-colors \"cyan,magenta\" \"npm run dev\" \"npm run poller:dev\"",
     "poller:dev": "node -r esbuild-register lib/fpp-poller.ts",
     "poller:start": "node -r esbuild-register lib/fpp-poller.ts",
