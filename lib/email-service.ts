@@ -2,6 +2,7 @@
 
 import validator from 'validator';
 import { escapeHtml } from './input-sanitization';
+import { debugLog } from './logging';
 
 interface EmailConfig {
   host: string;
@@ -32,6 +33,52 @@ function getEmailConfig(): EmailConfig {
       pass: process.env.SMTP_PASS || '',
     },
   };
+}
+
+function isRetryableError(err: any) {
+  const retryableCodes = ['ECONNREFUSED', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNRESET', 'ENOTFOUND'];
+  if (!err) return false;
+  // nodemailer adds `code` to underlying errors
+  if (err.code && retryableCodes.includes(err.code)) return true;
+  // Some SMTP errors use responseCode for 4xx (temporary)
+  if (err.responseCode && typeof err.responseCode === 'number' && err.responseCode >= 400 && err.responseCode < 500) return true;
+  // Fallback: treat network errors as retryable by looking for common phrases
+  if (typeof err.message === 'string' && (err.message.includes('ETIMEDOUT') || err.message.includes('Connection timed out') || err.message.includes('ECONNRESET') || err.message.includes('connect EHOSTUNREACH'))) return true;
+  return false;
+}
+
+export async function sendMailWithRetries(config: any, mailOptions: any, opts: { attempts?: number; initialDelayMs?: number; factor?: number; verify?: boolean; createTransport?: () => any; } = {}) {
+  const attempts = opts.attempts ?? 3;
+  const initialDelayMs = opts.initialDelayMs ?? 1000;
+  const factor = opts.factor ?? 2;
+  const doVerify = opts.verify !== undefined ? opts.verify : true;
+  const createTransport = opts.createTransport;
+
+  let attempt = 0;
+  let lastError: any = null;
+  while (attempt < attempts) {
+    attempt += 1;
+    try {
+      const nodemailer = await import('nodemailer');
+      const transporter = (createTransport && createTransport()) || nodemailer.default.createTransport(config);
+      debugLog(`[email] Attempt ${attempt} - sending email to ${mailOptions.to}`);
+      if (doVerify) await transporter.verify();
+      const info = await transporter.sendMail(mailOptions);
+      debugLog(`[email] Sent on attempt ${attempt} - info: ${info && info.messageId}`);
+      return info;
+    } catch (err: any) {
+      lastError = err;
+      if (isRetryableError(err) && attempt < attempts) {
+        const delayMs = Math.floor(initialDelayMs * Math.pow(factor, attempt - 1) + Math.random() * 200);
+        debugLog(`[email] Temporary error (attempt ${attempt}): ${err.code || err.message}. Retrying in ${delayMs}ms`);
+        await new Promise(res => setTimeout(res, delayMs));
+        continue;
+      }
+      debugLog(`[email] Permanent error or no more retries: ${err.code || err.message}`);
+      throw err;
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -191,7 +238,7 @@ export async function sendSantaReply(params: SantaEmailParams): Promise<boolean>
     
     // Dynamic import of nodemailer to avoid bundling issues
     const nodemailer = await import('nodemailer');
-    
+
     const config = getEmailConfig();
     console.log('📧 SMTP Config:', { host: config.host, port: config.port, user: config.auth.user });
     
@@ -201,27 +248,28 @@ export async function sendSantaReply(params: SantaEmailParams): Promise<boolean>
       return false;
     }
 
-    console.log('📧 Creating transporter...');
-    // Create transporter
-    const transporter = nodemailer.default.createTransport(config);
-
-    console.log('📧 Verifying connection...');
-    // Verify connection
-    await transporter.verify();
-    console.log('✅ SMTP connection verified');
-
-    console.log('📧 Sending email...');
-    // Send email
-    const info = await transporter.sendMail({
+    const mailOptions = {
       from: `"Santa Claus 🎅" <${config.auth.user}>`,
       to: params.parentEmail,
       subject: `🎄 A Special Letter from Santa for ${params.childName}! 🎅`,
       text: params.santaReply, // Plain text fallback
       html: createSantaEmailHTML(params.childName, params.santaReply),
-    });
+    };
 
-    console.log('✅ Santa email sent:', info.messageId);
-    return true;
+    try {
+      await sendMailWithRetries(config, mailOptions, {
+        attempts: parseInt(process.env.SMTP_RETRY_ATTEMPTS || '3', 10),
+        initialDelayMs: parseInt(process.env.SMTP_RETRY_INITIAL_MS || '1000', 10),
+        factor: 2,
+        verify: true,
+        createTransport: () => nodemailer.default.createTransport(config),
+      });
+      debugLog('✅ Santa email sent');
+      return true;
+    } catch (err) {
+      console.error('❌ Error sending Santa email after retries:', err);
+      return false;
+    }
   } catch (error) {
     console.error('❌ Error sending Santa email:', error);
     return false;
@@ -265,11 +313,7 @@ export async function sendAlertEmail(deviceName: string, deviceIp: string): Prom
       return false;
     }
 
-    // Create transporter
-    const transporter = nodemailer.default.createTransport(config);
-
-    // Verify connection
-    await transporter.verify();
+    // We will use the sendMailWithRetries helper which will create the transporter and handle verify/retries
     
     // Escape HTML in device name and IP
     const safeName = escapeHtml(deviceName);
@@ -391,16 +435,23 @@ export async function sendAlertEmail(deviceName: string, deviceIp: string): Prom
 </html>
     `;
 
-    // Send email
-    const info = await transporter.sendMail({
+    const mailOptions = {
       from: `"Device Monitor" <${config.auth.user}>`,
       to: config.auth.user, // Send to admin (same as SMTP_USER)
       subject: `⚠️ Device Offline: ${deviceName} (${deviceIp})`,
       text: `DEVICE OFFLINE ALERT\n\nDevice Name: ${deviceName}\nIP Address: ${deviceIp}\nTime: ${new Date().toLocaleString()}\n\nThe device is not responding to ping requests. Please check the device and network connection.`,
       html: htmlContent,
+    };
+
+    const info = await sendMailWithRetries(config, mailOptions, {
+      attempts: parseInt(process.env.SMTP_RETRY_ATTEMPTS || '3', 10),
+      initialDelayMs: parseInt(process.env.SMTP_RETRY_INITIAL_MS || '1000', 10),
+      factor: 2,
+      verify: true,
+      createTransport: () => nodemailer.default.createTransport(config),
     });
 
-    console.log('✅ Device alert email sent:', info.messageId);
+    debugLog('✅ Device alert email sent:', info.messageId);
     return true;
   } catch (error) {
     console.error('❌ Error sending device alert email:', error);
