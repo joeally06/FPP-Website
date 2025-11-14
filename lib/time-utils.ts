@@ -148,6 +148,17 @@ export function getUtcNow(): string {
 }
 
 /**
+ * Get a SQL-friendly UTC timestamp like 'YYYY-MM-DD HH:mm:ss'
+ */
+export function getUtcSqlNow(): string {
+  return DateTime.utc().toFormat('yyyy-MM-dd HH:mm:ss');
+}
+
+export function getUtcSqlTimestampOffset(amount: number, unit: 'hours' | 'minutes' | 'days' = 'hours'): string {
+  return DateTime.utc().minus({ [unit]: amount }).toFormat('yyyy-MM-dd HH:mm:ss');
+}
+
+/**
  * Convert local time input to UTC for database storage
  * Used for form inputs where user enters time in their timezone
  */

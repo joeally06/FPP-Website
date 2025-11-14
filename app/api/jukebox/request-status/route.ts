@@ -35,12 +35,14 @@ export async function GET(request: NextRequest) {
       console.log(`  ID ${entry.id}: ${entry.sequence_name} | ${entry.created_at} | ${entry.status}`);
     });
     
+    // Use parameterized timestamp to avoid timezone issues and ensure consistent boundaries
+    const oneHourAgoForSql = getUtcSqlTimestampOffset(1, 'hours');
     const usedRequests = db.prepare(`
       SELECT COUNT(*) as count 
       FROM jukebox_queue 
       WHERE requester_ip = ? 
-        AND created_at >= datetime('now', '-1 hour')
-    `).get(requester_ip) as { count: number };
+        AND created_at >= ?
+    `).get(requester_ip, oneHourAgoForSql) as { count: number };
 
     const requestsUsed = usedRequests.count;
     const requestsRemaining = Math.max(0, rateLimit - requestsUsed);

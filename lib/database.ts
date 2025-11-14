@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 
 // Initialize database
-const dbPath = path.join(process.cwd(), 'votes.db');
+const dbPath = process.env.VOTES_DB_PATH || path.join(process.cwd(), 'votes.db');
 const db = new Database(dbPath);
 
 // ========================================
