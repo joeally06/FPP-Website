@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { addToQueue, getQueue, incrementSequenceRequests, getMediaNameForSequence } from '@/lib/database';
 import { addToQueueTransactional } from '@/lib/jukebox-queue';
 import { getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
-import { getUtcNow, getUtcOffset } from '@/lib/time-utils';
+import { getUtcNow, getUtcOffset, getUtcSqlTimestampOffset } from '@/lib/time-utils';
+import { debugLog } from '@/lib/logging';
 import db from '@/lib/database';
 
 export async function GET() {
@@ -119,9 +120,9 @@ export async function POST(request: NextRequest) {
     const now = getUtcNow();
     const oneHourAgo = getUtcOffset(1, 'hours');
     
-    console.log(`[Queue DEBUG] Request just added - ID: ${result.lastInsertRowid}`);
-    console.log(`[Queue DEBUG] Current time (UTC): ${now}`);
-    console.log(`[Queue DEBUG] One hour ago (UTC): ${oneHourAgo}`);
+    debugLog(`[Queue DEBUG] Request just added - ID: ${result.lastInsertRowid}`);
+    debugLog(`[Queue DEBUG] Current time (UTC): ${now}`);
+    debugLog(`[Queue DEBUG] One hour ago (UTC): ${oneHourAgo}`);
     
     // Get all recent entries to see what's being counted
     const recentEntries = db.prepare(`
@@ -132,9 +133,9 @@ export async function POST(request: NextRequest) {
       ORDER BY created_at DESC
     `).all(requester_ip);
     
-    console.log(`[Queue DEBUG] Entries in last hour for IP ${requester_ip}:`);
+    debugLog(`[Queue DEBUG] Entries in last hour for IP ${requester_ip}:`);
     recentEntries.forEach((entry: any) => {
-      console.log(`  ID ${entry.id}: ${entry.sequence_name} | ${entry.created_at} | ${entry.status}`);
+      debugLog(`  ID ${entry.id}: ${entry.sequence_name} | ${entry.created_at} | ${entry.status}`);
     });
     
     const oneHourAgoForSql = getUtcSqlTimestampOffset(1, 'hours');
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
     const requestsUsed = usedRequests.count;
     const requestsRemaining = Math.max(0, rateLimit - requestsUsed);
 
-    console.log(`[Queue POST - AFTER INSERT] IP: ${requester_ip} | Rate Limit: ${rateLimit} | Used: ${requestsUsed} | Remaining: ${requestsRemaining}`);
+    debugLog(`[Queue POST - AFTER INSERT] IP: ${requester_ip} | Rate Limit: ${rateLimit} | Used: ${requestsUsed} | Remaining: ${requestsRemaining}`);
 
     return NextResponse.json({ 
       success: true, 

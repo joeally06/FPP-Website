@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
-import { getUtcNow, getUtcOffset } from '@/lib/time-utils';
+import { getUtcNow, getUtcOffset, getUtcSqlTimestampOffset } from '@/lib/time-utils';
+import { debugLog } from '@/lib/logging';
 import db from '@/lib/database';
 
 /**
@@ -18,8 +19,8 @@ export async function GET(request: NextRequest) {
     const now = getUtcNow();
     const oneHourAgo = getUtcOffset(1, 'hours');
     
-    console.log(`[Request Status DEBUG] Current time (UTC): ${now}`);
-    console.log(`[Request Status DEBUG] One hour ago (UTC): ${oneHourAgo}`);
+    debugLog(`[Request Status DEBUG] Current time (UTC): ${now}`);
+    debugLog(`[Request Status DEBUG] One hour ago (UTC): ${oneHourAgo}`);
     
     // Get detailed entries for debugging
     const allEntries = db.prepare(`
@@ -30,9 +31,9 @@ export async function GET(request: NextRequest) {
       LIMIT 10
     `).all(requester_ip);
     
-    console.log(`[Request Status DEBUG] Last 10 entries for IP ${requester_ip}:`);
+    debugLog(`[Request Status DEBUG] Last 10 entries for IP ${requester_ip}:`);
     allEntries.forEach((entry: any) => {
-      console.log(`  ID ${entry.id}: ${entry.sequence_name} | ${entry.created_at} | ${entry.status}`);
+      debugLog(`  ID ${entry.id}: ${entry.sequence_name} | ${entry.created_at} | ${entry.status}`);
     });
     
     // Use parameterized timestamp to avoid timezone issues and ensure consistent boundaries
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     const requestsUsed = usedRequests.count;
     const requestsRemaining = Math.max(0, rateLimit - requestsUsed);
 
-    console.log(`[Request Status POLL] IP: ${requester_ip} | Rate Limit: ${rateLimit} | Used: ${requestsUsed} | Remaining: ${requestsRemaining}`);
+    debugLog(`[Request Status POLL] IP: ${requester_ip} | Rate Limit: ${rateLimit} | Used: ${requestsUsed} | Remaining: ${requestsRemaining}`);
 
     return NextResponse.json({
       success: true,

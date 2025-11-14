@@ -1,4 +1,5 @@
-import fetch from 'node-fetch';
+// @ts-nocheck
+const fetch = (...args) => import('node-fetch').then(m => m.default(...args));
 import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
