@@ -88,8 +88,62 @@ This document summarizes findings from a thorough review of the repository's cod
   ```
 
 4. Security hardening final checks
-- Issue: Security changes are good but need verification (NextAuth settings, strict cookies, CSP/headers, and rate limiting in CI). Check for any missing admin-only checks.
-- Fix: Add hardening to production: enable secure cookies (HTTPS), HSTS, CSP security headers, and confirm NextAuth secrets and Allowed Origins are minimal and logged.
+ - Issue: Security changes are good but need verification (NextAuth settings, strict cookies, CSP/headers, and rate limiting in CI). Check for any missing admin-only checks.
+ - Fix: Add hardening to production: enable secure cookies (HTTPS), HSTS, CSP security headers, and confirm NextAuth secrets and Allowed Origins are minimal and logged.
+
+Checklist and steps to verify:
+
+- Ensure HSTS is configured in production (added to `next.config.ts`):
+  - HTTP header: `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+  - Verify in a browser dev tools or `curl -I https://yourdomain`.
+
+- Verify CSP is set in `next.config.ts` (Content-Security-Policy header) and email template CSPs where needed.
+
+- Verify other security headers present:
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `X-XSS-Protection: 1; mode=block` (optional, modern browsers deprecate this in favor of CSP)
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+- Verify `NextAuth` configuration for production:
+  - `NEXTAUTH_SECRET` must be set and strong (>= 32 chars)
+  - `NEXTAUTH_URL` should use HTTPS in production
+  - `authOptions.useSecureCookies` is enabled
+  - The `session` strategy is `jwt` and `session.maxAge` has reasonable expiry
+
+- CI-based validation (added): `scripts/check-security.js` verifies `NEXTAUTH_SECRET` and `NEXTAUTH_URL` for production and warns if SMTP is not configured. This is run in the CI pipeline before build.
+
+- Verify admin-only API endpoints' authentication and ACLs. Examples:
+  - `POST /api/settings` should be admin-only (Verify `getSession` guard or middleware)
+  - `POST /api/jukebox/queue` Insert/checks should verify `requester_ip` & rate-limits
+
+- Rate limiting and abuse prevention checks:
+  - Confirm database-backed rate limits in `lib/rate-limit.ts` are used for public APIs
+  - Run concurrency tests (script included) to validate token bucket and insert atomicity
+
+Commands to run locally or in production to verify:
+
+```bash
+# Check headers from production
+curl -I https://fpp.yourdomain.com
+
+# Run the CI security script locally (simulate CI)
+NODE_ENV=production node scripts/check-security.js
+
+# Validate that NextAuth cookies are secure (HTTP only and secure flag set):
+# Inspect browser dev tools after login, or use curl with cookies to inspect
+```
+
+If any checks fail:
+- If `NEXTAUTH_SECRET` isn't set, generate one using `openssl rand -hex 32` and populate `.env.local` or the environment in the deployment system.
+- Re-run the setup wizard or manually set `NEXTAUTH_URL` correctly.
+- Make sure HSTS and CSP are present and correctly configured; if you need to allow extra domains for analytics or external services, append them to the CSP `scripts-src` or `connect-src` values.
+
+Optional follow-ups:
+- Add an automated SAST or security linter in CI (e.g., `eslint-plugin-security` or `nodejsscan`), especially for SQL/command injection patterns.
+- Add Sentry integration or similar Application Performance Monitoring (APM) to track repeated attempts to change admin data or repeated auth failures.
+
 
 
 ### Medium Severity

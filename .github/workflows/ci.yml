@@ -21,6 +21,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security Checks
+        # Force NODE_ENV to 'production' for security validations in CI
+        run: NODE_ENV=production node -r esbuild-register scripts/check-security.js
+
       - name: Lint
         run: npm run lint
 

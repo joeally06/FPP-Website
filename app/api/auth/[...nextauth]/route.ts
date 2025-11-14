@@ -20,6 +20,19 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 60, // 30 minutes
     updateAge: 5 * 60, // Refresh every 5 minutes of activity
   },
+  // Force secure cookies in production
+  useSecureCookies: process.env.NODE_ENV === 'production',
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    }
+  },
   callbacks: {
     async signIn({ user, account, profile }) {
       const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
@@ -76,5 +89,10 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
+
+// Warn if the NEXTAUTH_SECRET isn't present in production
+if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
+  console.warn('[SECURITY] NEXTAUTH_SECRET is not set in production - please set a strong secret');
+}
 
 export { handler as GET, handler as POST };
