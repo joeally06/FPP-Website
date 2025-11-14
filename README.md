@@ -5,6 +5,7 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16.0-black)](https://nextjs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/joeally06/FPP-Control-Center/actions/workflows/ci.yml/badge.svg)](https://github.com/joeally06/FPP-Control-Center/actions/workflows/ci.yml)
 
 ---
 
