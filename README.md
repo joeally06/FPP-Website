@@ -92,6 +92,7 @@ This project includes a GitHub Actions workflow at `.github/workflows/ci.yml` th
 - Lints the code (`npm run lint`)
 - Builds the project (`npm run build`) with dummy env vars for CI
 - Runs the TypeScript test scripts under `scripts/` that validate migrations, jukebox queue behaviour, SQL request counting, and SMTP retry/backoff
+ - Runs a CI security validation script, `scripts/check-security.js`, that verifies production-critical environment variables like `NEXTAUTH_SECRET` and `NEXTAUTH_URL` are present or warns in CI.
 
 To run the same validation locally, use:
 
