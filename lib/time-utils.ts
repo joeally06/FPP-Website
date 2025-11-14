@@ -13,15 +13,9 @@ export function formatDateTime(
   if (!utcTimestamp) return 'Never';
 
   try {
-    // SQLite stores as 'YYYY-MM-DD HH:MM:SS', need to convert to ISO format
-    // by replacing space with 'T' and appending 'Z' for UTC
-    let isoString = utcTimestamp;
-    if (utcTimestamp.includes(' ') && !utcTimestamp.includes('T')) {
-      isoString = utcTimestamp.replace(' ', 'T') + 'Z';
-    }
-    
-    const dt = DateTime.fromISO(isoString, { zone: 'utc' })
-      .setZone(APP_TIMEZONE);
+    const dtRaw = parseDbTimestamp(utcTimestamp);
+    if (!dtRaw) return 'Invalid date';
+    const dt = dtRaw.setZone(APP_TIMEZONE);
 
     // Check if parsing was successful
     if (!dt.isValid) {
@@ -71,7 +65,8 @@ export function isRecent(utcTimestamp: string | null, minutes: number = 5): bool
   if (!utcTimestamp) return false;
   
   try {
-    const dt = DateTime.fromISO(utcTimestamp, { zone: 'utc' });
+    const dt = parseDbTimestamp(utcTimestamp);
+    if (!dt) return false;
     const now = DateTime.now();
     
     return now.diff(dt, 'minutes').minutes <= minutes;
@@ -177,6 +172,62 @@ export function localToUtc(localTimestamp: string): string {
  */
 export function getUtcOffset(amount: number, unit: 'hours' | 'minutes' | 'days' = 'hours'): string {
   return DateTime.utc().minus({ [unit]: amount }).toISO() || '';
+}
+
+/**
+ * Parse a database timestamp which may be in ISO-8601 or SQL 'YYYY-MM-DD HH:mm:ss' format
+ * Returns a Luxon DateTime in UTC or null if parsing fails
+ */
+export function parseDbTimestamp(input: string | null | undefined): DateTime | null {
+  if (!input) return null;
+  try {
+    let dt: DateTime;
+    // If it looks like an SQL datetime (space between date and time), use fromSQL
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(input)) {
+      dt = DateTime.fromSQL(input, { zone: 'utc' });
+    } else {
+      // Otherwise try ISO parsing (includes timezone info)
+      dt = DateTime.fromISO(input, { zone: 'utc' });
+    }
+
+    if (!dt.isValid) {
+      // Fallback: try replacing space with 'T' and appending Z
+      if (input.includes(' ') && !input.includes('T')) {
+        const isoStr = input.replace(' ', 'T') + 'Z';
+        dt = DateTime.fromISO(isoStr, { zone: 'utc' });
+      }
+    }
+
+    if (!dt.isValid) return null;
+    return dt;
+  } catch (err) {
+    console.error('[Time Utils] parseDbTimestamp error:', err);
+    return null;
+  }
+}
+
+/**
+ * Convert input (Date | DateTime | ISO string) to SQL-friendly UTC datetime string 'YYYY-MM-DD HH:mm:ss' for DB storage
+ */
+export function toDbSqlString(input?: Date | string | DateTime): string {
+  try {
+    let dt: DateTime;
+    if (!input) {
+      dt = DateTime.utc();
+    } else if (typeof input === 'string') {
+      const parsed = parseDbTimestamp(input);
+      dt = parsed ?? DateTime.fromISO(input, { zone: 'utc' });
+    } else if ((input as DateTime).isValid) {
+      dt = (input as DateTime).setZone('utc');
+    } else {
+      dt = DateTime.fromJSDate(input as Date).toUTC();
+    }
+
+    return dt.toFormat('yyyy-MM-dd HH:mm:ss');
+  } catch (err) {
+    console.error('[Time Utils] toDbSqlString error:', err);
+    return DateTime.utc().toFormat('yyyy-MM-dd HH:mm:ss');
+  }
 }
 
 /**
