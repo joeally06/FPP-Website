@@ -156,6 +156,11 @@ Optional follow-ups:
   if (!s.includes('T')) s = s.replace(' ', 'T') + 'Z';
   return DateTime.fromISO(s);
   ```
+ - Implemented: Added `parseDbTimestamp` and `toDbSqlString` functions in `lib/time-utils.ts` that handle SQL `YYYY-MM-DD HH:MM:SS` and ISO `YYYY-MM-DDTHH:MM:SSZ` formats.
+   - `parseDbTimestamp` will prefer SQL parsing for `YYYY-MM-DD HH:MM:SS` and fallback to ISO parsing.
+   - `toDbSqlString` returns `YYYY-MM-DD HH:MM:SS` (UTC) to ensure consistent DB writes.
+   - `formatDateTime` and `isRecent` now use `parseDbTimestamp` internally, ensuring consistent parsing and display across the app.
+ - Tests: Added `scripts/test-time-utils.ts` and integrated it into `npm run test:ci` and CI workflow to validate parsing, conversion, and display logic.
 
 2. Preconditions for rate-limit actions
 - Issue: The API may create a race between insert and count.
