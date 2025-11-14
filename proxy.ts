@@ -138,6 +138,12 @@ export async function proxy(request: NextRequest) {
     'camera=(), microphone=(), geolocation=()'
   );
 
+  // Strict-Transport-Security (HSTS) - only when running on HTTPS in production
+  const proto = request.headers.get('x-forwarded-proto') || request.headers.get('x-forwarded-protocol') || '';
+  if (process.env.NODE_ENV === 'production' && proto.includes('https')) {
+    response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  }
+
   return response;
 }
 
