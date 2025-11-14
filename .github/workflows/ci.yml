@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        env:
+          NODE_ENV: production
+          NEXTAUTH_SECRET: testsecret
+          NEXTAUTH_URL: http://localhost:3000
+          GOOGLE_CLIENT_ID: test
+          GOOGLE_CLIENT_SECRET: test
+          SMTP_HOST: 127.0.0.1
+          SMTP_PORT: 1025
+          SMTP_AUTH_USER: test
+          SMTP_AUTH_PASS: test
+        run: npm run build
+
+      - name: Run email retry tests
+        run: node -r esbuild-register scripts/test-email-retries.ts
+
+      - name: Run email auth fail test
+        run: node -r esbuild-register scripts/test-email-retries-auth-fail.ts
+
+      - name: Run jukebox queue transaction test
+        run: node -r esbuild-register scripts/test-jukebox-queue-transaction.ts
+
+      - name: Run request-status test
+        run: node -r esbuild-register scripts/test-request-status.ts
+
+      - name: Run migration runner test
+        run: node -r esbuild-register scripts/test-migrations.ts
