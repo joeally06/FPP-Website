@@ -83,6 +83,26 @@ chmod +x setup.sh
 
 The interactive wizard walks you through everything in **10-15 minutes**.
 
+## CI and Tests ✅
+
+This project includes a GitHub Actions workflow at `.github/workflows/ci.yml` that runs on push and pull requests for `main`/`master` and performs the following checks:
+
+- Installs dependencies via `npm ci`
+- Lints the code (`npm run lint`)
+- Builds the project (`npm run build`) with dummy env vars for CI
+- Runs the TypeScript test scripts under `scripts/` that validate migrations, jukebox queue behaviour, SQL request counting, and SMTP retry/backoff
+
+To run the same validation locally, use:
+
+```bash
+npm ci
+npm run lint
+npm run build
+npm run test:ci
+```
+
+The `test:ci` script runs the project's TypeScript test files sequentially and places test database files in `./tmp/`.
+
 ### **Option 2: Manual Setup**
 
 See the complete [INSTALLATION.md](docs/INSTALLATION.md) guide for step-by-step instructions.
