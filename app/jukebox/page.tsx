@@ -327,68 +327,74 @@ export default function JukeboxPage() {
   }, [availableSequences]);
 
   const fetchAvailableSequences = async () => {
+    setLoadingSequences(true);
+    setMessage('');
+    
     try {
-      setLoadingSequences(true);
+      console.log('[Jukebox] Fetching available sequences from cache...');
       
-      // Try to get cached media files first
-      const cacheResponse = await fetch('/api/jukebox/sequences');
-      if (cacheResponse.ok) {
-        const cacheData = await cacheResponse.json();
+      // Always use the public cached sequences endpoint
+      const response = await fetch('/api/jukebox/sequences');
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableSequences(Array.isArray(data.sequences) ? data.sequences : []);
         
-        // Check if cache is recent (within 10 minutes)
-        if (cacheData.lastUpdated) {
-          const cacheAge = Date.now() - new Date(cacheData.lastUpdated).getTime();
-          const tenMinutes = 10 * 60 * 1000;
-          
-          if (cacheAge < tenMinutes && cacheData.sequences.length > 0) {
-            setAvailableSequences(cacheData.sequences);
-            setLoadingSequences(false);
-            return;
-          }
+        if (data.sequences.length === 0) {
+          setMessage('⚠️ No songs available. Admin needs to refresh the cache.');
+        } else {
+          console.log(`[Jukebox] Loaded ${data.sequences.length} sequences from cache`);
         }
+      } else {
+        console.error('[Jukebox] Failed to fetch sequences');
+        setAvailableSequences([]);
+        setMessage('❌ Failed to load available songs. Please try again.');
       }
-      
-      // If no cache or cache is stale, refresh it
-      await refreshSequenceCache();
     } catch (error) {
-      console.error('Error fetching available sequences:', error);
-      setMessage('❌ Failed to load available songs. Please check FPP connection and try refreshing.');
+      console.error('[Jukebox] Error fetching available sequences:', error);
+      setAvailableSequences([]);
+      setMessage('❌ Failed to load available songs. Please check your connection.');
+    } finally {
       setLoadingSequences(false);
     }
   };
 
   const refreshSequenceCache = async () => {
+    if (!isAdmin) {
+      setMessage('⚠️ Only admins can refresh the song cache.');
+      return;
+    }
+    
     setLoadingSequences(true);
-    setMessage('🔄 Refreshing sequence cache...');
+    setMessage('🔄 Refreshing sequence cache from FPP...');
     
     try {
-      const refreshResponse = await fetch('/api/jukebox/refresh-cache', {
+      const response = await fetch('/api/jukebox/refresh-cache', {
         method: 'POST'
       });
       
-      const refreshData = await refreshResponse.json();
+      const data = await response.json();
       
-      if (refreshData.success) {
-        setAvailableSequences(refreshData.sequences);
-        setMessage(`✅ Cache refreshed with ${refreshData.sequencesCached} sequences`);
-        setTimeout(() => setMessage(''), 3000); // Clear message after 3 seconds
+      if (data.success) {
+        setMessage(`✅ Cache refreshed! ${data.sequencesCached} sequences loaded.`);
+        // Reload sequences from cache
+        await fetchAvailableSequences();
       } else {
-        // Show specific error message from API
-        const errorMsg = refreshData.details || refreshData.error || 'Failed to refresh sequence cache';
-        
-        if (refreshData.error === 'FPP is offline') {
+        const errorMsg = data.details || data.error || 'Failed to refresh cache';
+        if (data.error === 'FPP is offline') {
           setMessage('⚠️ FPP is offline. Cannot refresh cache at this time.');
-        } else if (refreshData.error === 'FPP server timeout') {
+        } else if (data.error === 'FPP server timeout') {
           setMessage('⏱️ FPP server timeout. The server may be offline or busy.');
         } else {
           setMessage(`❌ ${errorMsg}`);
         }
       }
     } catch (error) {
-      console.error('Error refreshing sequence cache:', error);
-      setMessage('❌ Network error while refreshing cache. Please check your connection.');
+      console.error('[Jukebox] Error refreshing cache:', error);
+      setMessage('❌ Network error while refreshing cache.');
     } finally {
       setLoadingSequences(false);
+      setTimeout(() => setMessage(''), 5000);
     }
   };
 

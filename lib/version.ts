@@ -11,8 +11,8 @@
 export const APP_VERSION = {
   major: 1,
   minor: 0,
-  patch: 1,
-  prerelease: 'rc.3', // Release Candidate 3
+  patch: 4,
+  prerelease: undefined, // Stable release
   build: null as string | null, // Git commit hash
 };
 
@@ -50,6 +50,22 @@ export function getVersionInfo() {
 
 // Version history and changelog
 export const VERSION_HISTORY = [
+  {
+    version: '1.0.4',
+    date: '2025-11-23',
+    name: 'Public Access & Rate Limiting Fixes',
+    changes: [
+      'Fixed Santa letter daily limit not respecting admin-configured values',
+      'Added public endpoint for Santa settings (/api/santa/settings)',
+      'Fixed jukebox sequences requiring admin authentication',
+      'Public users can now browse cached songs without login',
+      'Removed FPP refresh requirement for public jukebox access',
+      'Admin-only manual cache refresh button in jukebox',
+      'Database migration system improvements',
+      'Added spotify_url column to sequence_metadata table',
+      'Removed GitHub link from footer',
+    ],
+  },
   {
     version: '1.0.1-rc.3',
     date: '2025-11-09',

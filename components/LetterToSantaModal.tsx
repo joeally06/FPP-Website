@@ -39,13 +39,19 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
 
   const fetchDailyLimit = async () => {
     try {
-      const response = await fetch('/api/settings/santa-letters');
+      // Use public endpoint instead of admin-only settings
+      const response = await fetch('/api/santa/settings');
       if (response.ok) {
         const data = await response.json();
         setDailyLimit(data.limit || 1);
+        console.log('[Santa Modal] Daily limit fetched:', data.limit);
+      } else {
+        console.warn('[Santa Modal] Failed to fetch limit, using default');
+        setDailyLimit(1);
       }
     } catch (error) {
-      console.error('Failed to fetch daily limit:', error);
+      console.error('[Santa Modal] Failed to fetch daily limit:', error);
+      setDailyLimit(1);
     } finally {
       setLoadingLimit(false);
     }
@@ -66,6 +72,11 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
         setEmailCount(data.emailCount || 0);
         setIpCount(data.ipCount || 0);
         setLetterCount(data.count || 0); // Use the max of email/IP counts
+        
+        // Use limit from check-limit response if available
+        if (typeof data.limit === 'number') {
+          setDailyLimit(data.limit);
+        }
       }
     } catch (error) {
       console.error('Failed to check letter count:', error);
