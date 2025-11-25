@@ -20,16 +20,28 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 60, // 30 minutes
     updateAge: 5 * 60, // Refresh every 5 minutes of activity
   },
-  // Force secure cookies in production
+  // Force secure cookies in production only
   useSecureCookies: process.env.NODE_ENV === 'production',
-  cookies: {
+  cookies: process.env.NODE_ENV === 'production' ? {
+    // Production: Use __Secure- prefix for HTTPS
     sessionToken: {
       name: `__Secure-next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production'
+        secure: true
+      }
+    }
+  } : {
+    // Development: Use standard cookie name for HTTP (localhost)
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false
       }
     }
   },

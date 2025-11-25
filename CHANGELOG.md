@@ -19,6 +19,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2025-11-25
+
+### Visitor Audio Sync System Release 🎵
+
+#### 🎉 Added
+
+- **Audio Sync System**
+  - Real-time audio playback synchronized with FPP light shows
+  - Server-Sent Events (SSE) architecture for efficient streaming
+  - Automatic audio file detection and matching (no manual mapping required)
+  - Smart filename matching algorithm (exact match → partial match → normalized match)
+  - Support for MP3, WAV, OGG, M4A, FLAC, and AAC formats
+  - Visitor-facing audio player with manual controls
+  - Play/Pause/Stop controls with proper sync behavior
+  - Volume controls with mute functionality
+  - Connection status indicator
+  - Auto-reconnect on disconnect (5-second retry)
+  - Keep-alive ping system (30-second intervals)
+
+- **Admin Media Manager**
+  - Download audio files from FPP server
+  - Playlist-based filtering for organized downloads
+  - Local file management (view, delete)
+  - File size and modification date tracking
+  - Playlist details viewer (songs, duration, count)
+  - Usage indicators (files used in active playlists)
+  - Batch operations support
+
+- **Audio Sync Server (`/api/audio/sync`)**
+  - SSE endpoint with ReadableStream
+  - FPP status polling every 2 seconds
+  - Conditional broadcast (20-second interval or state change)
+  - Position calculation with timestamp interpolation
+  - Automatic audio file scanning from `public/audio/`
+  - Multi-client support with broadcast tracking
+  - Graceful error handling and client cleanup
+
+#### 🎨 UI/UX Improvements
+
+- **Unified Theme**
+  - Consistent purple/blue gradient cards across jukebox and admin
+  - `bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30`
+  - Inner sections: `bg-white/5 border border-white/20`
+  - Backdrop blur effects for modern glass morphism
+  - Mobile-responsive design
+
+- **AudioSyncPlayer Component**
+  - Clean, minimalist interface
+  - Prominent connection status
+  - User-controlled playback (no auto-play on page load)
+  - Real-time status updates
+  - Smooth transitions and animations
+  - Error handling without user-facing messages
+
+#### ⚙️ Performance Optimizations
+
+- **Smart Sync Logic**
+  - 10-second drift tolerance (prevents micro-adjustments)
+  - Only syncs when drift is significant (>10 seconds)
+  - Natural catch-up for moderate drift (5-10 seconds)
+  - Position updates during pause (ready for resume)
+  - Minimized audio seeking operations
+  - Eliminated skipping on periodic broadcasts
+
+- **Broadcast Optimization**
+  - Conditional broadcasting (state change OR 20-second interval)
+  - Last broadcast timestamp tracking
+  - Prevents excessive position updates
+  - Efficient client notification system
+  - Immediate broadcast on sequence changes
+
+#### 🔧 Technical Details
+
+- **Auto-Detection Algorithm**
+  - Scans `public/audio/` directory on server start
+  - Normalizes filenames: lowercase, remove apostrophes, replace `_`/`-` with spaces
+  - Matching priority:
+    1. Exact match (case-insensitive)
+    2. Partial match (filename contains sequence name)
+    3. Normalized match (handles special characters)
+  - Successfully matches 15+ audio files automatically
+
+- **Sync Calculation**
+  - Position: `base_position + (Date.now() - timestamp) / 1000`
+  - Client-side drift detection
+  - Server-side position tracking
+  - Timestamp-based interpolation for accuracy
+
+#### 🐛 Fixed
+
+- Audio skipping on periodic server broadcasts
+- Excessive position resyncs causing audio interruptions
+- Browser autoplay policy handling
+- Connection state management
+- Build cache issues with Next.js
+- Error message display (removed user-facing errors)
+
+#### 📝 Documentation
+
+- Complete audio sync implementation guide
+- Admin media manager usage instructions
+- Technical architecture documentation
+- Troubleshooting guide for common issues
+- Browser compatibility notes
+
+#### 🚀 Migration Notes
+
+- No database migrations required
+- Backward compatible with existing installations
+- Audio files must be placed in `public/audio/`
+- No manual mapping file needed (auto-detection replaces manual mapping)
+- Works with existing FPP integration
+
+---
+
 ## [1.0.2-rc.1] - 2025-11-10
 
 ### Schedule-Aware Jukebox & Service Management Release

@@ -64,3 +64,14 @@ logs/*.log
 logs/*.pid
 .update-requested
 .restart-signal
+
+# audio files (large media files - downloaded from FPP)
+public/audio/*.mp3
+public/audio/*.wav
+public/audio/*.ogg
+public/audio/*.m4a
+public/audio/*.flac
+public/audio/*.aac
+
+# audio mapping (keep this in git for configuration)
+# data/audio-mapping.json is tracked

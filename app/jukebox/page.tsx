@@ -10,6 +10,7 @@ import LetterToSantaModal from '@/components/LetterToSantaModal';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import EnhancedVotingCard from '@/components/EnhancedVotingCard';
 import JukeboxBanner from '@/components/JukeboxBanner';
+import AudioSyncPlayer from '@/components/AudioSyncPlayer';
 import { formatDateTime } from '@/lib/time-utils';
 import { LayoutGrid, List, Music, Radio } from 'lucide-react';
 
@@ -663,13 +664,13 @@ export default function JukeboxPage() {
         )}
 
         {/* Currently Playing */}
-        <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mb-6 border ${theme.cardBorder}`}>
+        <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mb-6 border">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2 text-white themed-font">
             <span className="text-3xl">{theme.icons.nowPlaying}</span>
             Now Playing
           </h2>
           {currentlyPlaying ? (
-            <div className={`bg-gradient-to-r from-${theme.primaryColor}/20 to-${theme.secondaryColor}/20 border-2 border-${theme.primaryColor}/40 rounded-xl p-4 backdrop-blur-sm`}>
+            <div className="bg-white/5 border border-white/20 rounded-xl p-4 backdrop-blur-sm">
               {/* Cache status indicator - only show if using cached data and it's stale */}
               {currentlyPlaying.cached && currentlyPlaying.cache_age_seconds && currentlyPlaying.cache_age_seconds > 30 && (
                 <div className="mb-3 px-3 py-2 bg-yellow-500/20 border border-yellow-500/40 rounded-lg">
@@ -690,7 +691,7 @@ export default function JukeboxPage() {
                     className="w-24 h-24 rounded-lg object-cover shadow-md ring-2 ring-white/30"
                   />
                 ) : (
-                  <div className={`w-24 h-24 bg-${theme.primaryColor}/30 rounded-lg flex items-center justify-center backdrop-blur-sm`}>
+                  <div className="w-24 h-24 bg-purple-500/30 rounded-lg flex items-center justify-center backdrop-blur-sm">
                     <span className="text-white text-3xl">{theme.icons.nowPlaying}</span>
                   </div>
                 )}
@@ -784,12 +785,19 @@ export default function JukeboxPage() {
           )}
         </div>
 
+        {/* Audio Sync Player - Show when schedule is active or user is admin */}
+        {showInteractiveFeatures && (
+          <div className="mb-6">
+            <AudioSyncPlayer />
+          </div>
+        )}
+
         {/* Interactive Features - Only show when active or admin */}
         {showInteractiveFeatures && (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Request Form */}
-              <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 border ${theme.cardBorder}`}>
+              <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold text-white themed-font flex items-center gap-2">
                 <span className="text-3xl">{theme.icons.queue}</span>
@@ -913,7 +921,7 @@ export default function JukeboxPage() {
           </div>
 
           {/* Popular Sequences */}
-          <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 border ${theme.cardBorder}`}>
+          <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
             <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
               <span className="text-3xl">{theme.icons.popular}</span>
               Popular Songs
@@ -967,7 +975,7 @@ export default function JukeboxPage() {
         </div>
 
         {/* Queue */}
-        <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mt-6 border ${theme.cardBorder}`}>
+        <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mt-6 border">
           <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
             <span className="text-3xl">{theme.icons.queue}</span>
             Queue ({queue.length} items)
@@ -977,7 +985,7 @@ export default function JukeboxPage() {
               {queue.map((item, index) => (
                 <div key={item.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all">
                   <div className="flex items-center space-x-4">
-                    <span className={`bg-gradient-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md`}>
+                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md">
                       #{index + 1}
                     </span>
                     <div>
@@ -1015,7 +1023,7 @@ export default function JukeboxPage() {
         </div>
 
         {/* All Available Songs with Voting */}
-        <div className={`backdrop-blur-md ${theme.cardBg} rounded-xl shadow-2xl p-6 mt-6 border ${theme.cardBorder}`}>
+        <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mt-6 border">
           {/* Enhanced Header with Animation */}
           <div className="flex items-center justify-between mb-6">
             <div>

@@ -10,8 +10,8 @@
 
 export const APP_VERSION = {
   major: 1,
-  minor: 0,
-  patch: 4,
+  minor: 1,
+  patch: 0,
   prerelease: undefined, // Stable release
   build: null as string | null, // Git commit hash
 };
@@ -50,6 +50,28 @@ export function getVersionInfo() {
 
 // Version history and changelog
 export const VERSION_HISTORY = [
+  {
+    version: '1.1.0',
+    date: '2025-11-25',
+    name: 'Visitor Audio Sync System',
+    changes: [
+      'Real-time audio playback synchronized with FPP light shows',
+      'Server-Sent Events (SSE) architecture for efficient streaming',
+      'Automatic audio file detection and smart matching (no manual mapping)',
+      'AudioSyncPlayer component with Play/Pause/Stop controls',
+      'Volume controls with mute functionality',
+      'Admin Media Manager for downloading audio from FPP',
+      'Playlist-based filtering for organized file management',
+      'Smart sync logic with 10-second drift tolerance',
+      'Eliminated audio skipping on periodic broadcasts',
+      'Unified purple/blue gradient theme across jukebox and admin',
+      'Auto-reconnect on disconnect with 5-second retry',
+      'Position calculation with timestamp interpolation',
+      'Support for MP3, WAV, OGG, M4A, FLAC, and AAC formats',
+      'Multi-client broadcast support',
+      'Connection status indicator with real-time updates',
+    ],
+  },
   {
     version: '1.0.4',
     date: '2025-11-23',
