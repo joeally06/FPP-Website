@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth-helpers';
 import { getCircuitBreaker } from '@/lib/circuit-breaker';
 import Database from 'better-sqlite3';
 import path from 'path';
@@ -10,12 +9,11 @@ const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
 /**
  * GET /api/fpp/health
  * Check FPP device health
- * ADMIN ONLY - Device monitoring
+ * PUBLIC ENDPOINT - Used by FPPConnectionContext for all users
  * Uses circuit breaker to avoid timeout when FPP is offline
  */
 export async function GET() {
   try {
-    await requireAdmin();
     
     const circuitBreaker = getCircuitBreaker();
     const circuitState = circuitBreaker.getState();
@@ -91,12 +89,6 @@ export async function GET() {
     }, { status: 503 });
 
   } catch (error: any) {
-    if (error.message?.includes('Authentication required')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-    if (error.message?.includes('Admin access required')) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
     console.error('[FPP Health Check] Error:', error.message);
     
     return NextResponse.json({
