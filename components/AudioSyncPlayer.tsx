@@ -110,6 +110,7 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     if (!data.audioFile || !data.isPlaying) {
       if (!audioRef.current.paused) {
         audioRef.current.pause();
+        audioRef.current.playbackRate = 1.0; // Reset playback rate
       }
       return;
     }
@@ -121,22 +122,51 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     if (currentSrc !== newAudioUrl) {
       audioRef.current.src = newAudioUrl;
       audioRef.current.load();
+      audioRef.current.playbackRate = 1.0; // Reset playback rate for new file
     }
 
     // Calculate drift
     const targetPosition = data.position + (Date.now() - data.timestamp) / 1000;
     const currentPosition = audioRef.current.currentTime;
-    const drift = Math.abs(targetPosition - currentPosition);
+    const drift = targetPosition - currentPosition; // Signed drift (positive = behind, negative = ahead)
+    const absDrift = Math.abs(drift);
 
-    // Only sync position if:
-    // 1. Drift is very large (> 10 seconds) - something went wrong
-    // 2. Manually paused (so position stays current for when user resumes)
-    // 3. Audio is not playing (so it's ready when play is hit)
-    if (drift > 10.0 || isManuallyPaused || audioRef.current.paused) {
+    // Strategy for smooth sync:
+    // 1. Large drift (>10s): Hard seek - something went very wrong
+    // 2. Medium drift (3-10s): Gradual speed adjustment - smooth catch-up
+    // 3. Small drift (<3s): Normal playback - let it naturally align
+    
+    if (isManuallyPaused || audioRef.current.paused) {
+      // When paused, always update position so it's ready when resumed
       audioRef.current.currentTime = targetPosition;
+      audioRef.current.playbackRate = 1.0;
+    } else if (absDrift > 10.0) {
+      // Hard sync for large drift - something went wrong
+      console.log(`[Audio Sync] Hard sync: drift=${absDrift.toFixed(2)}s`);
+      audioRef.current.currentTime = targetPosition;
+      audioRef.current.playbackRate = 1.0;
+    } else if (absDrift > 3.0) {
+      // Gradual speed adjustment for medium drift
+      // Speed up/slow down playback to gently catch up without jarring seeks
+      if (drift > 0) {
+        // We're behind - speed up slightly (1.05x to 1.15x)
+        const speedAdjustment = Math.min(1.15, 1.0 + (absDrift / 20));
+        audioRef.current.playbackRate = speedAdjustment;
+        console.log(`[Audio Sync] Gradual catch-up: drift=${drift.toFixed(2)}s, rate=${speedAdjustment.toFixed(2)}x`);
+      } else {
+        // We're ahead - slow down slightly (0.85x to 0.95x)
+        const speedAdjustment = Math.max(0.85, 1.0 - (absDrift / 20));
+        audioRef.current.playbackRate = speedAdjustment;
+        console.log(`[Audio Sync] Gradual slow-down: drift=${drift.toFixed(2)}s, rate=${speedAdjustment.toFixed(2)}x`);
+      }
+    } else {
+      // Small drift - maintain normal playback rate
+      // Only reset to 1.0 if it's not already close to avoid micro-adjustments
+      if (Math.abs(audioRef.current.playbackRate - 1.0) > 0.01) {
+        audioRef.current.playbackRate = 1.0;
+        console.log(`[Audio Sync] Sync achieved: drift=${drift.toFixed(2)}s, resetting to 1.0x`);
+      }
     }
-    // If drift is moderate (5-10s) while playing, let it naturally catch up
-    // This prevents constant micro-adjustments that cause skipping
 
     // Auto-play if show is playing and user wants to play (not manually paused)
     if (audioRef.current.paused && data.isPlaying && isManuallyPlaying) {
@@ -154,6 +184,9 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     const targetPosition = syncState.position + (Date.now() - syncState.timestamp) / 1000;
     audioRef.current.currentTime = targetPosition;
     
+    // Reset playback rate to normal when user manually plays
+    audioRef.current.playbackRate = 1.0;
+    
     // Enable auto-play and play
     setIsManuallyPlaying(true);
     setIsManuallyPaused(false);
@@ -168,15 +201,17 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     if (!audioRef.current) return;
     setIsManuallyPaused(true);
     setIsManuallyPlaying(false);
+    audioRef.current.playbackRate = 1.0; // Reset playback rate when paused
     audioRef.current.pause();
   };
 
   const handleStop = () => {
     if (!audioRef.current || !syncState) return;
     
-    // Stop playback
+    // Stop playback and reset rate
     setIsManuallyPaused(true);
     setIsManuallyPlaying(false);
+    audioRef.current.playbackRate = 1.0; // Reset playback rate when stopped
     audioRef.current.pause();
     
     // Sync to current show position (not zero)
