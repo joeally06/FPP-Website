@@ -56,21 +56,22 @@ export function stopMaintenanceScheduler() {
 }
 
 // Auto-start scheduler in server environment
-if (typeof window === 'undefined') {
-  // Start scheduler on module load
-  startMaintenanceScheduler();
+// MOVED TO instrumentation.ts to prevent running during build
+// if (typeof window === 'undefined') {
+//   // Start scheduler on module load
+//   startMaintenanceScheduler();
   
-  // Cleanup on process exit
-  process.on('SIGINT', () => {
-    stopMaintenanceScheduler();
-    process.exit(0);
-  });
+//   // Cleanup on process exit
+//   process.on('SIGINT', () => {
+//     stopMaintenanceScheduler();
+//     process.exit(0);
+//   });
   
-  process.on('SIGTERM', () => {
-    stopMaintenanceScheduler();
-    process.exit(0);
-  });
-}
+//   process.on('SIGTERM', () => {
+//     stopMaintenanceScheduler();
+//     process.exit(0);
+//   });
+// }
 
 export default {
   startMaintenanceScheduler,

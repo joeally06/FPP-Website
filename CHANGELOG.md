@@ -19,6 +19,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2025-11-25
+
+### Media Manager UI Redesign & Build System Fixes 🎨
+
+#### 🎉 Added
+
+- **Complete Media Manager Redesign**
+  - Workflow-centric UI: Select Playlist → Review Status → Fix Issues
+  - Clean dark theme matching admin panel (`bg-gray-800`, `border-gray-700`)
+  - Inline action buttons (Download, Map) directly in sequence rows
+  - Status badges: ✅ Ready (green), ⚠️ Needs Mapping (yellow), ❌ Missing (red)
+  - Progress summary showing Ready/Needs Mapping/Missing counts
+  - Quick action buttons for batch operations (Download All Missing, Fix All Mappings)
+  - Collapsible manual mapping sections with sequence-specific file selection
+  - Real-time status updates after downloads/mappings
+
+- **New Admin API Endpoint (`/api/admin/playlist-status`)**
+  - Aggregates playlist sequence status in one request
+  - Admin-only with session validation
+  - Returns status for each sequence: `ready`, `missing_local`, `needs_mapping`
+  - Identifies matched local files for each sequence
+  - Efficient database queries with proper error handling
+
+- **Next.js Instrumentation System (`instrumentation.ts`)**
+  - Centralized background service initialization
+  - Prevents service startup during build phase
+  - Starts Santa Queue Processor, Device Monitor, and DB Scheduler on runtime only
+  - Uses Next.js official lifecycle hook for proper server startup
+
+- **Implementation Documentation**
+  - `docs/HYBRID-AUDIO-SYNC-IMPLEMENTATION.md` - Complete technical documentation
+  - Covers architecture, sync algorithm, mapping priority, and troubleshooting
+
+#### 🐛 Fixed
+
+- **Build Process Crashes (ECONNREFUSED)**
+  - Background services (queue processor, device monitor, db-scheduler) no longer auto-start during `npm run build`
+  - Services now use `instrumentation.ts` instead of module-level auto-start
+  - Eliminates "ECONNREFUSED 127.0.0.1:3000" errors during static generation
+
+- **Audio Mapping Not Working for Special Characters**
+  - Updated sanitization regex from `/[^a-zA-Z0-9._-]/g` to `/[^a-zA-Z0-9._\-\s'()]/g`
+  - Now properly handles filenames with spaces, apostrophes, and parentheses
+  - Fixes issue where manually mapped sequences wouldn't match
+
+- **Audio Sync Algorithm Improvements**
+  - Simplified drift correction logic
+  - Tiered sync behavior: <5s ignore, 5-10s gradual, >10s immediate seek
+  - Prevents audio skipping on periodic server broadcasts
+  - Improved auto-advance to next sequence
+
+#### 🔧 Changed
+
+- **Service Architecture**
+  - `lib/santa-queue-processor.ts` - Removed auto-start, exported `startSantaQueueProcessor()`
+  - `lib/device-monitor.ts` - Removed auto-start, exported `startDeviceMonitor()`
+  - `lib/db-scheduler.ts` - Removed auto-start, exported `startDBScheduler()`
+  - All services now initialized in `instrumentation.ts` during server runtime
+
+- **Audio Sync Priority**
+  - Manual mappings now take precedence over fuzzy matching
+  - Match order: Exact filename → Manual mapping → Partial match → Normalized match
+  - Improved reliability for custom sequence names
+
+- **UI/UX Improvements**
+  - Replaced complex tabbed interface with streamlined workflow
+  - Removed card-based layout in favor of clean table view
+  - Added playlist selector dropdown with sequence counts
+  - Simplified local audio file management
+
+#### 📊 Technical Details
+
+- **Files Changed**: 11 files modified/added
+- **New Files**: `instrumentation.ts`, `app/api/admin/playlist-status/route.ts`
+- **Backup Created**: `components/AudioSyncPlayer.tsx.backup`
+- **Build Verified**: ✅ All 84 routes compile successfully
+
+#### 🚀 Migration Notes
+
+- No database migrations required
+- Fully backward compatible
+- Existing audio mappings preserved
+- No manual configuration changes needed
+
+---
+
 ## [1.1.0] - 2025-11-25
 
 ### Visitor Audio Sync System Release 🎵

@@ -9,11 +9,11 @@ interface SyncState {
   isPlaying: boolean;
   currentSequence: string | null;
   audioFile: string | null;
-  position: number; // seconds
-  timestamp: number; // Date.now()
+  position: number;
+  timestamp: number;
 }
 
-// Store SSE clients (controller objects)
+// Store SSE clients
 const clients = new Set<ReadableStreamDefaultController>();
 let currentState: SyncState = {
   isPlaying: false,
@@ -22,6 +22,19 @@ let currentState: SyncState = {
   position: 0,
   timestamp: Date.now(),
 };
+
+// Load mappings
+const MAPPING_FILE = path.join(process.cwd(), 'data', 'audio-mapping.json');
+let audioMappings: Record<string, string> = {};
+
+async function loadMappings() {
+  try {
+    const content = await fs.readFile(MAPPING_FILE, 'utf-8');
+    audioMappings = JSON.parse(content);
+  } catch (error) {
+    audioMappings = {};
+  }
+}
 
 // Load available audio files
 let availableAudioFiles: string[] = [];
@@ -33,55 +46,67 @@ async function loadAvailableAudioFiles() {
       f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg') || 
       f.endsWith('.m4a') || f.endsWith('.flac') || f.endsWith('.aac')
     );
-    console.log('[Audio Sync] Found audio files:', availableAudioFiles.length);
   } catch (error) {
-    console.error('[Audio Sync] Failed to load audio files:', error);
     availableAudioFiles = [];
   }
 }
 
+// Helper to normalize strings for comparison
+const normalize = (str: string) => {
+  return str
+    .toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 // Auto-match sequence to audio file
 function findAudioForSequence(sequenceName: string): string | null {
   if (!sequenceName) return null;
+
+  // 1. Check manual mappings first
+  if (audioMappings[sequenceName]) {
+    const mappedFile = audioMappings[sequenceName];
+    // Verify file exists
+    if (availableAudioFiles.includes(mappedFile)) {
+      return mappedFile;
+    }
+
+    // Fallback: Try to find the mapped file by normalizing names
+    // This handles cases where mapping might have underscores but file has spaces
+    const normalizedMapped = normalize(mappedFile);
+    for (const audioFile of availableAudioFiles) {
+      if (normalize(audioFile) === normalizedMapped) {
+        return audioFile;
+      }
+    }
+  }
   
-  // Remove .fseq extension if present
   const baseName = sequenceName.replace(/\.fseq$/i, '');
-  
-  // Normalize for comparison (lowercase, replace special chars with spaces)
-  const normalize = (str: string) => {
-    return str
-      .toLowerCase()
-      .replace(/['']/g, '') // Remove apostrophes
-      .replace(/[_-]/g, ' ') // Replace underscores/hyphens with spaces
-      .replace(/\s+/g, ' ') // Normalize multiple spaces
-      .trim();
-  };
   
   const normalizedBase = normalize(baseName);
   
-  // Try exact match first (after normalization)
+  // Try exact match
   for (const audioFile of availableAudioFiles) {
     const audioBase = audioFile.replace(/\.(mp3|wav|ogg|m4a|flac|aac)$/i, '');
     const normalizedAudio = normalize(audioBase);
     
     if (normalizedAudio === normalizedBase) {
-      console.log('[Audio Sync] Matched:', sequenceName, '→', audioFile);
       return audioFile;
     }
   }
   
-  // Try partial match (sequence name contains audio name or vice versa)
+  // Try partial match
   for (const audioFile of availableAudioFiles) {
     const audioBase = audioFile.replace(/\.(mp3|wav|ogg|m4a|flac|aac)$/i, '');
     const normalizedAudio = normalize(audioBase);
     
     if (normalizedBase.includes(normalizedAudio) || normalizedAudio.includes(normalizedBase)) {
-      console.log('[Audio Sync] Partial match:', sequenceName, '→', audioFile);
       return audioFile;
     }
   }
   
-  console.log('[Audio Sync] No match found for:', sequenceName);
   return null;
 }
 
@@ -102,56 +127,53 @@ async function pollFPPStatus() {
 
     const status = await response.json();
     
-    // Extract current sequence info
     const isPlaying = status.status_name === 'playing';
     const currentSequence = status.current_sequence || null;
     const position = parseFloat(status.seconds_played || '0');
+    
+    // Determine audio file
+    let audioFile: string | null = null;
+    
+    if (currentSequence) {
+      // 1. Try media_filename from FPP status if available
+      if (status.media_filename && availableAudioFiles.includes(status.media_filename)) {
+        audioFile = status.media_filename;
+      } 
+      // 2. Fallback to mapping/search logic
+      else {
+        audioFile = findAudioForSequence(currentSequence);
+      }
+    }
 
-    // Auto-match audio file from available files
-    const audioFile = currentSequence ? findAudioForSequence(currentSequence) : null;
+    const pollTimestamp = Date.now();
 
-    // Update state if changed
     const newState: SyncState = {
       isPlaying,
       currentSequence,
       audioFile,
       position,
-      timestamp: Date.now(),
+      timestamp: pollTimestamp,
     };
 
-    // Only broadcast if state changed significantly
     const stateChanged = 
       newState.isPlaying !== currentState.isPlaying ||
       newState.currentSequence !== currentState.currentSequence ||
       newState.audioFile !== currentState.audioFile;
     
-    const now = Date.now();
+    const now = pollTimestamp;
     const timeSinceLastBroadcast = now - lastBroadcastTime;
-    
-    // Broadcast if:
-    // 1. State changed (sequence/playing status)
-    // 2. Playing AND 20+ seconds since last broadcast (periodic sync)
-    const shouldBroadcast = stateChanged || (isPlaying && timeSinceLastBroadcast > 20000);
+    const shouldBroadcast = stateChanged || (isPlaying && timeSinceLastBroadcast > 2000);
     
     if (shouldBroadcast) {
-      if (stateChanged) {
-        console.log('[Audio Sync] State changed:', {
-          isPlaying,
-          currentSequence,
-          audioFile,
-          position: position.toFixed(2),
-        });
-      }
       currentState = newState;
       broadcast(currentState);
       lastBroadcastTime = now;
     } else {
-      // Just update position silently
       currentState.position = position;
-      currentState.timestamp = Date.now();
+      currentState.timestamp = pollTimestamp;
     }
   } catch (error) {
-    console.error('[Audio Sync] FPP poll error:', error);
+    // Silent error - don't spam console
   }
 }
 
@@ -164,50 +186,35 @@ function broadcast(data: SyncState) {
     try {
       controller.enqueue(message);
     } catch (error) {
-      console.error('[Audio Sync] Broadcast error:', error);
       deadClients.push(controller);
     }
   });
   
-  // Remove dead clients
   deadClients.forEach((client) => clients.delete(client));
-  
-  if (clients.size > 0) {
-    console.log('[Audio Sync] Broadcasted to', clients.size, 'clients');
-  }
 }
 
 // Initialize polling
 if (!pollingInterval) {
   loadAvailableAudioFiles();
+  loadMappings();
   pollingInterval = setInterval(() => {
     pollFPPStatus();
-    // Refresh audio file list every 30 seconds
-    if (Math.random() < 0.017) { // ~1/60 chance per poll = every 2 minutes
-      loadAvailableAudioFiles();
-    }
   }, 2000);
-  console.log('[Audio Sync] Started FPP polling');
 }
 
 // Server-Sent Events endpoint
 export async function GET(req: NextRequest) {
-  // Create a readable stream for SSE
   const stream = new ReadableStream({
     start(controller) {
-      // Add client to set
       clients.add(controller);
-      console.log('[Audio Sync] Client connected. Total clients:', clients.size);
       
-      // Send current state immediately
       const message = `data: ${JSON.stringify(currentState)}\n\n`;
       try {
         controller.enqueue(message);
       } catch (error) {
-        console.error('[Audio Sync] Initial send error:', error);
+        // Ignore
       }
       
-      // Keep-alive ping every 30 seconds
       const keepAlive = setInterval(() => {
         try {
           controller.enqueue(': ping\n\n');
@@ -217,11 +224,9 @@ export async function GET(req: NextRequest) {
         }
       }, 30000);
       
-      // Cleanup on close
       req.signal.addEventListener('abort', () => {
         clearInterval(keepAlive);
         clients.delete(controller);
-        console.log('[Audio Sync] Client disconnected. Total clients:', clients.size);
         try {
           controller.close();
         } catch (error) {
@@ -236,18 +241,20 @@ export async function GET(req: NextRequest) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no', // Disable nginx buffering
+      'X-Accel-Buffering': 'no',
     },
   });
 }
 
-// Reload audio files endpoint (for admin updates)
+// Reload audio files endpoint
 export async function POST(req: NextRequest) {
   try {
     await loadAvailableAudioFiles();
+    await loadMappings();
     return new Response(JSON.stringify({ 
       success: true, 
-      audioFiles: availableAudioFiles.length 
+      audioFiles: availableAudioFiles.length,
+      mappings: Object.keys(audioMappings).length
     }), {
       headers: { 'Content-Type': 'application/json' },
     });

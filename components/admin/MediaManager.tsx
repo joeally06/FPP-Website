@@ -1,208 +1,263 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Trash2, Download, RefreshCw, Music, HardDrive, AlertCircle } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { useState, useEffect, useCallback } from 'react';
+import { 
+  Music, 
+  AlertTriangle, 
+  CheckCircle, 
+  Download, 
+  Link2, 
+  RefreshCw, 
+  Loader2,
+  List,
+  X,
+  Trash2,
+  HardDrive,
+  ExternalLink
+} from 'lucide-react';
 
-interface MediaFile {
-  name: string;
-  size: number;
-  modified: string;
-  path: string;
-  extension?: string;
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
-interface AudioMapping {
-  [sequence: string]: string;
+interface PlaylistItem {
+  type: 'leadIn' | 'main' | 'leadOut';
+  sequenceName: string;
+  audioFile: string;
+  status: 'ready' | 'missing_local' | 'needs_mapping';
 }
 
 interface Playlist {
   name: string;
   desc?: string;
-  leadIn?: Array<{ mediaName: string; sequenceName: string; enabled: number }>;
-  mainPlaylist?: Array<{ mediaName: string; sequenceName: string; enabled: number }>;
-  leadOut?: Array<{ mediaName: string; sequenceName: string; enabled: number }>;
-  playlistInfo?: {
-    total_duration: number;
-    total_items: number;
-  };
 }
 
+interface LocalFile {
+  name: string;
+  size: number;
+  modified: string;
+}
+
+interface FPPFile {
+  name: string;
+  size: number;
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 export default function MediaManager() {
-  // State management
-  const [fppFiles, setFppFiles] = useState<MediaFile[]>([]);
-  const [localFiles, setLocalFiles] = useState<MediaFile[]>([]);
-  const [mappings, setMappings] = useState<AudioMapping>({});
+  // -------------------------------------------------------------------------
+  // STATE
+  // -------------------------------------------------------------------------
+  
+  // Core data
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string>('');
+  const [items, setItems] = useState<PlaylistItem[]>([]);
+  const [fppAudioFiles, setFppAudioFiles] = useState<FPPFile[]>([]);
+  const [localFiles, setLocalFiles] = useState<LocalFile[]>([]);
   
+  // Loading states
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  
   const [downloading, setDownloading] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   
-  // Modal state
-  const [showMappingModal, setShowMappingModal] = useState(false);
-  const [selectedSequence, setSelectedSequence] = useState<string>('');
-  const [selectedAudio, setSelectedAudio] = useState<string>('');
+  // Messages
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   
+  // Mapping Modal
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [mappingSequence, setMappingSequence] = useState<string | null>(null);
+  const [mappingSearch, setMappingSearch] = useState('');
+  
+  // Delete Confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
 
-  // Load data on mount
-  useEffect(() => {
-    loadAllData();
+  // -------------------------------------------------------------------------
+  // DATA FETCHING
+  // -------------------------------------------------------------------------
+
+  const fetchPlaylists = useCallback(async () => {
+    try {
+      const res = await fetch('/api/fpp/playlists');
+      if (!res.ok) throw new Error('Failed to fetch playlists');
+      
+      const data = await res.json();
+      const playlistArray = Array.isArray(data) ? data : (data.playlists || []);
+      setPlaylists(playlistArray);
+      
+      if (playlistArray.length > 0 && !selectedPlaylist) {
+        setSelectedPlaylist(playlistArray[0].name);
+      }
+    } catch (err) {
+      console.error('Failed to load playlists', err);
+      setError('Failed to connect to FPP. Ensure your device is online.');
+    }
+  }, [selectedPlaylist]);
+
+  const fetchFPPAudioFiles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/fpp/media/list');
+      if (!res.ok) throw new Error('Failed to fetch FPP audio');
+      
+      const data = await res.json();
+      setFppAudioFiles(data.files || []);
+    } catch (err) {
+      console.error('Failed to load FPP audio files', err);
+    }
   }, []);
 
-  const loadAllData = async () => {
+  const fetchLocalFiles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/fpp/media/local');
+      if (!res.ok) throw new Error('Failed to fetch local files');
+      
+      const data = await res.json();
+      setLocalFiles(data.files || []);
+    } catch (err) {
+      console.error('Failed to load local files', err);
+    }
+  }, []);
+
+  const fetchPlaylistItems = useCallback(async (playlist: string) => {
+    if (!playlist) return;
+    
     setLoading(true);
     setError(null);
     
     try {
-      await Promise.all([
-        loadFPPFiles(),
-        loadLocalFiles(),
-        loadMappings(),
-        loadPlaylists()
-      ]);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data');
+      const res = await fetch(`/api/admin/playlist-status?name=${encodeURIComponent(playlist)}`);
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load playlist');
+      }
+      
+      setItems(data.items || []);
+    } catch (err) {
+      console.error('Failed to load items', err);
+      setError(err instanceof Error ? err.message : 'Failed to load playlist items');
+      setItems([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadFPPFiles = async () => {
-    try {
-      const response = await fetch('/api/fpp/media/list');
-      
-      if (!response.ok) {
-        if (response.status === 503) {
-          throw new Error('FPP is offline');
-        }
-        throw new Error('Failed to load FPP files');
-      }
-      
-      const data = await response.json();
-      console.log('[MediaManager] FPP files response:', data);
-      setFppFiles(data.files || []);
-    } catch (err: any) {
-      console.error('Load FPP files error:', err);
-      setFppFiles([]);
-      throw err;
+  // Initial load
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await Promise.all([
+        fetchPlaylists(),
+        fetchFPPAudioFiles(),
+        fetchLocalFiles()
+      ]);
+      setInitialLoading(false);
+    };
+    loadInitialData();
+  }, [fetchPlaylists, fetchFPPAudioFiles, fetchLocalFiles]);
+
+  // Load items when playlist changes
+  useEffect(() => {
+    if (selectedPlaylist) {
+      fetchPlaylistItems(selectedPlaylist);
     }
-  };
+  }, [selectedPlaylist, fetchPlaylistItems]);
 
-  const loadLocalFiles = async () => {
-    try {
-      const response = await fetch('/api/fpp/media/local');
-      
-      if (!response.ok) {
-        throw new Error('Failed to load local files');
-      }
-      
-      const data = await response.json();
-      setLocalFiles(data.files || []);
-    } catch (err: any) {
-      console.error('Load local files error:', err);
-      setLocalFiles([]);
-      throw err;
-    }
-  };
+  // -------------------------------------------------------------------------
+  // ACTIONS
+  // -------------------------------------------------------------------------
 
-  const loadMappings = async () => {
-    try {
-      const response = await fetch('/api/audio/mapping');
-      
-      if (!response.ok) {
-        throw new Error('Failed to load mappings');
-      }
-      
-      const data = await response.json();
-      setMappings(data.mappings || {});
-    } catch (err: any) {
-      console.error('Load mappings error:', err);
-      setMappings({});
-      throw err;
-    }
-  };
-
-  const loadPlaylists = async () => {
-    try {
-      const response = await fetch('/api/fpp/playlists');
-      
-      if (!response.ok) {
-        throw new Error('Failed to load playlists');
-      }
-      
-      const data = await response.json();
-      console.log('[MediaManager] Playlists response:', data);
-      
-      // API returns array directly, not { playlists: [] }
-      const playlistArray = Array.isArray(data) ? data : (data.playlists || []);
-      setPlaylists(playlistArray);
-      console.log('[MediaManager] Loaded playlists:', playlistArray.length);
-    } catch (err: any) {
-      console.error('Load playlists error:', err);
-      setPlaylists([]);
-      // Don't throw - playlists are optional
-    }
-  };
-
-  const downloadFile = async (filename: string) => {
+  const handleDownload = async (filename: string) => {
+    if (!filename) return;
+    
     setDownloading(filename);
     setError(null);
     setSuccess(null);
     
     try {
-      const response = await fetch('/api/fpp/media/download', {
+      const res = await fetch('/api/fpp/media/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename })
       });
       
-      const data = await response.json();
+      const data = await res.json();
       
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error(data.error || 'Download failed');
       }
       
-      setSuccess(`Downloaded: ${data.filename} (${formatBytes(data.size)})`);
-      await loadLocalFiles();
+      setSuccess(`Downloaded: ${data.filename}`);
       
-    } catch (err: any) {
-      setError(err.message || 'Failed to download file');
+      // Refresh data
+      await Promise.all([
+        fetchLocalFiles(),
+        fetchPlaylistItems(selectedPlaylist)
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Download failed');
     } finally {
       setDownloading(null);
     }
+  };
+
+  const handleDownloadAll = async () => {
+    const toDownload = items.filter(i => i.status === 'missing_local' && i.audioFile);
+    
+    for (const item of toDownload) {
+      await handleDownload(item.audioFile);
+    }
+  };
+
+  const handleMapAudio = async (audioFilename: string) => {
+    if (!mappingSequence) return;
+    
+    setError(null);
+    
+    try {
+      const res = await fetch('/api/audio/mapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          sequence: mappingSequence, 
+          audioFile: audioFilename 
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Mapping failed');
+      }
+      
+      setSuccess(`Mapped: ${mappingSequence} → ${audioFilename}`);
+      setShowMapModal(false);
+      setMappingSequence(null);
+      setMappingSearch('');
+      
+      // Reload sync service
+      try {
+        await fetch('/api/audio/sync', { method: 'POST' });
+      } catch (e) {
+        console.error('Failed to reload sync service', e);
+      }
+      
+      // Refresh items
+      await fetchPlaylistItems(selectedPlaylist);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Mapping failed');
+    }
+  };
+
+  const openMapModal = (sequenceName: string) => {
+    setMappingSequence(sequenceName);
+    setMappingSearch('');
+    setShowMapModal(true);
   };
 
   const confirmDelete = (filename: string) => {
@@ -210,532 +265,579 @@ export default function MediaManager() {
     setShowDeleteConfirm(true);
   };
 
-  const deleteFile = async () => {
+  const handleDelete = async () => {
     if (!fileToDelete) return;
     
     setDeleting(fileToDelete);
     setError(null);
-    setSuccess(null);
     
     try {
-      const response = await fetch(`/api/fpp/media/local?filename=${encodeURIComponent(fileToDelete)}`, {
+      const res = await fetch(`/api/fpp/media/local?filename=${encodeURIComponent(fileToDelete)}`, {
         method: 'DELETE'
       });
       
-      const data = await response.json();
+      const data = await res.json();
       
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error(data.error || 'Delete failed');
       }
       
       setSuccess(`Deleted: ${data.filename}`);
-      await loadLocalFiles();
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete file');
-    } finally {
-      setDeleting(null);
       setShowDeleteConfirm(false);
       setFileToDelete(null);
+      
+      // Refresh data
+      await Promise.all([
+        fetchLocalFiles(),
+        fetchPlaylistItems(selectedPlaylist)
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeleting(null);
     }
   };
 
-  const openMappingModal = (sequence?: string, audio?: string) => {
-    setSelectedSequence(sequence || '');
-    setSelectedAudio(audio || '');
-    setShowMappingModal(true);
+  const handleRefresh = async () => {
+    setLoading(true);
+    await Promise.all([
+      fetchPlaylists(),
+      fetchFPPAudioFiles(),
+      fetchLocalFiles()
+    ]);
+    if (selectedPlaylist) {
+      await fetchPlaylistItems(selectedPlaylist);
+    }
+    setLoading(false);
   };
 
-  const saveMapping = async () => {
-    setError(null);
-    setSuccess(null);
-    
-    if (!selectedSequence || !selectedAudio) {
-      setError('Both sequence and audio file must be selected');
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/audio/mapping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sequence: selectedSequence,
-          audioFile: selectedAudio
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to save mapping');
-      }
-      
-      setSuccess(`Mapping saved: ${data.sequence} → ${data.audioFile}`);
-      await loadMappings();
-      setShowMappingModal(false);
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to save mapping');
-    }
-  };
-
-  const deleteMapping = async (sequence: string) => {
-    setError(null);
-    setSuccess(null);
-    
-    try {
-      const response = await fetch(`/api/audio/mapping?sequence=${encodeURIComponent(sequence)}`, {
-        method: 'DELETE'
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete mapping');
-      }
-      
-      setSuccess(`Mapping deleted: ${sequence}`);
-      await loadMappings();
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete mapping');
-    }
-  };
+  // -------------------------------------------------------------------------
+  // HELPERS
+  // -------------------------------------------------------------------------
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  const totalLocalSize = localFiles.reduce((sum, file) => sum + file.size, 0);
-
-  // Get all audio files used in a specific playlist (only enabled items)
-  const getPlaylistAudioFiles = (playlist: Playlist): Array<{ mediaName: string; sequenceName: string }> => {
-    const audioFiles: Array<{ mediaName: string; sequenceName: string }> = [];
-    
-    const addMediaFiles = (items: Array<{ mediaName: string; sequenceName: string; enabled: number }> | undefined) => {
-      if (items) {
-        items.forEach(item => {
-          if (item.mediaName && item.enabled === 1) {
-            audioFiles.push({
-              mediaName: item.mediaName,
-              sequenceName: item.sequenceName
-            });
-          }
-        });
-      }
+  const getTypeBadge = (type: PlaylistItem['type']) => {
+    const config = {
+      leadIn: { bg: 'bg-blue-900/50', text: 'text-blue-300', border: 'border-blue-700', label: 'Lead In' },
+      main: { bg: 'bg-purple-900/50', text: 'text-purple-300', border: 'border-purple-700', label: 'Main' },
+      leadOut: { bg: 'bg-orange-900/50', text: 'text-orange-300', border: 'border-orange-700', label: 'Lead Out' }
     };
-    
-    addMediaFiles(playlist.leadIn);
-    addMediaFiles(playlist.mainPlaylist);
-    addMediaFiles(playlist.leadOut);
-    
-    return audioFiles;
+    const c = config[type];
+    return (
+      <span className={`px-2 py-0.5 text-xs font-medium rounded border ${c.bg} ${c.text} ${c.border}`}>
+        {c.label}
+      </span>
+    );
   };
 
-  // Get all audio files used in all playlists
-  const getAllPlaylistAudioFiles = (): Set<string> => {
-    const audioFiles = new Set<string>();
-    playlists.forEach(playlist => {
-      const playlistFiles = getPlaylistAudioFiles(playlist);
-      playlistFiles.forEach(file => audioFiles.add(file.mediaName));
-    });
-    return audioFiles;
-  };
-
-  // Filter FPP files based on selected playlist
-  const filteredFppFiles = fppFiles.filter(file => {
-    // Only show files from selected playlist
-    const playlist = playlists.find(p => p.name === selectedPlaylist);
-    if (playlist) {
-      const playlistFiles = getPlaylistAudioFiles(playlist);
-      return playlistFiles.some(pf => pf.mediaName === file.name);
+  const getStatusBadge = (item: PlaylistItem) => {
+    switch (item.status) {
+      case 'ready':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-300">
+            <CheckCircle className="w-3 h-3" /> Ready
+          </span>
+        );
+      case 'missing_local':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900/50 text-blue-300">
+            <Download className="w-3 h-3" /> Download Needed
+          </span>
+        );
+      case 'needs_mapping':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900/50 text-yellow-300">
+            <AlertTriangle className="w-3 h-3" /> Needs Mapping
+          </span>
+        );
     }
-    
-    // If no playlist selected, show nothing
-    return false;
-  });
-
-  // Check if a file is used in any playlist
-  const isFileUsedInPlaylist = (filename: string): boolean => {
-    const allUsedFiles = getAllPlaylistAudioFiles();
-    return allUsedFiles.has(filename);
   };
+
+  // Filter audio files for mapping modal (show both FPP and local files)
+  const allAudioForMapping = [...new Set([
+    ...fppAudioFiles.map(f => f.name),
+    ...localFiles.map(f => f.name)
+  ])].sort();
+
+  const filteredAudioForMapping = allAudioForMapping.filter(name =>
+    name.toLowerCase().includes(mappingSearch.toLowerCase())
+  );
+
+  // Stats
+  const stats = {
+    total: items.length,
+    ready: items.filter(i => i.status === 'ready').length,
+    needsDownload: items.filter(i => i.status === 'missing_local').length,
+    needsMapping: items.filter(i => i.status === 'needs_mapping').length
+  };
+
+  const totalLocalSize = localFiles.reduce((sum, f) => sum + f.size, 0);
+
+  // -------------------------------------------------------------------------
+  // LOADING STATE
+  // -------------------------------------------------------------------------
+
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-blue-500 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-400">Connecting to FPP...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // RENDER
+  // -------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
-      {/* Header Actions */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Media Manager</h2>
-          <p className="text-muted-foreground">Download audio from FPP and manage sequence mappings</p>
+      {/* ================================================================== */}
+      {/* HEADER */}
+      {/* ================================================================== */}
+      <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Music className="w-6 h-6 text-blue-400" />
+              Media Synchronization
+            </h2>
+            <p className="text-gray-400 text-sm mt-1">
+              Download and map audio files for your FPP sequences
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <List className="w-4 h-4 text-gray-500" />
+              <select 
+                value={selectedPlaylist}
+                onChange={(e) => setSelectedPlaylist(e.target.value)}
+                className="w-64 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select a playlist...</option>
+                {playlists.map(p => (
+                  <option key={p.name} value={p.name}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <button 
+              onClick={handleRefresh}
+              disabled={loading}
+              className="p-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-lg text-gray-200 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
-        <Button onClick={loadAllData} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh All
-        </Button>
+
+        {/* Stats Bar */}
+        {items.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-700 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-400">Total:</span>
+              <span className="font-semibold text-white">{stats.total}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              <span className="text-gray-400">Ready:</span>
+              <span className="font-semibold text-green-400">{stats.ready}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span className="text-gray-400">Need Download:</span>
+              <span className="font-semibold text-blue-400">{stats.needsDownload}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+              <span className="text-gray-400">Need Mapping:</span>
+              <span className="font-semibold text-yellow-400">{stats.needsMapping}</span>
+            </div>
+            
+            {stats.needsDownload > 0 && (
+              <button
+                onClick={handleDownloadAll}
+                disabled={downloading !== null}
+                className="ml-auto px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg text-sm text-white font-medium transition-colors flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download All ({stats.needsDownload})
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Status Messages */}
+      {/* ================================================================== */}
+      {/* MESSAGES */}
+      {/* ================================================================== */}
       {error && (
-        <Card className="border-destructive">
-          <CardContent className="pt-6 flex items-start gap-2">
-            <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
-            <div>
-              <p className="font-semibold text-destructive">Error</p>
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Error:</strong> {error}
+          </div>
+        </div>
       )}
 
       {success && (
-        <Card className="border-green-500 dark:border-green-700">
-          <CardContent className="pt-6">
-            <p className="text-green-600 dark:text-green-400 font-medium">{success}</p>
-          </CardContent>
-        </Card>
+        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 text-green-300 flex items-start gap-3">
+          <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>{success}</div>
+        </div>
       )}
 
-      {/* Playlist Details */}
-      {selectedPlaylist && (() => {
-        const playlist = playlists.find(p => p.name === selectedPlaylist);
-        if (!playlist) return null;
-        const songs = getPlaylistAudioFiles(playlist);
-        return (
-          <Card className="border-blue-200 dark:border-blue-800">
-            <CardHeader>
-              <CardTitle>Playlist: {playlist.name}</CardTitle>
-              <CardDescription>
-                {playlist.desc || 'No description'} • {songs.length} songs
-                {playlist.playlistInfo && ` • ${Math.floor(playlist.playlistInfo.total_duration / 60)} minutes`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">Songs in this playlist:</h4>
-                <div className="max-h-40 overflow-y-auto space-y-1">
-                  {songs.map((song, idx) => (
-                    <div key={idx} className="text-sm flex items-start gap-2">
-                      <span className="text-muted-foreground min-w-[24px]">{idx + 1}.</span>
-                      <span>{song.mediaName}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      {/* FPP Files */}
-      <Card className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Music className="h-5 w-5" />
-                FPP Audio Files ({filteredFppFiles.length} of {fppFiles.length})
-              </CardTitle>
-              <CardDescription>
-                Audio files available on your FPP server
-              </CardDescription>
-            </div>
-            <div className="w-64">
-              <Select value={selectedPlaylist} onValueChange={setSelectedPlaylist}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by playlist" />
-                </SelectTrigger>
-                <SelectContent>
-                  {playlists.map((playlist) => (
-                    <SelectItem key={playlist.name} value={playlist.name}>
-                      {playlist.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {!selectedPlaylist ? (
-            <p className="text-muted-foreground text-center py-8">
-              Select a playlist above to view its audio files
-            </p>
-          ) : filteredFppFiles.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              {loading ? 'Loading...' : 'No files found in this playlist'}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Filename</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Modified</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredFppFiles.map((file) => {
-                    const isDownloaded = localFiles.some(local => local.name === file.name);
-                    const isUsed = isFileUsedInPlaylist(file.name);
-                    
-                    return (
-                      <TableRow key={file.name}>
-                        <TableCell className="font-medium">{file.name}</TableCell>
-                        <TableCell>
-                          {isUsed ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                              In Playlist
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                              Unused
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatBytes(file.size)}</TableCell>
-                        <TableCell>{formatDate(file.modified)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            onClick={() => downloadFile(file.name)}
-                            disabled={downloading === file.name || isDownloaded}
+      {/* ================================================================== */}
+      {/* MAIN TABLE - PLAYLIST SEQUENCES */}
+      {/* ================================================================== */}
+      <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h3 className="text-lg font-semibold text-white">Playlist Sequences</h3>
+          <p className="text-sm text-gray-400">Review and fix audio assignments for each sequence</p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-900/50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Sequence
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Audio File
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-2 animate-spin" />
+                    <p className="text-gray-400">Loading playlist...</p>
+                  </td>
+                </tr>
+              ) : !selectedPlaylist ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    <List className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+                    <p>Select a playlist above to view sequences</p>
+                  </td>
+                </tr>
+              ) : items.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    <Music className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+                    <p>No sequences found in this playlist</p>
+                  </td>
+                </tr>
+              ) : (
+                items.map((item, idx) => (
+                  <tr 
+                    key={`${item.sequenceName}-${idx}`} 
+                    className="hover:bg-gray-700/50 transition-colors"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getTypeBadge(item.type)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-medium text-white">
+                        {item.sequenceName}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {item.audioFile ? (
+                        <span className="text-sm text-gray-300 flex items-center gap-2">
+                          <Music className="w-4 h-4 text-gray-500" />
+                          {item.audioFile}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500 italic">
+                          No audio linked
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(item)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {item.status === 'missing_local' && (
+                          <button 
+                            onClick={() => handleDownload(item.audioFile)}
+                            disabled={downloading === item.audioFile}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg text-sm text-white transition-colors"
                           >
-                            {downloading === file.name ? (
-                              <>
-                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                Downloading...
-                              </>
-                            ) : isDownloaded ? (
-                              'Downloaded'
+                            {downloading === item.audioFile ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
-                              <>
-                                <Download className="mr-2 h-4 w-4" />
-                                Download
-                              </>
+                              <Download className="w-4 h-4" />
                             )}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Local Files */}
-      <Card className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <HardDrive className="h-5 w-5" />
-            Local Audio Files ({localFiles.length})
-          </CardTitle>
-          <CardDescription>
-            Audio files stored locally ({formatBytes(totalLocalSize)})
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {localFiles.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              No local audio files. Download from FPP above.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Filename</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Modified</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {localFiles.map((file) => (
-                    <TableRow key={file.name}>
-                      <TableCell className="font-medium">{file.name}</TableCell>
-                      <TableCell>{formatBytes(file.size)}</TableCell>
-                      <TableCell>{formatDate(file.modified)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => confirmDelete(file.name)}
-                          disabled={deleting === file.name}
-                        >
-                          {deleting === file.name ? (
-                            <>
-                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                              Deleting...
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </>
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Sequence Mappings */}
-      <Card className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30">
-        <CardHeader>
-          <CardTitle>Sequence → Audio Mappings ({Object.keys(mappings).length})</CardTitle>
-          <CardDescription>
-            Map FPP sequences to audio files for visitor listening
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Button onClick={() => openMappingModal()}>
-              Create New Mapping
-            </Button>
-
-            {Object.keys(mappings).length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No mappings configured. Create one to enable visitor audio sync.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sequence</TableHead>
-                      <TableHead>Audio File</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Object.entries(mappings).map(([sequence, audio]) => (
-                      <TableRow key={sequence}>
-                        <TableCell className="font-medium">{sequence}</TableCell>
-                        <TableCell>{audio}</TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openMappingModal(sequence, audio)}
+                            Download
+                          </button>
+                        )}
+                        {item.status === 'needs_mapping' && (
+                          <button 
+                            onClick={() => openMapModal(item.sequenceName)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded-lg text-sm text-white transition-colors"
+                          >
+                            <Link2 className="w-4 h-4" />
+                            Map Audio
+                          </button>
+                        )}
+                        {item.status === 'ready' && (
+                          <button 
+                            onClick={() => openMapModal(item.sequenceName)}
+                            className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
                           >
                             Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteMapping(sequence)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ================================================================== */}
+      {/* LOCAL FILES SECTION */}
+      {/* ================================================================== */}
+      <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <HardDrive className="w-5 h-5 text-gray-400" />
+              Local Audio Files ({localFiles.length})
+            </h3>
+            <p className="text-sm text-gray-400">
+              Total size: {formatBytes(totalLocalSize)}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        {localFiles.length === 0 ? (
+          <div className="px-6 py-12 text-center text-gray-500">
+            <HardDrive className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+            <p>No local audio files. Download files from the table above.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Filename
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Size
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {localFiles.map((file) => (
+                  <tr key={file.name} className="hover:bg-gray-700/50 transition-colors">
+                    <td className="px-6 py-3 whitespace-nowrap">
+                      <span className="text-sm font-medium text-white flex items-center gap-2">
+                        <Music className="w-4 h-4 text-gray-500" />
+                        {file.name}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-400">
+                      {formatBytes(file.size)}
+                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap text-right">
+                      <button
+                        onClick={() => confirmDelete(file.name)}
+                        disabled={deleting === file.name}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 border border-red-700 rounded-lg text-sm text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        {deleting === file.name ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-      {/* Mapping Modal */}
-      <Dialog open={showMappingModal} onOpenChange={setShowMappingModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {selectedSequence ? 'Edit Mapping' : 'Create New Mapping'}
-            </DialogTitle>
-            <DialogDescription>
-              Map an FPP sequence to a local audio file
-            </DialogDescription>
-          </DialogHeader>
+      {/* ================================================================== */}
+      {/* MAPPING MODAL */}
+      {/* ================================================================== */}
+      {showMapModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen p-4">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/70 transition-opacity" 
+              onClick={() => setShowMapModal(false)}
+            />
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="sequence">Sequence Name (.fseq)</Label>
-              <Input
-                id="sequence"
-                placeholder="example-sequence.fseq"
-                value={selectedSequence}
-                onChange={(e) => setSelectedSequence(e.target.value)}
-              />
-            </div>
+            {/* Modal */}
+            <div className="relative bg-gray-800 rounded-lg shadow-xl max-w-lg w-full border border-gray-700">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-blue-400" />
+                  Map Audio to Sequence
+                </h3>
+                <button 
+                  onClick={() => setShowMapModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="audio">Audio File</Label>
-              <Select value={selectedAudio} onValueChange={setSelectedAudio}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select audio file" />
-                </SelectTrigger>
-                <SelectContent>
-                  {localFiles.length === 0 ? (
-                    <div className="p-4 text-sm text-muted-foreground text-center">
-                      No local files available
+              {/* Body */}
+              <div className="px-6 py-4">
+                <p className="text-sm text-gray-400 mb-1">Sequence:</p>
+                <p className="font-medium text-white mb-4 flex items-center gap-2">
+                  <ExternalLink className="w-4 h-4 text-gray-500" />
+                  {mappingSequence}
+                </p>
+                
+                <input
+                  type="text"
+                  placeholder="Search audio files..."
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+                  value={mappingSearch}
+                  onChange={(e) => setMappingSearch(e.target.value)}
+                  autoFocus
+                />
+
+                <div className="max-h-64 overflow-y-auto border border-gray-700 rounded-lg bg-gray-900/50">
+                  {filteredAudioForMapping.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      No audio files found
                     </div>
                   ) : (
-                    localFiles.map((file) => (
-                      <SelectItem key={file.name} value={file.name}>
-                        {file.name} ({formatBytes(file.size)})
-                      </SelectItem>
-                    ))
+                    filteredAudioForMapping.map((filename) => {
+                      const isLocal = localFiles.some(f => f.name === filename);
+                      return (
+                        <button
+                          key={filename}
+                          onClick={() => handleMapAudio(filename)}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white border-b border-gray-800 last:border-0 flex items-center justify-between gap-3 transition-colors"
+                        >
+                          <span className="flex items-center gap-2 truncate">
+                            <Music className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                            <span className="truncate">{filename}</span>
+                          </span>
+                          {isLocal && (
+                            <span className="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded">
+                              Local
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
                   )}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-700 flex justify-end">
+                <button 
+                  onClick={() => setShowMapModal(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMappingModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveMapping} disabled={!selectedSequence || !selectedAudio}>
-              Save Mapping
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ================================================================== */}
+      {/* DELETE CONFIRMATION MODAL */}
+      {/* ================================================================== */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen p-4">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/70 transition-opacity" 
+              onClick={() => setShowDeleteConfirm(false)}
+            />
 
-      {/* Delete Confirmation Modal */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{fileToDelete}</strong>?
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={deleteFile}>
-              Delete File
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            {/* Modal */}
+            <div className="relative bg-gray-800 rounded-lg shadow-xl max-w-md w-full border border-gray-700">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                  Confirm Deletion
+                </h3>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4">
+                <p className="text-gray-300">
+                  Are you sure you want to delete <strong className="text-white">{fileToDelete}</strong>?
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  This action cannot be undone.
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  disabled={deleting !== null}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-white transition-colors flex items-center gap-2"
+                >
+                  {deleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

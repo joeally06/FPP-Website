@@ -66,6 +66,7 @@ export function stopQueueProcessor() {
 }
 
 // Auto-start in production/development (server-side only)
-if (typeof window === 'undefined') {
-  startQueueProcessor();
-}
+// MOVED TO instrumentation.ts to prevent running during build
+// if (typeof window === 'undefined') {
+//   startQueueProcessor();
+// }

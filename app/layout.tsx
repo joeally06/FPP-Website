@@ -5,8 +5,7 @@ import { Providers } from "./providers";
 import CookieConsent from "@/components/CookieConsent";
 import Footer from "@/components/Footer";
 
-// Initialize background services (server-side only)
-import '@/lib/server-init';
+// Background services are now initialized in instrumentation.ts
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

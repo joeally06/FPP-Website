@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
     }
 
     // SECURITY: Sanitize filename (keep spaces, but remove dangerous characters)
-    // Allow alphanumeric, spaces, dots, dashes, underscores, parentheses
-    const sanitized = filename.replace(/[^a-zA-Z0-9.\s_()-]/g, '_').substring(0, 255);
+    // Allow alphanumeric, spaces, dots, dashes, underscores, parentheses, and single quotes
+    const sanitized = filename.replace(/[^a-zA-Z0-9.\s_()'-]/g, '_').substring(0, 255);
     
     console.log('[FPP Media Download] Original filename:', filename);
     console.log('[FPP Media Download] Sanitized filename:', sanitized);

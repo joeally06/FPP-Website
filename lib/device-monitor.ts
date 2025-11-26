@@ -52,10 +52,11 @@ export function stopDeviceMonitoring() {
 }
 
 // Auto-start monitoring (only on server-side)
-if (typeof window === 'undefined') {
-  // Delay startup by 5 seconds to let the server fully initialize
-  setTimeout(() => {
-    console.log('[Device Monitor] Initializing device monitoring...');
-    startDeviceMonitoring();
-  }, 5000);
-}
+// MOVED TO instrumentation.ts to prevent running during build
+// if (typeof window === 'undefined') {
+//   // Delay startup by 5 seconds to let the server fully initialize
+//   setTimeout(() => {
+//     console.log('[Device Monitor] Initializing device monitoring...');
+//     startDeviceMonitoring();
+//   }, 5000);
+// }

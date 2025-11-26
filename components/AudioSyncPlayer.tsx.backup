@@ -17,8 +17,6 @@ interface SyncState {
   timestamp: number; // Server timestamp
 }
 
-type SyncQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'critical';
-
 export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [syncState, setSyncState] = useState<SyncState | null>(null);
@@ -26,11 +24,7 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
   const [volume, setVolume] = useState(0.8);
   const [error, setError] = useState<string | null>(null);
   const [isManuallyPaused, setIsManuallyPaused] = useState(false);
-  const [isManuallyPlaying, setIsManuallyPlaying] = useState(false);
-  const isManuallyPlayingRef = useRef(false);
-  const isManuallyPausedRef = useRef(false);
-  const [syncQuality, setSyncQuality] = useState<SyncQuality>('good');
-  const [driftMs, setDriftMs] = useState<number>(0);
+  const [isManuallyPlaying, setIsManuallyPlaying] = useState(true);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<EventSource | null>(null);
@@ -125,31 +119,10 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     const newAudioUrl = `${window.location.origin}/audio/${data.audioFile}`;
     const currentSrc = audioRef.current.src;
     
-    // Decode both to ensure we are comparing the actual paths, not encoded versions
-    // e.g. "foo%20bar.mp3" vs "foo bar.mp3"
-    const normalizedCurrent = currentSrc ? decodeURIComponent(currentSrc) : '';
-    const normalizedNew = decodeURIComponent(newAudioUrl);
-    
-    if (normalizedCurrent !== normalizedNew) {
-      console.log(`[Audio Sync] Loading new track: ${data.audioFile}`);
+    if (currentSrc !== newAudioUrl) {
       audioRef.current.src = newAudioUrl;
       audioRef.current.load();
       audioRef.current.playbackRate = 1.0; // Reset playback rate for new file
-
-      // Set up one-time listener for when audio is ready
-      const onCanPlay = () => {
-        if (data.isPlaying && isManuallyPlayingRef.current && !isManuallyPausedRef.current && audioRef.current) {
-           console.log('[Audio Sync] New track ready, starting playback');
-           const targetPosition = data.position + (Date.now() - data.timestamp) / 1000;
-           audioRef.current.currentTime = Math.max(0, targetPosition);
-           audioRef.current.play().catch(err => console.error('[Audio Sync] New track auto-play failed:', err));
-        }
-      };
-      
-      // Remove any existing listeners to avoid duplicates
-      audioRef.current.addEventListener('canplay', onCanPlay, { once: true });
-      
-      return; // Skip drift check for this tick
     }
 
     // Calculate drift
@@ -158,27 +131,12 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     const drift = targetPosition - currentPosition; // Signed drift (positive = behind, negative = ahead)
     const absDrift = Math.abs(drift);
 
-    // Update UI metrics
-    setDriftMs(Math.round(drift * 1000));
-    
-    // Determine sync quality
-    if (absDrift < 0.05) setSyncQuality('excellent');
-    else if (absDrift < 0.15) setSyncQuality('good');
-    else if (absDrift < 0.4) setSyncQuality('fair');
-    else if (absDrift < 1.0) setSyncQuality('poor');
-    else setSyncQuality('critical');
-
-    // If user manually paused, don't auto-play
-    if (isManuallyPausedRef.current) {
-      return;
-    }
-
     // Strategy for smooth sync:
     // 1. Large drift (>10s): Hard seek - something went very wrong
     // 2. Medium drift (3-10s): Gradual speed adjustment - smooth catch-up
     // 3. Small drift (<3s): Normal playback - let it naturally align
     
-    if (isManuallyPausedRef.current || audioRef.current.paused) {
+    if (isManuallyPaused || audioRef.current.paused) {
       // When paused, always update position so it's ready when resumed
       audioRef.current.currentTime = targetPosition;
       audioRef.current.playbackRate = 1.0;
@@ -211,7 +169,7 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     }
 
     // Auto-play if show is playing and user wants to play (not manually paused)
-    if (audioRef.current.paused && data.isPlaying && isManuallyPlayingRef.current) {
+    if (audioRef.current.paused && data.isPlaying && isManuallyPlaying) {
       audioRef.current.play().catch((err) => {
         console.error('[Audio Sync] Auto-play prevented:', err);
         // Don't show error - this is expected browser behavior
@@ -231,9 +189,7 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     
     // Enable auto-play and play
     setIsManuallyPlaying(true);
-    isManuallyPlayingRef.current = true;
     setIsManuallyPaused(false);
-    isManuallyPausedRef.current = false;
     setError(null); // Clear any previous errors
     audioRef.current.play().catch((err) => {
       console.error('[Audio Sync] Play failed:', err);
@@ -244,9 +200,7 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
   const handlePause = () => {
     if (!audioRef.current) return;
     setIsManuallyPaused(true);
-    isManuallyPausedRef.current = true;
     setIsManuallyPlaying(false);
-    isManuallyPlayingRef.current = false;
     audioRef.current.playbackRate = 1.0; // Reset playback rate when paused
     audioRef.current.pause();
   };
@@ -256,35 +210,13 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
     
     // Stop playback and reset rate
     setIsManuallyPaused(true);
-    isManuallyPausedRef.current = true;
     setIsManuallyPlaying(false);
-    isManuallyPlayingRef.current = false;
     audioRef.current.playbackRate = 1.0; // Reset playback rate when stopped
     audioRef.current.pause();
     
     // Sync to current show position (not zero)
     const targetPosition = syncState.position + (Date.now() - syncState.timestamp) / 1000;
     audioRef.current.currentTime = targetPosition;
-  };
-
-  const getSyncQualityColor = (quality: SyncQuality): string => {
-    switch (quality) {
-      case 'excellent': return 'text-green-400';
-      case 'good': return 'text-blue-400';
-      case 'fair': return 'text-yellow-400';
-      case 'poor': return 'text-orange-400';
-      case 'critical': return 'text-red-400';
-    }
-  };
-
-  const getSyncQualityText = (quality: SyncQuality): string => {
-    switch (quality) {
-      case 'excellent': return 'Perfect Sync';
-      case 'good': return 'Good Sync';
-      case 'fair': return 'Fair Sync';
-      case 'poor': return 'Adjusting...';
-      case 'critical': return 'Resyncing...';
-    }
   };
 
   return (
@@ -317,32 +249,6 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
             </span>
           )}
         </div>
-
-        {/* Sync Quality Indicator */}
-        {syncState?.isPlaying && !audioRef.current?.paused && (
-          <div className="mb-3 bg-black/20 rounded-lg p-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-white/70">Sync Quality:</span>
-              <span className={`text-xs font-semibold ${getSyncQualityColor(syncQuality)}`}>
-                {getSyncQualityText(syncQuality)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-xs text-white/50">Drift:</span>
-              <span className={`text-xs font-mono ${Math.abs(driftMs) < 50 ? 'text-green-400' : Math.abs(driftMs) < 150 ? 'text-blue-400' : 'text-yellow-400'}`}>
-                {driftMs >= 0 ? '+' : ''}{driftMs.toFixed(0)}ms
-              </span>
-            </div>
-            {audioRef.current && Math.abs(audioRef.current.playbackRate - 1.0) > 0.01 && (
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-white/50">Speed:</span>
-                <span className="text-xs font-mono text-purple-400">
-                  {audioRef.current.playbackRate.toFixed(2)}x
-                </span>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Playback Controls */}
         {syncState?.audioFile && (

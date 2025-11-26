@@ -123,8 +123,9 @@ export async function POST(request: NextRequest) {
     }
 
     // SECURITY: Sanitize inputs
-    const sanitizedSequence = sequence.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 255);
-    const sanitizedAudio = audioFile.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 255);
+    // Allow alphanumeric, dot, underscore, dash, space, single quote, parentheses
+    const sanitizedSequence = sequence.replace(/[^a-zA-Z0-9._\-\s'()]/g, '_').substring(0, 255);
+    const sanitizedAudio = audioFile.replace(/[^a-zA-Z0-9._\-\s'()]/g, '_').substring(0, 255);
 
     // Ensure data directory exists
     if (!existsSync(DATA_DIR)) {
@@ -229,7 +230,7 @@ export async function DELETE(request: NextRequest) {
     const mappings: AudioMapping = JSON.parse(content);
 
     // SECURITY: Sanitize sequence name
-    const sanitizedSequence = sequence.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 255);
+    const sanitizedSequence = sequence.replace(/[^a-zA-Z0-9._\-\s'()]/g, '_').substring(0, 255);
 
     // Check if mapping exists
     if (!mappings[sanitizedSequence]) {
@@ -351,8 +352,8 @@ export async function PUT(request: NextRequest) {
       }
 
       // Sanitize and add to new mappings
-      const sanitizedSequence = sequence.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 255);
-      const sanitizedAudio = audioFile.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 255);
+      const sanitizedSequence = sequence.replace(/[^a-zA-Z0-9._\-\s'()]/g, '_').substring(0, 255);
+      const sanitizedAudio = audioFile.replace(/[^a-zA-Z0-9._\-\s'()]/g, '_').substring(0, 255);
       
       sanitizedMappings[sanitizedSequence] = sanitizedAudio;
     }
