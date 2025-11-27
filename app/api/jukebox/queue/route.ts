@@ -5,6 +5,7 @@ import { getClientIP, getSongRequestRateLimit } from '@/lib/rate-limit';
 import { getUtcNow, getUtcOffset, getUtcSqlTimestampOffset } from '@/lib/time-utils';
 import { debugLog } from '@/lib/logging';
 import db from '@/lib/database';
+import { getFppUrl } from '@/lib/fpp-config';
 
 export async function GET() {
   try {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     let media_name = null;
     try {
       // Get scheduled playlists
-      const scheduleResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/schedule`);
+      const scheduleResponse = await fetch(`${getFppUrl()}/api/schedule`);
       if (scheduleResponse.ok) {
         const schedule = await scheduleResponse.json();
         const playlistNames = new Set<string>();
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
         // Check each playlist for the sequence
         for (const playlistName of playlistNames) {
           try {
-            const playlistResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/playlist/${encodeURIComponent(playlistName)}`);
+            const playlistResponse = await fetch(`${getFppUrl()}/api/playlist/${encodeURIComponent(playlistName)}`);
             if (playlistResponse.ok) {
               const playlist = await playlistResponse.json();
               

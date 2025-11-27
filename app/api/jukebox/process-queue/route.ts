@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { getCircuitBreaker } from '@/lib/circuit-breaker';
+import { getFppUrl } from '@/lib/fpp-config';
 import { 
   getCurrentlyPlaying, 
   getQueue, 
@@ -86,7 +87,7 @@ function getFppCommand(insertMode: string): string {
 
 // Helper to make FPP API calls
 async function makeFppCall(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
-  const fppUrl = process.env.FPP_URL || 'http://192.168.5.2:80';
+  const fppUrl = getFppUrl();
   const url = `${fppUrl}${endpoint}`;
   
   try {

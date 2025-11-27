@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
+import { getFppUrl } from '@/lib/fpp-config';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
   
-  const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/${slug.map(encodeURIComponent).join('/')}`;
+  const url = `${getFppUrl()}/api/${slug.map(encodeURIComponent).join('/')}`;
   try {
     const response = await fetch(url);
     const data = await response.text();
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     );
   }
   
-  const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/${slug.map(encodeURIComponent).join('/')}`;
+  const url = `${getFppUrl()}/api/${slug.map(encodeURIComponent).join('/')}`;
   try {
     const body = await request.text();
     const response = await fetch(url, {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
+import { getFppUrl } from '@/lib/fpp-config';
 
 const FPP_REQUEST_TIMEOUT = 10000; // 10 seconds
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
   
-  const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/fppd/${slug.join('/')}`;
+  const url = `${getFppUrl()}/api/fppd/${slug.join('/')}`;
   
   try {
     const controller = new AbortController();
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     );
   }
   
-  const url = `${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/fppd/${slug.join('/')}`;
+  const url = `${getFppUrl()}/api/fppd/${slug.join('/')}`;
   
   try {
     const body = await request.text();

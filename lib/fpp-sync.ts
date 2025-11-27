@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { getFppUrl } from './fpp-config';
 
 const dbPath = path.join(process.cwd(), 'votes.db');
 
@@ -31,7 +32,7 @@ export async function syncFppData(): Promise<SyncResult> {
     console.log('[FPP Sync] Starting sync from FPP device...');
     
     // Connect directly to FPP device (public API endpoints don't require auth)
-    const fppUrl = process.env.FPP_URL || process.env.NEXT_PUBLIC_FPP_URL || 'http://192.168.5.2:80';
+    const fppUrl = getFppUrl();
     console.log('[FPP Sync] FPP URL:', fppUrl);
     
     // Fetch playlists from FPP

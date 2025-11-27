@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentlyPlaying, updateQueueStatus, getFPPState } from '@/lib/database';
+import { getFppUrl } from '@/lib/fpp-config';
 
 export async function GET() {
   try {
@@ -57,7 +58,7 @@ export async function GET() {
     // This maintains backward compatibility and handles poller downtime
     if (!usedCache) {
       try {
-        const fppResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/fppd/status`);
+        const fppResponse = await fetch(`${getFppUrl()}/api/fppd/status`);
         if (fppResponse.ok) {
           const fppStatus = await fppResponse.json();
 

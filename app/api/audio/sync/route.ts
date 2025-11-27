@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { getFppUrl } from '@/lib/fpp-config';
 
-// FPP Configuration
-const FPP_URL = process.env.FPP_URL || 'http://192.168.5.2';
+// FPP Configuration - uses fpp.local as default
+const FPP_URL = getFppUrl();
 
 interface SyncState {
   isPlaying: boolean;

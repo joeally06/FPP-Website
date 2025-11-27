@@ -25,6 +25,7 @@ import path from 'path';
 import fs from 'fs';
 import { config } from 'dotenv';
 import { getCircuitBreaker, CircuitState } from './circuit-breaker';
+import { getFppHost, getFppPort, FPP_DEFAULTS } from './fpp-config';
 
 // Load environment variables from .env.local
 const envPath = path.join(process.cwd(), '.env.local');
@@ -37,7 +38,7 @@ if (fs.existsSync(envPath)) {
 // Configuration
 // ============================================================================
 
-const FPP_HOST = process.env.FPP_HOST || process.env.FPP_URL?.replace(/^https?:\/\//, '').replace(/:\d+$/, '') || 'fpp.local';
+const FPP_HOST = process.env.FPP_HOST || getFppHost();
 const FPP_PORT = process.env.FPP_PORT || '80';
 const POLL_INTERVAL = parseInt(process.env.FPP_POLL_INTERVAL || '10000'); // 10 seconds default
 const MIN_POLL_INTERVAL = 5000; // Minimum 5 seconds between polls

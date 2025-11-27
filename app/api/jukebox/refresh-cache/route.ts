@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { clearCachedSequences, insertCachedSequence } from '@/lib/database';
+import { getFppUrl } from '@/lib/fpp-config';
 
 /**
  * POST /api/jukebox/refresh-cache
@@ -18,7 +19,7 @@ export async function POST() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
       
-      const healthCheck = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/system/status`, {
+      const healthCheck = await fetch(`${getFppUrl()}/api/system/status`, {
         signal: controller.signal,
         cache: 'no-store'
       });
@@ -54,7 +55,7 @@ export async function POST() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
         
-        scheduleResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/schedule`, {
+        scheduleResponse = await fetch(`${getFppUrl()}/api/schedule`, {
           signal: controller.signal,
           cache: 'no-store'
         });
@@ -102,7 +103,7 @@ export async function POST() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         
-        const playlistResponse = await fetch(`${process.env.FPP_URL || 'http://192.168.5.2:80'}/api/playlist/${encodeURIComponent(playlistName)}`, {
+        const playlistResponse = await fetch(`${getFppUrl()}/api/playlist/${encodeURIComponent(playlistName)}`, {
           signal: controller.signal
         });
         
