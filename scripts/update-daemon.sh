@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.0.0
+# Version: 3.1.0 - Fixed premature completion issue
 
 set -e
 
@@ -10,6 +10,9 @@ PROJECT_DIR="${1:-$(pwd)}"
 LOG_FILE="$PROJECT_DIR/logs/update.log"
 STATUS_FILE="$PROJECT_DIR/logs/update_status"
 LOCK_FILE="$PROJECT_DIR/logs/update.lock"
+
+# Track if update completed successfully
+UPDATE_SUCCESS=false
 
 # Function to write status
 write_status() {
@@ -22,15 +25,19 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Cleanup on exit
+# Cleanup on exit - only mark completed if UPDATE_SUCCESS is true
 cleanup() {
     rm -f "$LOCK_FILE"
-    if [ $? -eq 0 ]; then
+    if [ "$UPDATE_SUCCESS" = true ]; then
         write_status "COMPLETED"
         log "✅ Update completed successfully"
     else
-        write_status "FAILED"
-        log "❌ Update failed"
+        # Check if we were just "up to date" (not a failure)
+        CURRENT_STATUS=$(cat "$STATUS_FILE" 2>/dev/null || echo "")
+        if [ "$CURRENT_STATUS" != "UP_TO_DATE" ] && [ "$CURRENT_STATUS" != "COMPLETED" ]; then
+            write_status "FAILED"
+            log "❌ Update failed"
+        fi
     fi
 }
 
@@ -77,6 +84,7 @@ REMOTE_COMMIT=$(git rev-parse origin/master)
 if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
     log "✅ Already up to date"
     write_status "UP_TO_DATE"
+    UPDATE_SUCCESS=true
     exit 0
 fi
 
@@ -233,6 +241,9 @@ if [ -n "$PM2_BIN" ]; then
     
     sleep 3
     
+    # Save PM2 config
+    "$PM2_BIN" save >> "$LOG_FILE" 2>&1 || log "⚠️  Could not save PM2 config"
+    
     # Show current status
     "$PM2_BIN" status >> "$LOG_FILE" 2>&1
     
@@ -280,6 +291,8 @@ fi
 
 log "🎉 Update completed successfully!"
 log "Updated from $LOCAL_COMMIT to $REMOTE_COMMIT"
-write_status "COMPLETED"
+
+# Mark success so cleanup trap knows we completed properly
+UPDATE_SUCCESS=true
 
 exit 0
