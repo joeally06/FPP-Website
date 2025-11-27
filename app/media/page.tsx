@@ -484,8 +484,12 @@ export default function MediaLibrary() {
   };
 
   const getSequencesInPlaylist = (playlist: Playlist) => {
-    // Only use mainPlaylist, exclude leadIn and leadOut
-    const allItems = playlist.mainPlaylist || [];
+    // Include leadIn, mainPlaylist, and leadOut sequences
+    const allItems = [
+      ...(playlist.leadIn || []),
+      ...(playlist.mainPlaylist || []),
+      ...(playlist.leadOut || [])
+    ];
     
     return allItems
       .filter(item => item.sequenceName) // Any item with a sequenceName (type can be 'sequence', 'both', 'media', etc.)
