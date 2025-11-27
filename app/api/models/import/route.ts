@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
 import db from '@/lib/database';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,14 +28,44 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Read file as buffer
+    // Read file as ArrayBuffer and parse with exceljs
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
 
-    // Parse Excel file
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    // Parse Excel file using exceljs
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(bytes);
+    const worksheet = workbook.worksheets[0];
+    
+    if (!worksheet) {
+      return NextResponse.json({ 
+        error: 'Excel file has no worksheets' 
+      }, { status: 400 });
+    }
+
+    // Convert worksheet to JSON array
+    const data: Record<string, any>[] = [];
+    const headers: string[] = [];
+    
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) {
+        // First row is headers
+        row.eachCell((cell, colNumber) => {
+          headers[colNumber - 1] = String(cell.value || '');
+        });
+      } else {
+        // Data rows
+        const rowData: Record<string, any> = {};
+        row.eachCell((cell, colNumber) => {
+          const header = headers[colNumber - 1];
+          if (header) {
+            rowData[header] = cell.value;
+          }
+        });
+        if (Object.keys(rowData).length > 0) {
+          data.push(rowData);
+        }
+      }
+    });
 
     if (data.length === 0) {
       return NextResponse.json({ 
