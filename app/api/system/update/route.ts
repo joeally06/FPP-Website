@@ -18,63 +18,77 @@ export async function POST() {
   try {
     await requireAdmin();
 
-    console.log('[Update API] Starting update daemon...');
-
     const projectRoot = process.cwd();
-    const updateDaemon = path.join(projectRoot, 'scripts', 'update-daemon.sh');
-    const statusFile = path.join(projectRoot, 'logs', 'update_status');
-
-    // Ensure directories exist
     const logsDir = path.join(projectRoot, 'logs');
+    const updateDaemon = path.join(projectRoot, 'scripts', 'update-daemon.sh');
+    const statusFile = path.join(logsDir, 'update_status');
+    const lockFile = path.join(logsDir, 'update.lock');
+    const logFile = path.join(logsDir, 'update.log');
+
+    console.log('[Update API] Starting update process...');
+    console.log('[Update API] Project root:', projectRoot);
+    console.log('[Update API] Daemon script:', updateDaemon);
+
+    // Ensure logs directory exists
     if (!fs.existsSync(logsDir)) {
       fs.mkdirSync(logsDir, { recursive: true });
+      console.log('[Update API] Created logs directory');
     }
 
     // Check if daemon script exists
     if (!fs.existsSync(updateDaemon)) {
+      console.error('[Update API] Daemon script not found:', updateDaemon);
       return NextResponse.json({
         success: false,
-        error: 'Update daemon script not found at: ' + updateDaemon
+        error: 'Update daemon script not found',
+        path: updateDaemon
       }, { status: 500 });
+    }
+
+    // Check for stale lock file (older than 30 minutes)
+    if (fs.existsSync(lockFile)) {
+      const lockAge = Date.now() - fs.statSync(lockFile).mtimeMs;
+      const lockAgeMinutes = Math.floor(lockAge / 60000);
+      
+      if (lockAge < 30 * 60 * 1000) {
+        console.log('[Update API] Update already in progress (lock age: ' + lockAgeMinutes + ' min)');
+        return NextResponse.json({
+          success: false,
+          error: 'Update already in progress',
+          lockAge: lockAgeMinutes + ' minutes'
+        }, { status: 409 });
+      }
+      
+      // Remove stale lock
+      console.log('[Update API] Removing stale lock file (age: ' + lockAgeMinutes + ' min)');
+      fs.unlinkSync(lockFile);
     }
 
     // Make daemon executable
     try {
-      fs.chmodSync(updateDaemon, '755');
+      fs.chmodSync(updateDaemon, 0o755);
+      console.log('[Update API] Set script permissions to 755');
     } catch (error) {
-      console.warn('[Update API] Failed to chmod:', error);
+      console.warn('[Update API] Failed to chmod (may be ok on some systems):', error);
     }
 
-    // Clear old status
-    try {
-      if (fs.existsSync(statusFile)) {
-        fs.unlinkSync(statusFile);
-      }
-    } catch (error) {
-      console.warn('[Update API] Failed to clear status:', error);
-    }
+    // Clear old status and initialize log
+    const timestamp = new Date().toISOString();
+    fs.writeFileSync(statusFile, 'STARTING');
+    fs.writeFileSync(logFile, `[${timestamp}] Update triggered from UI\n[${timestamp}] Project: ${projectRoot}\n[${timestamp}] Script: ${updateDaemon}\n`);
 
-    console.log('[Update API] Spawning daemon:', updateDaemon);
-    console.log('[Update API] Project root:', projectRoot);
-    console.log('[Update API] 8-Phase Atomic Update Process:');
-    console.log('[Update API]   Phase 1: Download - Fetch and verify updates');
-    console.log('[Update API]   Phase 2: Backup - Create timestamped backup');
-    console.log('[Update API]   Phase 3: Stop - Gracefully stop PM2 services');
-    console.log('[Update API]   Phase 4: Update - Apply git updates with rollback');
-    console.log('[Update API]   Phase 5: Install - Install dependencies with rollback');
-    console.log('[Update API]   Phase 6: Build - Build application with rollback');
-    console.log('[Update API]   Phase 7: Restart - Restart PM2 services');
-    console.log('[Update API]   Phase 8: Verify - Health check application');
+    console.log('[Update API] Spawning daemon...');
 
-    // Spawn completely detached daemon process
-    // This process will survive even when PM2 kills this Node.js process
-    const daemon = spawn('bash', [updateDaemon, projectRoot], {
+    // Use nohup to fully detach the process
+    // This ensures it survives even when PM2 kills the Node.js process
+    const daemon = spawn('nohup', ['bash', updateDaemon, projectRoot], {
       detached: true,
-      stdio: 'ignore',  // Fully detached - no pipes
+      stdio: ['ignore', 'ignore', 'ignore'],
+      cwd: projectRoot,
       env: {
         ...process.env,
-        PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
-        HOME: process.env.HOME || '/root',
+        PATH: '/usr/local/bin:/usr/bin:/bin:' + (process.env.PATH || ''),
+        HOME: process.env.HOME || '/home/' + (process.env.USER || 'root'),
         USER: process.env.USER || 'root',
       },
     });
@@ -82,35 +96,60 @@ export async function POST() {
     // Unref so parent process can exit
     daemon.unref();
 
-    console.log(`[Update API] Update daemon spawned (PID: ${daemon.pid})`);
+    const pid = daemon.pid;
+    console.log('[Update API] Daemon spawned with PID:', pid);
+    
+    // Log the PID
+    fs.appendFileSync(logFile, `[${new Date().toISOString()}] Spawned daemon with PID: ${pid}\n`);
 
-    // Wait briefly to check if daemon started
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait briefly to verify daemon started
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Check if status file was created
+    // Check if status file was updated (indicates script started)
     let status = 'STARTING';
     if (fs.existsSync(statusFile)) {
       status = fs.readFileSync(statusFile, 'utf-8').trim();
     }
 
+    // If status is still STARTING after 500ms, the daemon likely started successfully
+    // If it failed immediately, status would be FAILED
+    const daemonStarted = status !== 'FAILED';
+
+    if (!daemonStarted) {
+      const logContent = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf-8') : 'No log available';
+      console.error('[Update API] Daemon failed to start. Log:', logContent);
+      return NextResponse.json({
+        success: false,
+        error: 'Update daemon failed to start',
+        log: logContent.split('\n').slice(-10)
+      }, { status: 500 });
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Update daemon started successfully',
-      updated: true,
-      requiresReload: true,
-      daemonPid: daemon.pid,
+      pid,
       status,
       logFile: 'logs/update.log',
       statusFile: 'logs/update_status',
-      note: 'Atomic update in progress. Monitor /api/system/update-status',
+      pollUrl: '/api/system/update-status',
+      note: 'Poll /api/system/update-status to monitor progress'
     });
 
   } catch (error: any) {
     console.error('[Update API] Error:', error);
     
+    // Log error to file if possible
+    try {
+      const logFile = path.join(process.cwd(), 'logs', 'update.log');
+      fs.appendFileSync(logFile, `[${new Date().toISOString()}] API ERROR: ${error.message}\n${error.stack}\n`);
+    } catch {
+      // Ignore logging errors
+    }
+    
     return NextResponse.json({
       success: false,
-      error: 'Failed to start update daemon',
+      error: 'Failed to start update',
       details: error.message
     }, { status: 500 });
   }
@@ -129,7 +168,8 @@ export async function GET() {
     // Fetch latest from remote
     execSync('git fetch origin master', { 
       cwd: projectRoot,
-      stdio: 'pipe' 
+      stdio: 'pipe',
+      timeout: 30000
     });
 
     // Compare commits
@@ -145,21 +185,51 @@ export async function GET() {
 
     const upToDate = localCommit === remoteCommit;
 
+    // Get current version
+    let currentVersion = 'unknown';
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf-8'));
+      currentVersion = packageJson.version || 'unknown';
+    } catch {
+      // Ignore
+    }
+
     // Get commit messages if update available
-    let updateMessage = '';
+    let changes: string[] = [];
+    let latestVersion = currentVersion;
+    
     if (!upToDate) {
-      updateMessage = execSync(
-        `git log --oneline ${localCommit}..${remoteCommit}`,
-        { cwd: projectRoot, encoding: 'utf-8' }
-      ).trim();
+      try {
+        const updateMessage = execSync(
+          `git log --oneline ${localCommit}..${remoteCommit}`,
+          { cwd: projectRoot, encoding: 'utf-8' }
+        ).trim();
+        changes = updateMessage ? updateMessage.split('\n') : [];
+      } catch {
+        // Ignore
+      }
+      
+      // Try to get version from remote
+      try {
+        const remotePackage = execSync('git show origin/master:package.json', { 
+          cwd: projectRoot, 
+          encoding: 'utf-8' 
+        });
+        const remotePkg = JSON.parse(remotePackage);
+        latestVersion = remotePkg.version || 'unknown';
+      } catch {
+        latestVersion = 'newer';
+      }
     }
 
     return NextResponse.json({
       upToDate,
+      updateAvailable: !upToDate,
+      currentVersion,
+      latestVersion,
       localCommit: localCommit.substring(0, 7),
       remoteCommit: remoteCommit.substring(0, 7),
-      updateAvailable: !upToDate,
-      changes: updateMessage ? updateMessage.split('\n') : [],
+      changes,
     });
 
   } catch (error: any) {
