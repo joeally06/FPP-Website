@@ -1,12 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { useFPPConnection } from '@/contexts/FPPConnectionContext';
 import { formatDateTime } from '@/lib/time-utils';
-import { Music, List, Play, Trash2, Search, RefreshCw, Star, TrendingUp, Edit3, X, Check } from 'lucide-react';
+import { 
+  Music, 
+  List, 
+  Play, 
+  Trash2, 
+  Search, 
+  RefreshCw, 
+  Star, 
+  TrendingUp, 
+  Edit3, 
+  X, 
+  Check,
+  Library,
+  Link2,
+  FolderOpen,
+  Download,
+  AlertCircle,
+  CheckCircle,
+  FileAudio,
+  HardDrive
+} from 'lucide-react';
+
+// Tab type for the unified Media Center
+type MediaTab = 'library' | 'audio-sync' | 'local-files';
 
 interface Playlist {
   name: string;
@@ -65,7 +88,28 @@ interface SpotifySearchResult {
   previewUrl: string | null;
 }
 
-export default function MediaLibrary() {
+// Audio Sync Tab interfaces
+interface PlaylistSequenceStatus {
+  sequenceName: string;
+  mediaName: string | null;
+  audioFile: string | null;
+  hasLocalAudio: boolean;
+  hasMapping: boolean;
+  status: 'ready' | 'needs-download' | 'needs-mapping';
+}
+
+interface AudioMapping {
+  sequenceName: string;
+  audioFile: string;
+}
+
+interface LocalAudioFile {
+  name: string;
+  size: number;
+  lastModified: string;
+}
+
+export default function MediaCenter() {
   const { data: session } = useSession();
   const router = useRouter();
   const { isOnline } = useFPPConnection();
@@ -100,6 +144,21 @@ export default function MediaLibrary() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<MediaTab>('library');
+  
+  // Audio Sync tab state
+  const [selectedAudioSyncPlaylist, setSelectedAudioSyncPlaylist] = useState<Playlist | null>(null);
+  const [playlistSequences, setPlaylistSequences] = useState<PlaylistSequenceStatus[]>([]);
+  const [audioMappings, setAudioMappings] = useState<AudioMapping[]>([]);
+  const [localAudioFiles, setLocalAudioFiles] = useState<LocalAudioFile[]>([]);
+  const [loadingAudioSync, setLoadingAudioSync] = useState(false);
+  const [downloadingSequence, setDownloadingSequence] = useState<string | null>(null);
+  const [mappingSequence, setMappingSequence] = useState<string | null>(null);
+  const [selectedAudioFile, setSelectedAudioFile] = useState<string>('');
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  const [audioSyncMessage, setAudioSyncMessage] = useState<string>('');
+
   useEffect(() => {
     if (!isAdmin) {
       router.push('/jukebox');
@@ -121,6 +180,21 @@ export default function MediaLibrary() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlaylist]); // Only trigger on playlist change, not sequences change
+
+  // Load audio sync data when switching to audio-sync tab or when playlist changes while on that tab
+  useEffect(() => {
+    if (activeTab === 'audio-sync') {
+      if (selectedAudioSyncPlaylist) {
+        loadAudioSyncData();
+      } else {
+        // Clear data if no playlist selected
+        setPlaylistSequences([]);
+      }
+    } else if (activeTab === 'local-files') {
+      loadLocalFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedAudioSyncPlaylist?.name]); // Use playlist name as dependency to detect changes
 
   const fetchSyncStatus = async () => {
     try {
@@ -272,6 +346,151 @@ export default function MediaLibrary() {
     } finally {
       setLoadingMetadata(false);
     }
+  };
+
+  // Audio Sync tab functions
+  const loadAudioSyncData = useCallback(async () => {
+    if (!selectedAudioSyncPlaylist) return;
+    
+    setLoadingAudioSync(true);
+    try {
+      const [statusRes, mappingsRes, localFilesRes] = await Promise.all([
+        fetch(`/api/audio/playlist-status?playlist=${encodeURIComponent(selectedAudioSyncPlaylist.name)}`),
+        fetch('/api/audio/mappings'),
+        fetch('/api/audio/local-files')
+      ]);
+
+      if (statusRes.ok) {
+        const data = await statusRes.json();
+        setPlaylistSequences(data.sequences || []);
+      }
+
+      if (mappingsRes.ok) {
+        const data = await mappingsRes.json();
+        setAudioMappings(data.mappings || []);
+      }
+
+      if (localFilesRes.ok) {
+        const data = await localFilesRes.json();
+        setLocalAudioFiles(data.files || []);
+      }
+    } catch (error) {
+      console.error('[Audio Sync] Failed to load data:', error);
+      setAudioSyncMessage('❌ Failed to load audio sync data');
+      setTimeout(() => setAudioSyncMessage(''), 5000);
+    } finally {
+      setLoadingAudioSync(false);
+    }
+  }, [selectedAudioSyncPlaylist]);
+
+  const loadLocalFiles = async () => {
+    try {
+      const res = await fetch('/api/audio/local-files');
+      if (res.ok) {
+        const data = await res.json();
+        setLocalAudioFiles(data.files || []);
+      }
+    } catch (error) {
+      console.error('[Audio Sync] Failed to load local files:', error);
+    }
+  };
+
+  const downloadAudioFromFPP = async (sequenceName: string, mediaName: string | null) => {
+    setDownloadingSequence(sequenceName);
+    setAudioSyncMessage('');
+    
+    try {
+      const res = await fetch('/api/audio/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequenceName, mediaName })
+      });
+
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setAudioSyncMessage(`✅ Downloaded and mapped "${data.audioFile}" to "${sequenceName}"`);
+        await loadAudioSyncData();
+      } else {
+        setAudioSyncMessage(`❌ Download failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('[Audio Sync] Download error:', error);
+      setAudioSyncMessage('❌ Failed to download audio from FPP');
+    } finally {
+      setDownloadingSequence(null);
+      setTimeout(() => setAudioSyncMessage(''), 5000);
+    }
+  };
+
+  const saveAudioMapping = async (sequenceName: string, audioFile: string) => {
+    setMappingSequence(sequenceName);
+    setAudioSyncMessage('');
+    
+    try {
+      const res = await fetch('/api/audio/mappings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequenceName, audioFile })
+      });
+
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setAudioSyncMessage(`✅ Mapped "${audioFile}" to "${sequenceName}"`);
+        setSelectedAudioFile('');
+        await loadAudioSyncData();
+      } else {
+        setAudioSyncMessage(`❌ Mapping failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('[Audio Sync] Mapping error:', error);
+      setAudioSyncMessage('❌ Failed to save audio mapping');
+    } finally {
+      setMappingSequence(null);
+      setTimeout(() => setAudioSyncMessage(''), 5000);
+    }
+  };
+
+  const deleteLocalFile = async (fileName: string) => {
+    if (!confirm(`Delete "${fileName}"? This cannot be undone.`)) return;
+    
+    setDeletingFile(fileName);
+    setAudioSyncMessage('');
+    
+    try {
+      const res = await fetch(`/api/audio/local-files/${encodeURIComponent(fileName)}`, {
+        method: 'DELETE'
+      });
+
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setAudioSyncMessage(`✅ Deleted "${fileName}"`);
+        await loadLocalFiles();
+      } else {
+        setAudioSyncMessage(`❌ Delete failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('[Audio Sync] Delete error:', error);
+      setAudioSyncMessage('❌ Failed to delete file');
+    } finally {
+      setDeletingFile(null);
+      setTimeout(() => setAudioSyncMessage(''), 5000);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const getAudioSyncStats = () => {
+    const ready = playlistSequences.filter(s => s.status === 'ready').length;
+    const needsDownload = playlistSequences.filter(s => s.status === 'needs-download').length;
+    const needsMapping = playlistSequences.filter(s => s.status === 'needs-mapping').length;
+    return { ready, needsDownload, needsMapping, total: playlistSequences.length };
   };
 
   const handleSync = async () => {
@@ -521,11 +740,51 @@ export default function MediaLibrary() {
 
   return (
     <AdminLayout
-      title="🎵 Media Library"
-      subtitle="Browse playlists and sequences with rich metadata"
+      title="🎵 Media Center"
+      subtitle="Unified media management with library, audio sync, and local files"
     >
-      {/* Sync Status Banner */}
-      {syncStatus && (
+      {/* Tab Navigation */}
+      <div className="backdrop-blur-md bg-white/10 rounded-xl shadow-2xl border border-white/20 mb-6 overflow-hidden">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab('library')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 font-semibold transition-all ${
+              activeTab === 'library'
+                ? 'bg-white/20 text-white border-b-2 border-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Library className="w-5 h-5" />
+            <span>Library</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('audio-sync')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 font-semibold transition-all ${
+              activeTab === 'audio-sync'
+                ? 'bg-white/20 text-white border-b-2 border-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Link2 className="w-5 h-5" />
+            <span>Audio Sync</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('local-files')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 font-semibold transition-all ${
+              activeTab === 'local-files'
+                ? 'bg-white/20 text-white border-b-2 border-white'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <FolderOpen className="w-5 h-5" />
+            <span>Local Files</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Sync Status Banner - Show on Library and Audio Sync tabs */}
+      {/* Sync Status Banner - Show only on Library tab */}
+      {activeTab === 'library' && syncStatus && (
         <div className="backdrop-blur-md bg-white/10 rounded-xl p-4 shadow-2xl border border-white/20 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -603,19 +862,22 @@ export default function MediaLibrary() {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="backdrop-blur-md bg-white/10 rounded-xl p-4 shadow-2xl border border-white/20 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search playlists..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
-          />
-        </div>
-      </div>
+      {/* LIBRARY TAB CONTENT */}
+      {activeTab === 'library' && (
+        <>
+          {/* Search Bar */}
+          <div className="backdrop-blur-md bg-white/10 rounded-xl p-4 shadow-2xl border border-white/20 mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search playlists..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
+              />
+            </div>
+          </div>
 
       {loading ? (
         <div className="text-center py-12">
@@ -812,6 +1074,280 @@ export default function MediaLibrary() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* AUDIO SYNC TAB CONTENT */}
+      {activeTab === 'audio-sync' && (
+        <div className="space-y-6">
+          {/* Playlist Selector for Audio Sync */}
+          <div className="backdrop-blur-md bg-white/10 rounded-xl p-6 shadow-2xl border border-white/20">
+            <h2 className="text-xl font-bold text-white flex items-center gap-3 mb-4">
+              <List className="w-5 h-5" />
+              Select Playlist for Audio Sync
+            </h2>
+            <select
+              value={selectedAudioSyncPlaylist?.name || ''}
+              onChange={(e) => {
+                const playlist = playlists.find(p => p.name === e.target.value);
+                setSelectedAudioSyncPlaylist(playlist || null);
+              }}
+              className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer appearance-none"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0.75rem center',
+                backgroundSize: '1.5rem',
+                paddingRight: '3rem'
+              }}
+            >
+              <option value="" disabled className="bg-gray-800">Choose a playlist...</option>
+              {playlists.map((playlist) => (
+                <option key={playlist.name} value={playlist.name} className="bg-gray-800">
+                  {playlist.name} ({playlist.playlistInfo?.total_items || 0} items)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!selectedAudioSyncPlaylist ? (
+            <div className="backdrop-blur-md bg-white/10 rounded-xl p-12 shadow-2xl border border-white/20 text-center">
+              <div className="text-6xl mb-4">☝️</div>
+              <h3 className="text-2xl font-bold text-white mb-2">Select a Playlist</h3>
+              <p className="text-white/70">Choose a playlist above to view and manage audio sync status</p>
+            </div>
+          ) : (
+            <>
+              {/* Audio Sync Stats */}
+              {(() => {
+                const stats = getAudioSyncStats();
+                return (
+                  <div className="backdrop-blur-md bg-white/10 rounded-xl p-4 shadow-2xl border border-white/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Link2 className="w-5 h-5 text-white" />
+                        <span className="text-white font-semibold">Audio Sync Status: {selectedAudioSyncPlaylist.name}</span>
+                      </div>
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-green-400">{stats.ready} Ready</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Download className="w-4 h-4 text-yellow-400" />
+                          <span className="text-yellow-400">{stats.needsDownload} Need Download</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-orange-400" />
+                          <span className="text-orange-400">{stats.needsMapping} Need Mapping</span>
+                        </div>
+                        <button
+                          onClick={loadAudioSyncData}
+                          disabled={loadingAudioSync}
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                        >
+                          <RefreshCw className={`w-4 h-4 text-white ${loadingAudioSync ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                    </div>
+                    {audioSyncMessage && (
+                      <div className="mt-3 text-sm text-white">{audioSyncMessage}</div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Playlist Sequences Table */}
+              <div className="backdrop-blur-md bg-white/10 rounded-xl shadow-2xl border border-white/20 overflow-hidden">
+                {loadingAudioSync ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+                    <p className="text-white/70">Loading audio sync status...</p>
+                  </div>
+                ) : playlistSequences.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileAudio className="w-12 h-12 text-white/30 mx-auto mb-3" />
+                    <p className="text-white/70">No sequences found in this playlist</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-white/5 border-b border-white/10">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-white/80 font-medium">Sequence</th>
+                        <th className="text-left py-3 px-4 text-white/80 font-medium">Audio File</th>
+                        <th className="text-center py-3 px-4 text-white/80 font-medium">Status</th>
+                        <th className="text-right py-3 px-4 text-white/80 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                      {playlistSequences.map((seq) => (
+                        <tr key={seq.sequenceName} className="hover:bg-white/5 transition-colors">
+                          <td className="py-3 px-4">
+                            <span className="text-white font-medium">{seq.sequenceName}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {mappingSequence === seq.sequenceName ? (
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={selectedAudioFile}
+                                  onChange={(e) => setSelectedAudioFile(e.target.value)}
+                                  className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm"
+                                >
+                                  <option value="">Select audio file...</option>
+                                  {localAudioFiles.map((file) => (
+                                    <option key={file.name} value={file.name}>{file.name}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => selectedAudioFile && saveAudioMapping(seq.sequenceName, selectedAudioFile)}
+                                  disabled={!selectedAudioFile}
+                                  className="p-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setMappingSequence(null)}
+                                  className="p-1 bg-white/10 text-white rounded hover:bg-white/20"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : seq.audioFile ? (
+                              <span className="text-green-400">{seq.audioFile}</span>
+                            ) : seq.mediaName ? (
+                              <span className="text-yellow-400 text-sm">FPP: {seq.mediaName}</span>
+                            ) : (
+                              <span className="text-white/50">Not mapped</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {seq.status === 'ready' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded text-sm">
+                                <CheckCircle className="w-3 h-3" />
+                                Ready
+                              </span>
+                            ) : seq.status === 'needs-download' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-sm">
+                                <Download className="w-3 h-3" />
+                                Need Download
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-sm">
+                                <AlertCircle className="w-3 h-3" />
+                                Need Mapping
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {/* Download button - shows when audio needs to be downloaded from FPP */}
+                              {seq.status === 'needs-download' && seq.mediaName && (
+                                <button
+                                  onClick={() => downloadAudioFromFPP(seq.sequenceName, seq.mediaName)}
+                                  disabled={downloadingSequence === seq.sequenceName}
+                                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                                >
+                                  {downloadingSequence === seq.sequenceName ? (
+                                    <>
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                      Downloading...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download className="w-3 h-3" />
+                                      Download
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                              {/* Map Audio button - shows when not currently mapping this sequence */}
+                              {mappingSequence !== seq.sequenceName && (
+                                <button
+                                  onClick={() => setMappingSequence(seq.sequenceName)}
+                                  className={`px-3 py-1 ${seq.status === 'ready' ? 'bg-white/10 hover:bg-white/20' : 'bg-orange-600 hover:bg-orange-700'} text-white rounded text-sm font-medium flex items-center gap-1`}
+                                  title={seq.status === 'ready' ? 'Change audio mapping' : 'Map to local audio file'}
+                                >
+                                  <Link2 className="w-3 h-3" />
+                                  {seq.status === 'ready' ? 'Remap' : 'Map Audio'}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* LOCAL FILES TAB CONTENT */}
+      {activeTab === 'local-files' && (
+        <div className="space-y-6">
+          {/* Local Files Header */}
+          <div className="backdrop-blur-md bg-white/10 rounded-xl p-4 shadow-2xl border border-white/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-5 h-5 text-white" />
+                <span className="text-white font-semibold">Local Audio Files</span>
+                <span className="text-white/60 text-sm">({localAudioFiles.length} files)</span>
+              </div>
+              <button
+                onClick={loadLocalFiles}
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <RefreshCw className="w-4 h-4 text-white" />
+              </button>
+            </div>
+            {audioSyncMessage && (
+              <div className="mt-3 text-sm text-white">{audioSyncMessage}</div>
+            )}
+          </div>
+
+          {/* Local Files List */}
+          <div className="backdrop-blur-md bg-white/10 rounded-xl shadow-2xl border border-white/20 overflow-hidden">
+            {localAudioFiles.length === 0 ? (
+              <div className="text-center py-12">
+                <FolderOpen className="w-12 h-12 text-white/30 mx-auto mb-3" />
+                <p className="text-white/70">No local audio files found</p>
+                <p className="text-white/50 text-sm mt-1">Download audio from FPP using the Audio Sync tab</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/10">
+                {localAudioFiles.map((file) => (
+                  <div key={file.name} className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <FileAudio className="w-8 h-8 text-blue-400" />
+                      <div>
+                        <p className="text-white font-medium">{file.name}</p>
+                        <div className="flex items-center gap-4 text-sm text-white/50">
+                          <span>{formatFileSize(file.size)}</span>
+                          <span>{new Date(file.lastModified).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteLocalFile(file.name)}
+                      disabled={deletingFile === file.name}
+                      className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                      title="Delete file"
+                    >
+                      {deletingFile === file.name ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

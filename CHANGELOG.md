@@ -19,6 +19,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2025-11-27
+
+### Unified Media Center & Audio Sync Improvements 🎵
+
+#### 🎉 Added
+
+- **Unified Media Center**
+  - Combined Media Library and Media Manager into single tabbed interface
+  - Three tabs: Library (Spotify/FPP sync), Audio Sync (sequence mapping), Local Files
+  - Independent playlist selection per tab for better workflow
+  - Consolidated navigation with single "Media Center" menu item
+
+- **New Audio Sync APIs**
+  - `/api/audio/playlist-status` - Get sequence status with audio file info from cached playlists
+  - `/api/audio/download` - Download audio files directly from FPP with correct endpoint (`/api/file/music/`)
+  - `/api/audio/mappings` - Manage sequence-to-audio file mappings
+  - `/api/audio/local-files` - List and manage local audio files
+
+- **Automatic Audio Mapping**
+  - Downloads now auto-create mappings (sequence → audio file)
+  - Reads `mediaName` directly from FPP playlist data for accurate downloads
+  - No more 502/404 errors - uses correct FPP `/api/file/music/{filename}` endpoint
+
+- **Manual Mapping UI**
+  - "Map Audio" button for sequences needing manual linking
+  - "Remap" button to change existing mappings
+  - Dropdown selector shows all available local audio files
+  - Shows FPP `mediaName` in yellow when available but not yet downloaded
+
+#### 🔧 Changed
+
+- Audio Sync tab no longer shows FPP sync/Spotify refresh banner (Library tab only)
+- Improved status logic: sequences with `mediaName` show "needs-download", those without show "needs-mapping"
+- Better error messages with URL details for debugging FPP connection issues
+
+#### 🗑️ Removed
+
+- Deleted separate `/app/admin/media/page.tsx` (merged into unified Media Center)
+- Deleted `components/admin/MediaManager.tsx` (functionality integrated)
+
+---
+
 ## [1.2.0] - 2025-11-25
 
 ### Media Manager UI Redesign & Build System Fixes 🎨

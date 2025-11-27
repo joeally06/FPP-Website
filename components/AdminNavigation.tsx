@@ -14,8 +14,7 @@ export default function AdminNavigation() {
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: '🏠' },
-    { name: 'Media Library', path: '/media', icon: '📚' },
-    { name: 'Media Manager', path: '/admin/media', icon: '🎵' },
+    { name: 'Media Center', path: '/media', icon: '🎵' },
     { name: 'Models', path: '/models', icon: '🎄' },
     { name: 'Analytics', path: '/analytics', icon: '📊' },
     { name: 'Devices', path: '/device-status', icon: '📡' },
