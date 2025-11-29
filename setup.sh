@@ -8,9 +8,18 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# Helper functions
+# Progress tracking
+TOTAL_STEPS=8
+CURRENT_STEP=0
+
+# ═══════════════════════════════════════════════════════════
+# Helper Functions
+# ═══════════════════════════════════════════════════════════
+
 print_header() {
     echo ""
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
@@ -39,6 +48,24 @@ print_info() {
     echo -e "${CYAN}ℹ $1${NC}"
 }
 
+# Progress bar function
+show_progress() {
+    CURRENT_STEP=$1
+    STEP_NAME=$2
+    PERCENT=$((CURRENT_STEP * 100 / TOTAL_STEPS))
+    FILLED=$((PERCENT / 5))
+    EMPTY=$((20 - FILLED))
+    
+    echo ""
+    echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    printf "${BOLD}Step %d/%d${NC} [" "$CURRENT_STEP" "$TOTAL_STEPS"
+    for ((i=0; i<FILLED; i++)); do printf "${GREEN}█${NC}"; done
+    for ((i=0; i<EMPTY; i++)); do printf "${BLUE}░${NC}"; done
+    printf "] %d%% - ${CYAN}%s${NC}\n" "$PERCENT" "$STEP_NAME"
+    echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+}
+
 confirm() {
     while true; do
         read -p "$1 (y/n) " -n 1 -r
@@ -53,22 +80,107 @@ confirm() {
     done
 }
 
-# Main setup script
-clear
-print_header "🎄 FPP Control Center - Interactive Setup 🎅"
+# Retry function for failed steps
+retry_or_skip() {
+    local step_name="$1"
+    local is_required="$2"
+    
+    echo ""
+    if [ "$is_required" = true ]; then
+        print_error "$step_name failed!"
+        if confirm "Retry this step?"; then
+            return 0  # Retry
+        else
+            print_error "Cannot continue without $step_name"
+            exit 1
+        fi
+    else
+        print_warning "$step_name failed (optional)"
+        if confirm "Retry this step?"; then
+            return 0  # Retry
+        else
+            print_info "Skipping $step_name - you can configure this later"
+            return 1  # Skip
+        fi
+    fi
+}
 
-echo -e "${GREEN}Welcome to the FPP Control Center setup wizard!${NC}"
-echo ""
-echo "This wizard will guide you through setting up your Christmas light"
-echo "control center with jukebox, Santa letter generation, and device monitoring."
-echo ""
-echo "This will take about 10-15 minutes."
-echo ""
+# ═══════════════════════════════════════════════════════════
+# FPP Detection Functions
+# ═══════════════════════════════════════════════════════════
 
-if ! confirm "Ready to begin?"; then
-    echo "Setup cancelled."
-    exit 0
-fi
+# Verify a device is actually FPP (not just any HTTP server)
+verify_fpp_device() {
+    local ip="$1"
+    local port="${2:-80}"
+    local url="http://$ip:$port"
+    
+    # Try to get FPP system status
+    local response=$(curl -s -m 3 "$url/api/system/status" 2>/dev/null)
+    
+    if [ -z "$response" ]; then
+        return 1
+    fi
+    
+    # Check for FPP-specific fields in the response
+    # FPP returns JSON with fields like: fppd, mode, current_sequence, etc.
+    if echo "$response" | grep -qE '"(fppd|JEEVES|current_sequence|current_playlist|mode_name)"'; then
+        return 0  # Confirmed FPP device
+    fi
+    
+    # Secondary check: try /api/fppd/status which is FPP-specific
+    local fppd_response=$(curl -s -m 2 "$url/api/fppd/status" 2>/dev/null)
+    if echo "$fppd_response" | grep -qE '"(status|current_sequence|mode_name)"'; then
+        return 0  # Confirmed FPP device
+    fi
+    
+    return 1
+}
+
+# Get FPP device info for display
+get_fpp_info() {
+    local ip="$1"
+    local port="${2:-80}"
+    local url="http://$ip:$port"
+    
+    local response=$(curl -s -m 3 "$url/api/system/status" 2>/dev/null)
+    
+    if [ -n "$response" ]; then
+        # Extract hostname if available (works with grep -oP or sed fallback)
+        local hostname=$(echo "$response" | grep -oP '"hostname"\s*:\s*"\K[^"]+' 2>/dev/null || \
+                        echo "$response" | sed -n 's/.*"hostname"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' || echo "FPP")
+        # Extract version if available  
+        local version=$(echo "$response" | grep -oP '"(fpp_version|version)"\s*:\s*"\K[^"]+' 2>/dev/null || \
+                       echo "$response" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' || echo "Unknown")
+        # Extract mode
+        local mode=$(echo "$response" | grep -oP '"mode_name"\s*:\s*"\K[^"]+' 2>/dev/null || \
+                    echo "$response" | sed -n 's/.*"mode_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' || echo "")
+        
+        # Ensure we have something
+        [ -z "$hostname" ] && hostname="FPP"
+        [ -z "$version" ] && version="Unknown"
+        
+        echo "$hostname|$version|$mode"
+    else
+        echo "FPP|Unknown|"
+    fi
+}
+
+# Load existing config values
+load_existing_config() {
+    if [ -f ".env.local" ]; then
+        EXISTING_ADMIN_EMAIL=$(grep "^ADMIN_EMAILS=" .env.local 2>/dev/null | cut -d'=' -f2 | grep -v "your-" || echo "")
+        EXISTING_FPP_URL=$(grep "^FPP_URL=" .env.local 2>/dev/null | cut -d'=' -f2 || echo "")
+        EXISTING_NEXTAUTH_URL=$(grep "^NEXTAUTH_URL=" .env.local 2>/dev/null | cut -d'=' -f2 || echo "")
+        EXISTING_TIMEZONE=$(grep "^NEXT_PUBLIC_TIMEZONE=" .env.local 2>/dev/null | cut -d'=' -f2 || echo "")
+        EXISTING_GOOGLE_ID=$(grep "^GOOGLE_CLIENT_ID=" .env.local 2>/dev/null | cut -d'=' -f2 | grep -v "your-" || echo "")
+        EXISTING_SPOTIFY_ID=$(grep "^SPOTIFY_CLIENT_ID=" .env.local 2>/dev/null | cut -d'=' -f2 | grep -v "your-" || echo "")
+        EXISTING_OLLAMA_URL=$(grep "^OLLAMA_URL=" .env.local 2>/dev/null | cut -d'=' -f2 || echo "")
+        EXISTING_SMTP_HOST=$(grep "^SMTP_HOST=" .env.local 2>/dev/null | cut -d'=' -f2 | grep -v "your-" || echo "")
+        return 0
+    fi
+    return 1
+}
 
 # ═══════════════════════════════════════════════════════════
 # Dependency Installation Functions
@@ -77,7 +189,6 @@ fi
 install_dependencies_mac() {
     print_header "Installing Dependencies (macOS)"
     
-    # Check if Homebrew is installed
     if ! command -v brew &> /dev/null; then
         print_error "Homebrew is not installed"
         echo ""
@@ -93,7 +204,6 @@ install_dependencies_mac() {
     print_step "Updating Homebrew..."
     brew update
     
-    # Install Node.js
     if ! command -v node &> /dev/null; then
         print_step "Installing Node.js 20..."
         brew install node@20
@@ -109,7 +219,6 @@ install_dependencies_mac() {
         fi
     fi
     
-    # Install Git if needed
     if ! command -v git &> /dev/null; then
         print_step "Installing Git..."
         brew install git
@@ -123,7 +232,6 @@ install_dependencies_debian() {
     print_step "Updating package lists..."
     sudo apt-get update
     
-    # Install Node.js
     if ! command -v node &> /dev/null; then
         print_step "Adding NodeSource repository..."
         curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -135,22 +243,15 @@ install_dependencies_debian() {
         NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
         if [ "$NODE_VERSION" -lt 20 ]; then
             print_warning "Node.js $(node -v) is too old. Upgrading to version 20..."
-            
-            # Remove old Node.js
             sudo apt-get remove -y nodejs
-            
-            # Add NodeSource repository
             print_step "Adding NodeSource repository..."
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-            
-            # Install Node.js 20
             print_step "Installing Node.js 20..."
             sudo apt-get install -y nodejs
             print_success "Node.js upgraded successfully"
         fi
     fi
     
-    # Install Git if needed
     if ! command -v git &> /dev/null; then
         print_step "Installing Git..."
         sudo apt-get install -y git
@@ -161,7 +262,6 @@ install_dependencies_debian() {
 install_dependencies_redhat() {
     print_header "Installing Dependencies (RHEL/CentOS/Fedora)"
     
-    # Install Node.js
     if ! command -v node &> /dev/null; then
         print_step "Adding NodeSource repository..."
         curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
@@ -173,22 +273,15 @@ install_dependencies_redhat() {
         NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
         if [ "$NODE_VERSION" -lt 20 ]; then
             print_warning "Node.js $(node -v) is too old. Upgrading to version 20..."
-            
-            # Remove old Node.js
             sudo yum remove -y nodejs
-            
-            # Add NodeSource repository
             print_step "Adding NodeSource repository..."
             curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-            
-            # Install Node.js 20
             print_step "Installing Node.js 20..."
             sudo yum install -y nodejs
             print_success "Node.js upgraded successfully"
         fi
     fi
     
-    # Install Git if needed
     if ! command -v git &> /dev/null; then
         print_step "Installing Git..."
         sudo yum install -y git
@@ -199,41 +292,19 @@ install_dependencies_redhat() {
 install_dependencies() {
     echo ""
     echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║                                                           ║"
     echo "║  This script will automatically install:                 ║"
     echo "║  • Node.js 20+ (includes npm)                            ║"
     echo "║  • Git                                                    ║"
     echo "║                                                           ║"
     echo "║  You may be prompted for your sudo password.             ║"
-    echo "║                                                           ║"
     echo "╚═══════════════════════════════════════════════════════════╝"
     echo ""
     
     if ! confirm "Continue with automatic installation?"; then
         print_info "Installation cancelled by user"
-        echo ""
-        echo "To install manually:"
-        if [[ "$OS_TYPE" == "linux" ]]; then
-            echo ""
-            echo "Node.js 20:"
-            echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
-            echo "  sudo apt-get install -y nodejs"
-            echo ""
-            echo "Git:"
-            echo "  sudo apt-get install -y git"
-        elif [[ "$OS_TYPE" == "mac" ]]; then
-            echo ""
-            echo "Node.js 20:"
-            echo "  brew install node@20"
-            echo ""
-            echo "Git:"
-            echo "  brew install git"
-        fi
-        echo ""
         exit 1
     fi
     
-    # Detect Linux distribution
     if [[ "$OS_TYPE" == "linux" ]]; then
         if [ -f /etc/debian_version ]; then
             install_dependencies_debian
@@ -241,14 +312,6 @@ install_dependencies() {
             install_dependencies_redhat
         else
             print_error "Unsupported Linux distribution"
-            echo ""
-            echo "This script supports:"
-            echo "  • Debian/Ubuntu (apt-get)"
-            echo "  • RHEL/CentOS/Fedora (yum)"
-            echo ""
-            echo "Please install Node.js 20+ and Git manually:"
-            echo "  https://nodejs.org"
-            echo "  https://git-scm.com"
             exit 1
         fi
     elif [[ "$OS_TYPE" == "mac" ]]; then
@@ -257,9 +320,83 @@ install_dependencies() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# STEP 1: Dependency Checks
+# MAIN SCRIPT START
 # ═══════════════════════════════════════════════════════════
-print_header "Step 1/8: System Requirements"
+
+clear
+print_header "🎄 FPP Control Center - Interactive Setup 🎅"
+
+echo -e "${GREEN}Welcome to the FPP Control Center setup wizard!${NC}"
+echo ""
+echo "This wizard will guide you through setting up your Christmas light"
+echo "control center with jukebox, Santa letter generation, and device monitoring."
+echo ""
+
+# Check for existing configuration
+REUSE_CONFIG=false
+if load_existing_config; then
+    echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  Existing configuration detected!                         ║${NC}"
+    echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "Found existing settings:"
+    [ -n "$EXISTING_ADMIN_EMAIL" ] && echo "  • Admin Email: $EXISTING_ADMIN_EMAIL"
+    [ -n "$EXISTING_FPP_URL" ] && echo "  • FPP Server: $EXISTING_FPP_URL"
+    [ -n "$EXISTING_NEXTAUTH_URL" ] && echo "  • Access URL: $EXISTING_NEXTAUTH_URL"
+    [ -n "$EXISTING_GOOGLE_ID" ] && echo "  • Google OAuth: Configured ✓"
+    [ -n "$EXISTING_SPOTIFY_ID" ] && echo "  • Spotify API: Configured ✓"
+    echo ""
+    
+    if confirm "Would you like to reuse these settings where possible?"; then
+        REUSE_CONFIG=true
+        print_success "Will reuse existing settings"
+    else
+        print_info "Starting fresh configuration"
+    fi
+    echo ""
+fi
+
+# Quick Setup Option
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║  Choose Setup Mode                                        ║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo "  1) ${GREEN}Quick Setup${NC} (Recommended for most users)"
+echo "     - Auto-detect FPP server"
+echo "     - Minimal prompts"
+echo "     - ~5 minutes"
+echo ""
+echo "  2) ${BLUE}Full Setup${NC} (Advanced users)"
+echo "     - Configure all options"
+echo "     - Ollama AI, SMTP, etc."
+echo "     - ~10-15 minutes"
+echo ""
+
+SETUP_MODE=""
+while true; do
+    read -p "Choose setup mode (1 or 2) [1]: " -r
+    SETUP_MODE=${REPLY:-1}
+    if [[ "$SETUP_MODE" == "1" ]]; then
+        print_success "Quick Setup selected"
+        break
+    elif [[ "$SETUP_MODE" == "2" ]]; then
+        print_success "Full Setup selected"
+        break
+    else
+        print_warning "Please choose 1 or 2"
+    fi
+done
+
+echo ""
+if ! confirm "Ready to begin?"; then
+    echo "Setup cancelled."
+    exit 0
+fi
+
+# ═══════════════════════════════════════════════════════════
+# STEP 1: System Requirements
+# ═══════════════════════════════════════════════════════════
+show_progress 1 "System Requirements"
 
 print_step "Detecting operating system..."
 OS_TYPE=""
@@ -271,12 +408,11 @@ esac
 
 if [[ "$OS_TYPE" == "unknown" ]]; then
     print_error "Unsupported operating system: $(uname -s)"
-    echo "This setup script only supports Linux and macOS."
     exit 1
 fi
 print_success "Operating system: $OS_TYPE"
 
-# Check dependencies and offer auto-install
+# Check dependencies
 MISSING_DEPS=false
 
 print_step "Checking Node.js..."
@@ -295,7 +431,7 @@ fi
 
 print_step "Checking npm..."
 if ! command -v npm &> /dev/null; then
-    print_warning "npm is not installed (will be installed with Node.js)"
+    print_warning "npm is not installed"
     MISSING_DEPS=true
 else
     print_success "npm $(npm -v) detected"
@@ -309,92 +445,65 @@ else
     print_success "Git $(git --version | cut -d' ' -f3) detected"
 fi
 
-# If dependencies are missing, offer to install them
 if [ "$MISSING_DEPS" = true ]; then
     echo ""
     print_warning "Some required dependencies are missing or outdated"
-    echo ""
     
     if confirm "Would you like to install missing dependencies automatically?"; then
         install_dependencies
         
         # Verify installation
-        echo ""
         print_header "Verifying Installation"
         
-        print_step "Checking Node.js..."
         if ! command -v node &> /dev/null; then
             print_error "Node.js installation failed"
             exit 1
         fi
         NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
         if [ "$NODE_VERSION" -lt 20 ]; then
-            print_error "Node.js 20+ is required (found: $(node -v))"
+            print_error "Node.js 20+ is required"
             exit 1
         fi
         print_success "Node.js $(node -v) installed"
         
-        print_step "Checking npm..."
         if ! command -v npm &> /dev/null; then
             print_error "npm installation failed"
             exit 1
         fi
         print_success "npm $(npm -v) installed"
         
-        print_step "Checking Git..."
         if ! command -v git &> /dev/null; then
             print_error "Git installation failed"
             exit 1
         fi
         print_success "Git $(git --version | cut -d' ' -f3) installed"
         
-        echo ""
         print_success "All dependencies installed successfully!"
     else
         print_error "Cannot continue without required dependencies"
-        echo ""
-        echo "Please install manually and run this script again:"
-        if [[ "$OS_TYPE" == "linux" ]]; then
-            echo ""
-            echo "Node.js 20:"
-            echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
-            echo "  sudo apt-get install -y nodejs"
-            echo ""
-            echo "Git:"
-            echo "  sudo apt-get install -y git"
-        elif [[ "$OS_TYPE" == "mac" ]]; then
-            echo ""
-            echo "Node.js 20:"
-            echo "  brew install node@20"
-            echo ""
-            echo "Git:"
-            echo "  brew install git"
-        fi
         exit 1
     fi
 fi
 
 # ═══════════════════════════════════════════════════════════
-# STEP 2: Choose Installation Type
+# STEP 2: Installation Type
 # ═══════════════════════════════════════════════════════════
-print_header "Step 2/8: Choose Installation Type"
+show_progress 2 "Installation Type"
 
 echo "How do you plan to use FPP Control Center?"
 echo ""
 echo "  1) Local Network Only (default)"
 echo "     - Access from devices on your home network"
-echo "     - No public internet access"
 echo "     - Simpler setup"
 echo ""
 echo "  2) Public Internet Access"
 echo "     - Access from anywhere in the world"
-echo "     - Requires domain name"
 echo "     - Uses Cloudflare Tunnel for security"
 echo ""
 
 while true; do
-    read -p "Choose (1 or 2): " -n 1 -r
-    echo
+    read -p "Choose (1 or 2) [1]: " -r
+    REPLY=${REPLY:-1}
     if [[ $REPLY == "1" ]]; then
         INSTALL_TYPE="local"
         print_success "Local network installation selected"
@@ -409,75 +518,22 @@ while true; do
 done
 
 # ═══════════════════════════════════════════════════════════
-# STEP 2.5: Version Selection
-# ═══════════════════════════════════════════════════════════
-print_header "Version Selection"
-
-echo "Which version would you like to install?"
-echo ""
-echo "  1) Latest Stable Release (Recommended)"
-echo "     - Tested and stable"
-echo "     - Recommended for production use"
-echo "     - Currently: $(git describe --tags --abbrev=0 2>/dev/null || echo 'No releases yet')"
-echo ""
-echo "  2) Latest Development (master branch)"
-echo "     - Newest features and improvements"
-echo "     - May have bugs"
-echo "     - For testing or contributing"
-echo ""
-
-VERSION_CHOICE=""
-while true; do
-    read -p "Choose version (1 or 2, default: 1): " -r
-    VERSION_CHOICE=${REPLY:-1}
-    if [[ "$VERSION_CHOICE" == "1" ]]; then
-        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-        if [ -n "$LATEST_TAG" ]; then
-            print_step "Switching to latest release: $LATEST_TAG"
-            git checkout "$LATEST_TAG" 2>/dev/null || {
-                print_warning "Could not checkout release, using current version"
-            }
-            print_success "Using stable release: $LATEST_TAG"
-        else
-            print_warning "No releases found, using latest development version"
-        fi
-        break
-    elif [[ "$VERSION_CHOICE" == "2" ]]; then
-        print_info "Using latest development version (master branch)"
-        git checkout master 2>/dev/null || true
-        git pull origin master 2>/dev/null || true
-        print_success "Using latest development code"
-        break
-    else
-        print_warning "Please choose 1 or 2"
-    fi
-done
-
-echo ""
-print_step "Displaying version information..."
-chmod +x scripts/check-version.sh 2>/dev/null || true
-./scripts/check-version.sh 2>/dev/null || {
-    CURRENT_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
-    print_info "Installing version: $CURRENT_VERSION"
-}
-
-# ═══════════════════════════════════════════════════════════
 # STEP 3: Install Dependencies
 # ═══════════════════════════════════════════════════════════
-print_header "Step 3/8: Installing Dependencies"
+show_progress 3 "Installing Dependencies"
 
-print_step "Installing dependencies..."
+print_step "Installing npm dependencies..."
 npm install
 
-print_step "Updating dependencies to fix known vulnerabilities..."
+print_step "Updating dependencies..."
 npm update
 npm audit fix --force 2>/dev/null || true
 
 print_success "Dependencies installed and updated"
 
-print_step "Checking for PM2 (process manager)..."
+print_step "Checking for PM2..."
 if ! command -v pm2 &> /dev/null; then
-    print_info "PM2 not found. Installing globally..."
+    print_info "Installing PM2 globally..."
     sudo npm install -g pm2
     print_success "PM2 installed"
 else
@@ -487,248 +543,387 @@ fi
 # ═══════════════════════════════════════════════════════════
 # STEP 4: Database Setup
 # ═══════════════════════════════════════════════════════════
-print_header "Step 4/8: Setting Up Database"
+show_progress 4 "Database Setup"
 
 print_step "Initializing database..."
 npm run setup
 print_success "Database initialized"
 
 # ═══════════════════════════════════════════════════════════
-# STEP 5: Google OAuth Information
+# STEP 5: FPP Server Configuration
 # ═══════════════════════════════════════════════════════════
-print_header "Step 5/8: Google OAuth Setup"
+show_progress 5 "FPP Server Configuration"
 
-echo "FPP Control Center uses Google OAuth for secure admin authentication."
-echo ""
-echo "Before continuing, you'll need to create Google OAuth credentials:"
-echo ""
-echo "  1. Go to: https://console.cloud.google.com/apis/credentials"
-echo "  2. Create a new project (or select existing)"
-echo "  3. Click 'Create Credentials' → 'OAuth 2.0 Client ID'"
-echo "  4. Choose 'Web application'"
-echo "  5. Add authorized redirect URIs:"
+FPP_URL=""
+FPP_CONFIRMED=false
 
-if [[ "$INSTALL_TYPE" == "local" ]]; then
-    echo "     - http://localhost:3000/api/auth/callback/google"
-    echo "     - http://YOUR_SERVER_IP:3000/api/auth/callback/google"
-else
-    echo "     - https://yourdomain.com/api/auth/callback/google"
+# Try auto-discovery first (in Quick Setup mode or if user wants)
+if [ "$SETUP_MODE" == "1" ]; then
+    echo ""
+    if confirm "Would you like to auto-discover your FPP server?"; then
+        print_step "Scanning for FPP devices on your network..."
+        
+        # Get network prefix from local IP
+        NETWORK_PREFIX=$(hostname -I 2>/dev/null | awk '{print $1}' | cut -d'.' -f1-3)
+        if [ -z "$NETWORK_PREFIX" ]; then
+            NETWORK_PREFIX="192.168.1"
+        fi
+        
+        echo ""
+        echo "Scanning $NETWORK_PREFIX.x for FPP devices..."
+        echo "(This takes about 15-30 seconds)"
+        echo ""
+        
+        FOUND_DEVICES=()
+        
+        # Check common FPP IP addresses (most users use low IPs or round numbers)
+        COMMON_IPS="2 3 4 5 10 15 20 25 30 50 100 101 102 150 200 201 202 250"
+        
+        for last_octet in $COMMON_IPS; do
+            full_ip="$NETWORK_PREFIX.$last_octet"
+            printf "\r  Checking %-15s" "$full_ip..."
+            
+            if verify_fpp_device "$full_ip" "80"; then
+                FPP_INFO=$(get_fpp_info "$full_ip" "80")
+                FPP_HOSTNAME=$(echo "$FPP_INFO" | cut -d'|' -f1)
+                FPP_VERSION=$(echo "$FPP_INFO" | cut -d'|' -f2)
+                FPP_MODE=$(echo "$FPP_INFO" | cut -d'|' -f3)
+                
+                printf "\r                                          \r"
+                print_success "Found FPP: $full_ip"
+                echo "          Hostname: $FPP_HOSTNAME"
+                echo "          Version:  $FPP_VERSION"
+                [ -n "$FPP_MODE" ] && echo "          Mode:     $FPP_MODE"
+                echo ""
+                
+                FOUND_DEVICES+=("$full_ip|$FPP_HOSTNAME|$FPP_VERSION")
+            fi
+        done
+        printf "\r                                          \r"
+        
+        # Display results
+        if [ ${#FOUND_DEVICES[@]} -eq 0 ]; then
+            print_warning "No FPP devices found automatically"
+            print_info "This could mean:"
+            echo "    • FPP is on a different IP range"
+            echo "    • FPP is not powered on"
+            echo "    • Firewall is blocking the scan"
+            echo ""
+            print_info "You can enter the IP address manually below"
+        elif [ ${#FOUND_DEVICES[@]} -eq 1 ]; then
+            # Single device found - use it
+            FOUND_IP=$(echo "${FOUND_DEVICES[0]}" | cut -d'|' -f1)
+            FOUND_NAME=$(echo "${FOUND_DEVICES[0]}" | cut -d'|' -f2)
+            
+            if confirm "Use this FPP server ($FOUND_IP)?"; then
+                FPP_URL="http://$FOUND_IP:80"
+                FPP_CONFIRMED=true
+                print_success "FPP server configured: $FPP_URL"
+            fi
+        else
+            # Multiple devices found - let user choose
+            echo ""
+            print_success "Found ${#FOUND_DEVICES[@]} FPP devices:"
+            echo ""
+            
+            i=1
+            for device in "${FOUND_DEVICES[@]}"; do
+                DEV_IP=$(echo "$device" | cut -d'|' -f1)
+                DEV_NAME=$(echo "$device" | cut -d'|' -f2)
+                DEV_VERSION=$(echo "$device" | cut -d'|' -f3)
+                echo "  $i) $DEV_IP - $DEV_NAME (v$DEV_VERSION)"
+                ((i++))
+            done
+            echo "  $i) Enter manually"
+            echo ""
+            
+            while true; do
+                read -p "Select FPP server (1-$i): " CHOICE
+                if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "$i" ]; then
+                    if [ "$CHOICE" -eq "$i" ]; then
+                        # Manual entry
+                        break
+                    else
+                        SELECTED_DEVICE="${FOUND_DEVICES[$((CHOICE-1))]}"
+                        FOUND_IP=$(echo "$SELECTED_DEVICE" | cut -d'|' -f1)
+                        FPP_URL="http://$FOUND_IP:80"
+                        FPP_CONFIRMED=true
+                        print_success "Selected: $FPP_URL"
+                        break
+                    fi
+                else
+                    print_warning "Please enter a number between 1 and $i"
+                fi
+            done
+        fi
+    fi
 fi
 
-echo ""
-print_info "Don't have credentials yet? No problem!"
-print_info "You can skip this and configure OAuth later by editing .env.local"
-echo ""
-
-# No questions here - just information
+# Manual entry if not found or user wants to enter manually
+if [ -z "$FPP_URL" ] || [ "$FPP_CONFIRMED" != "true" ]; then
+    echo ""
+    print_header "FPP Server Configuration"
+    echo "Enter your FPP (Falcon Player) server details."
+    echo ""
+    echo -e "${GREEN}Examples:${NC}"
+    echo "  • 192.168.1.2:80 (most common)"
+    echo "  • 192.168.5.2:80"
+    echo ""
+    
+    DEFAULT_FPP=""
+    if [ "$REUSE_CONFIG" = true ] && [ -n "$EXISTING_FPP_URL" ]; then
+        DEFAULT_FPP=$(echo "$EXISTING_FPP_URL" | sed 's|http://||')
+    fi
+    
+    while true; do
+        if [ -n "$DEFAULT_FPP" ]; then
+            read -p "FPP Server IP:Port [$DEFAULT_FPP]: " FPP_INPUT
+            FPP_INPUT=${FPP_INPUT:-$DEFAULT_FPP}
+        else
+            read -p "FPP Server IP:Port [192.168.1.2:80]: " FPP_INPUT
+            FPP_INPUT=${FPP_INPUT:-192.168.1.2:80}
+        fi
+        
+        # Parse IP and port
+        if [[ $FPP_INPUT == *":"* ]]; then
+            FPP_IP=$(echo "$FPP_INPUT" | cut -d':' -f1)
+            FPP_PORT=$(echo "$FPP_INPUT" | cut -d':' -f2)
+        else
+            FPP_IP="$FPP_INPUT"
+            FPP_PORT="80"
+        fi
+        
+        print_step "Verifying FPP at http://$FPP_IP:$FPP_PORT..."
+        
+        if verify_fpp_device "$FPP_IP" "$FPP_PORT"; then
+            FPP_INFO=$(get_fpp_info "$FPP_IP" "$FPP_PORT")
+            FPP_HOSTNAME=$(echo "$FPP_INFO" | cut -d'|' -f1)
+            FPP_VERSION=$(echo "$FPP_INFO" | cut -d'|' -f2)
+            
+            print_success "Verified FPP device!"
+            echo "          Hostname: $FPP_HOSTNAME"
+            echo "          Version:  $FPP_VERSION"
+            FPP_URL="http://$FPP_IP:$FPP_PORT"
+            break
+        else
+            # Check if it responds at all
+            if curl -s -m 3 "http://$FPP_IP:$FPP_PORT/" > /dev/null 2>&1; then
+                print_warning "Device responded but doesn't appear to be FPP"
+                print_info "FPP should have /api/system/status and /api/fppd/status endpoints"
+            else
+                print_warning "Could not connect to http://$FPP_IP:$FPP_PORT"
+            fi
+            
+            echo ""
+            if confirm "Continue anyway? (You can update FPP_URL in .env.local later)"; then
+                FPP_URL="http://$FPP_IP:$FPP_PORT"
+                break
+            fi
+        fi
+    done
+fi
 
 # ═══════════════════════════════════════════════════════════
-# STEP 6: Environment Configuration
+# STEP 6: Core Configuration
 # ═══════════════════════════════════════════════════════════
-print_header "Step 6/8: Configuration"
+show_progress 6 "Core Configuration"
 
-# Backup existing .env.local if it exists
+# Backup existing .env.local
 if [ -f ".env.local" ]; then
     mv .env.local .env.local.backup-$(date +%Y%m%d_%H%M%S)
     print_info "Backed up existing .env.local"
 fi
 
-echo "Let's configure your FPP Control Center..."
+# Generate secret
+NEXTAUTH_SECRET=$(openssl rand -hex 32)
+
+# Admin Email
+echo ""
+print_header "Admin Email Configuration"
+echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+echo ""
+echo -e "${YELLOW}IMPORTANT:${NC} Enter the Google email(s) that will have admin access."
+echo ""
+echo "• This email MUST match the Google account you'll use to log in"
+echo "• Multiple admins: separate with commas (no spaces)"
+echo ""
+echo -e "${GREEN}Examples:${NC}"
+echo "  Single admin:   admin@gmail.com"
+echo "  Multiple:       admin@gmail.com,helper@gmail.com"
 echo ""
 
-# Generate secure random secret
-NEXTAUTH_SECRET=$(openssl rand -hex 32)
-    
-    # Get admin email(s)
-    echo ""
-    print_header "Admin Email Configuration"
-    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "${YELLOW}IMPORTANT:${NC} The email(s) you enter here will be used for admin login."
-    echo ""
-    echo "• This email MUST match the Google account you'll use to log in"
-    echo "• Only these email addresses will have admin access"
-    echo "• You can add multiple admins (comma-separated, no spaces)"
-    echo ""
-    echo -e "${GREEN}Examples:${NC}"
-    echo "  Single admin:   admin@example.com"
-    echo "  Multiple admins: admin@example.com,helper@gmail.com,friend@yahoo.com"
-    echo ""
-    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    read -p "Enter admin email(s): " ADMIN_EMAIL
-    
-    # Validate email format(s)
-    IFS=',' read -ra EMAIL_ARRAY <<< "$ADMIN_EMAIL"
-    for email in "${EMAIL_ARRAY[@]}"; do
-        # Trim whitespace
-        email=$(echo "$email" | xargs)
-        if [[ ! "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-            print_error "Invalid email format: $email"
-            echo "Please enter valid email address(es)"
-            exit 1
+if [ "$REUSE_CONFIG" = true ] && [ -n "$EXISTING_ADMIN_EMAIL" ]; then
+    read -p "Admin email(s) [$EXISTING_ADMIN_EMAIL]: " ADMIN_EMAIL
+    ADMIN_EMAIL=${ADMIN_EMAIL:-$EXISTING_ADMIN_EMAIL}
+else
+    read -p "Admin email(s): " ADMIN_EMAIL
+fi
+
+# Validate email format
+IFS=',' read -ra EMAIL_ARRAY <<< "$ADMIN_EMAIL"
+for email in "${EMAIL_ARRAY[@]}"; do
+    email=$(echo "$email" | xargs)
+    if [[ ! "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+        print_error "Invalid email format: $email"
+        exit 1
+    fi
+done
+ADMIN_EMAIL=$(echo "$ADMIN_EMAIL" | tr -d ' ')
+print_success "Admin email(s): $ADMIN_EMAIL"
+
+# Google OAuth
+echo ""
+print_header "Google OAuth Setup"
+
+SKIP_OAUTH=false
+if [ "$REUSE_CONFIG" = true ] && [ -n "$EXISTING_GOOGLE_ID" ]; then
+    print_info "Existing Google OAuth credentials found"
+    if confirm "Keep existing Google OAuth credentials?"; then
+        GOOGLE_CLIENT_ID="KEEP_EXISTING"
+        GOOGLE_CLIENT_SECRET="KEEP_EXISTING"
+    else
+        if confirm "Do you have your Google OAuth credentials ready?"; then
+            read -p "Google Client ID: " GOOGLE_CLIENT_ID
+            read -p "Google Client Secret: " GOOGLE_CLIENT_SECRET
+            print_success "OAuth credentials configured"
+        else
+            print_warning "Skipping OAuth - configure later in .env.local"
+            GOOGLE_CLIENT_ID="your-google-client-id"
+            GOOGLE_CLIENT_SECRET="your-google-client-secret"
+            SKIP_OAUTH=true
         fi
-    done
-    
-    # Remove any spaces from the email list
-    ADMIN_EMAIL=$(echo "$ADMIN_EMAIL" | tr -d ' ')
-    
-    print_success "Admin email(s) configured: $ADMIN_EMAIL"
-    
-    # Get Google OAuth credentials
-    echo ""
-    print_info "Google OAuth is required for admin authentication"
-    echo ""
-    if confirm "Do you have your Google OAuth credentials ready?"; then
-        read -p "Enter Google Client ID: " GOOGLE_CLIENT_ID
-        read -p "Enter Google Client Secret: " GOOGLE_CLIENT_SECRET
-        print_success "OAuth credentials configured"
-        SKIP_OAUTH=false
-    else
-        print_warning "Skipping OAuth - you can configure this later"
-        print_info "Admin login will NOT work until you add OAuth credentials to .env.local"
-        GOOGLE_CLIENT_ID="your-google-client-id"
-        GOOGLE_CLIENT_SECRET="your-google-client-secret"
-        SKIP_OAUTH=true
     fi
-    
-    # Get Spotify API credentials
-    echo ""
-    print_info "Spotify API is REQUIRED for jukebox song metadata (artist, album, artwork)"
-    echo ""
-    echo "To get Spotify API credentials:"
-    echo "  1. Go to: https://developer.spotify.com/dashboard"
-    echo "  2. Log in with your Spotify account (free account works)"
-    echo "  3. Click 'Create App'"
-    echo "  4. Fill in app details:"
-    echo "     - App name: FPP Control Center"
-    echo "     - App description: Christmas light show jukebox"
-    echo "     - Redirect URI: http://localhost:3000"
-    echo "     - API: Web API"
-    echo "  5. Click Settings → Copy Client ID and Client Secret"
-    echo ""
-    
-    if confirm "Do you have your Spotify API credentials ready?"; then
-        echo ""
-        read -p "Enter Spotify Client ID: " SPOTIFY_CLIENT_ID
-        read -p "Enter Spotify Client Secret: " SPOTIFY_CLIENT_SECRET
-        SKIP_SPOTIFY=false
+elif confirm "Do you have your Google OAuth credentials ready?"; then
+    read -p "Google Client ID: " GOOGLE_CLIENT_ID
+    read -p "Google Client Secret: " GOOGLE_CLIENT_SECRET
+    print_success "OAuth credentials configured"
+else
+    print_warning "Skipping OAuth - configure later in .env.local"
+    GOOGLE_CLIENT_ID="your-google-client-id"
+    GOOGLE_CLIENT_SECRET="your-google-client-secret"
+    SKIP_OAUTH=true
+fi
+
+# Spotify API
+echo ""
+print_header "Spotify API Setup"
+echo "Spotify API is REQUIRED for jukebox song metadata."
+echo ""
+
+SKIP_SPOTIFY=false
+if [ "$REUSE_CONFIG" = true ] && [ -n "$EXISTING_SPOTIFY_ID" ]; then
+    print_info "Existing Spotify credentials found"
+    if confirm "Keep existing Spotify credentials?"; then
+        SPOTIFY_CLIENT_ID="KEEP_EXISTING"
+        SPOTIFY_CLIENT_SECRET="KEEP_EXISTING"
     else
-        print_warning "Spotify API setup will be skipped"
-        print_info "Jukebox won't show song metadata until you configure this"
-        SPOTIFY_CLIENT_ID="your-spotify-client-id"
-        SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
-        SKIP_SPOTIFY=true
+        if confirm "Do you have your Spotify API credentials ready?"; then
+            read -p "Spotify Client ID: " SPOTIFY_CLIENT_ID
+            read -p "Spotify Client Secret: " SPOTIFY_CLIENT_SECRET
+        else
+            print_warning "Skipping Spotify - jukebox won't show metadata"
+            SPOTIFY_CLIENT_ID="your-spotify-client-id"
+            SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
+            SKIP_SPOTIFY=true
+        fi
     fi
+elif confirm "Do you have your Spotify API credentials ready?"; then
+    read -p "Spotify Client ID: " SPOTIFY_CLIENT_ID
+    read -p "Spotify Client Secret: " SPOTIFY_CLIENT_SECRET
+else
+    print_warning "Skipping Spotify - jukebox won't show metadata"
+    SPOTIFY_CLIENT_ID="your-spotify-client-id"
+    SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
+    SKIP_SPOTIFY=true
+fi
+
+# Timezone
+echo ""
+echo "Common US timezones:"
+echo "  - America/New_York (Eastern)"
+echo "  - America/Chicago (Central)"
+echo "  - America/Denver (Mountain)"
+echo "  - America/Los_Angeles (Pacific)"
+echo ""
+
+DEFAULT_TZ="America/Chicago"
+if [ "$REUSE_CONFIG" = true ] && [ -n "$EXISTING_TIMEZONE" ]; then
+    DEFAULT_TZ="$EXISTING_TIMEZONE"
+fi
+read -p "Enter your timezone [$DEFAULT_TZ]: " TIMEZONE
+TIMEZONE=${TIMEZONE:-$DEFAULT_TZ}
+
+# Access URL Configuration
+echo ""
+print_header "Access URL Configuration"
+
+if [[ "$INSTALL_TYPE" == "public" ]]; then
+    read -p "Enter your domain name (e.g., fpp.example.com): " DOMAIN
+    NEXTAUTH_URL="https://$DOMAIN"
+else
+    echo "Choose your primary access method:"
+    echo ""
+    echo "1) Only from this server (localhost)"
+    echo "2) From network devices (phones, tablets, etc.)"
+    echo ""
+    read -p "Enter choice (1 or 2) [2]: " ACCESS_CHOICE
+    ACCESS_CHOICE=${ACCESS_CHOICE:-2}
     
-    # Get timezone
+    if [[ "$ACCESS_CHOICE" == "1" ]]; then
+        NEXTAUTH_URL="http://localhost:3000"
+    else
+        SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+        if [ -z "$SERVER_IP" ]; then
+            SERVER_IP="YOUR_SERVER_IP"
+        fi
+        
+        echo ""
+        read -p "Server IP or domain [$SERVER_IP]: " ACCESS_DOMAIN
+        ACCESS_DOMAIN=${ACCESS_DOMAIN:-$SERVER_IP}
+        ACCESS_DOMAIN=$(echo "$ACCESS_DOMAIN" | sed -e 's|^https\?://||' -e 's|/$||')
+        NEXTAUTH_URL="http://$ACCESS_DOMAIN:3000"
+    fi
+fi
+print_success "Access URL: $NEXTAUTH_URL"
+
+# ═══════════════════════════════════════════════════════════
+# STEP 6b: Advanced Options (Full Setup Only)
+# ═══════════════════════════════════════════════════════════
+OLLAMA_URL="http://localhost:11434"
+NEXT_PUBLIC_OLLAMA_URL="http://localhost:11434"
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_SECURE="false"
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-app-password"
+
+if [ "$SETUP_MODE" == "2" ]; then
     echo ""
-    echo "Common US timezones:"
-    echo "  - America/New_York (Eastern)"
-    echo "  - America/Chicago (Central)"
-    echo "  - America/Denver (Mountain)"
-    echo "  - America/Los_Angeles (Pacific)"
-    echo ""
-    read -p "Enter your timezone [America/Chicago]: " TIMEZONE
-    TIMEZONE=${TIMEZONE:-America/Chicago}
+    print_header "Advanced Options"
     
-    # Ollama configuration (optional)
-    echo ""
-    print_info "Ollama provides AI-generated Santa letter responses"
-    echo ""
-    if confirm "Do you have an Ollama server for AI Santa letters?"; then
-        echo ""
-        echo "Enter your Ollama server IP address:"
-        echo ""
-        echo -e "${GREEN}Examples:${NC}"
-        echo "  - 192.168.2.186 (if running on another server)"
-        echo "  - localhost (if running on this server)"
-        echo ""
+    # Ollama Configuration
+    if confirm "Configure Ollama for AI Santa letters?"; then
         read -p "Ollama server IP [localhost]: " OLLAMA_IP
         OLLAMA_IP=${OLLAMA_IP:-localhost}
         
-        # Construct Ollama URL
         if [[ "$OLLAMA_IP" == "localhost" ]]; then
             OLLAMA_URL="http://localhost:11434"
         else
             OLLAMA_URL="http://$OLLAMA_IP:11434"
         fi
-        
-        print_success "Ollama URL set to: $OLLAMA_URL"
-    else
-        print_info "Skipping Ollama setup - Santa letters will be disabled"
-        OLLAMA_URL="http://localhost:11434"
-        print_warning "To enable later, update OLLAMA_URL and NEXT_PUBLIC_OLLAMA_URL in .env.local"
+        NEXT_PUBLIC_OLLAMA_URL="$OLLAMA_URL"
+        print_success "Ollama URL: $OLLAMA_URL"
     fi
     
-    # Set NEXT_PUBLIC version (same as OLLAMA_URL for client-side access)
-    NEXT_PUBLIC_OLLAMA_URL="$OLLAMA_URL"
-    
-    # SMTP configuration (optional)
+    # SMTP Configuration
     echo ""
-    # FPP Server IP Configuration
-    echo ""
-    print_header "FPP Server Configuration"
-    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo "Enter your FPP (Falcon Player) server details."
-    echo "Default FPP web interface runs on port 80."
-    echo ""
-    echo -e "${GREEN}Examples:${NC}"
-    echo "  • 192.168.1.2:80 (most common)"
-    echo "  • 192.168.5.2:80"
-    echo "  • 10.0.0.5:8080 (custom port)"
-    echo ""
-    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    
-    while true; do
-        read -p "FPP Server IP:Port [192.168.1.2:80]: " FPP_INPUT
-        FPP_INPUT=${FPP_INPUT:-192.168.1.2:80}
-        
-        # Validate format
-        if [[ $FPP_INPUT =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]+$ ]]; then
-            echo ""
-            print_step "Testing connection to FPP at http://$FPP_INPUT..."
-            
-            # Test connection
-            if curl -s -f -m 5 "http://$FPP_INPUT/api/system/status" > /dev/null 2>&1; then
-                print_success "FPP server found and responding!"
-                FPP_URL="http://$FPP_INPUT"
-                break
-            else
-                print_warning "Could not connect to FPP server at http://$FPP_INPUT"
-                echo ""
-                if confirm "Continue anyway? (You can update FPP_URL in .env.local later)"; then
-                    FPP_URL="http://$FPP_INPUT"
-                    break
-                fi
-            fi
-        else
-            print_error "Invalid format. Please use: xxx.xxx.xxx.xxx:port"
-            echo ""
-        fi
-    done
-    
-    echo ""
-    
-    if confirm "Do you want to configure email notifications? (for Santa letters & alerts)"; then
-        echo ""
-        echo "For Gmail users:"
-        echo "  1. Enable 2-Factor Authentication"
-        echo "  2. Generate an App Password: https://myaccount.google.com/apppasswords"
-        echo "  3. Use the App Password below (not your regular password)"
-        echo ""
-        echo "For other email providers, use their SMTP settings"
-        echo ""
-        
+    if confirm "Configure email notifications (SMTP)?"; then
         read -p "SMTP Host [smtp.gmail.com]: " SMTP_HOST_INPUT
         SMTP_HOST=${SMTP_HOST_INPUT:-smtp.gmail.com}
         
         read -p "SMTP Port [587]: " SMTP_PORT_INPUT
         SMTP_PORT=${SMTP_PORT_INPUT:-587}
         
-        # Determine SMTP_SECURE based on port
         if [[ "$SMTP_PORT" == "465" ]]; then
             SMTP_SECURE="true"
         else
@@ -736,136 +931,31 @@ NEXTAUTH_SECRET=$(openssl rand -hex 32)
         fi
         
         read -p "SMTP Email: " SMTP_USER
-        
-        # SMTP Password with better UX
+        read -s -p "SMTP Password: " SMTP_PASS
         echo ""
-        echo -e "${YELLOW}Enter your SMTP App Password:${NC}"
-        echo "(Your input will be hidden for security)"
-        echo ""
-        
-        while true; do
-            read -s -p "SMTP Password: " SMTP_PASS
-            echo ""
-            
-            if [ -z "$SMTP_PASS" ]; then
-                print_error "Password cannot be empty"
-                continue
-            fi
-            
-            # Remove spaces (Gmail app passwords often have spaces)
-            SMTP_PASS="${SMTP_PASS// /}"
-            
-            print_success "Password entered (${#SMTP_PASS} characters)"
-            echo ""
-            
-            # Confirm
-            if confirm "Is this correct?"; then
-                break
-            fi
-            echo ""
-        done
+        SMTP_PASS="${SMTP_PASS// /}"
         
         print_success "SMTP configured: $SMTP_HOST:$SMTP_PORT"
-    else
-        SMTP_USER="your-email@gmail.com"
-        SMTP_PASS="your-app-password"
-        SMTP_HOST="smtp.gmail.com"
-        SMTP_PORT="587"
-        SMTP_SECURE="false"
     fi
-    
-    # Determine NEXTAUTH_URL based on installation type and access method
-    echo ""
-    print_header "Access Configuration"
-    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo "How will you access this FPP Control Center?"
-    echo ""
-    
-    if [[ "$INSTALL_TYPE" == "public" ]]; then
-        echo "You selected PUBLIC installation (Cloudflare Tunnel)"
-        echo ""
-        read -p "Enter your domain name (e.g., fpp.example.com): " DOMAIN
-        NEXTAUTH_URL="https://$DOMAIN"
-        SETUP_URL="https://$DOMAIN"
-        print_success "NEXTAUTH_URL set to: $NEXTAUTH_URL"
-    else
-        echo "You selected LOCAL NETWORK installation"
-        echo ""
-        echo "Choose your primary access method:"
-        echo ""
-        echo "1) Only from this server (localhost)"
-        echo "   - Use http://localhost:3000"
-        echo "   - Best for: Testing, development"
-        echo ""
-        echo "2) From network devices (phones, tablets, computers)"
-        echo "   - Use http://YOUR_DOMAIN_OR_IP:3000"
-        echo "   - Best for: Production servers accessed by visitors"
-        echo ""
-        read -p "Enter choice (1 or 2): " ACCESS_CHOICE
-        
-        if [[ "$ACCESS_CHOICE" == "1" ]]; then
-            NEXTAUTH_URL="http://localhost:3000"
-            SETUP_URL="http://localhost:3000"
-            print_success "NEXTAUTH_URL set to: $NEXTAUTH_URL"
-        else
-            echo ""
-            echo "Enter the domain or IP address visitors will use to access your site:"
-            echo ""
-            echo -e "${GREEN}Examples:${NC}"
-            echo "  - lewisfamilylightshow.com (if using a domain)"
-            echo "  - 192.168.2.107 (if using IP address)"
-            echo ""
-            echo -e "${YELLOW}NOTE:${NC} Do NOT include http:// or port numbers"
-            echo ""
-            read -p "Domain or IP: " ACCESS_DOMAIN
-            
-            # Remove http://, https://, and trailing slashes
-            ACCESS_DOMAIN=$(echo "$ACCESS_DOMAIN" | sed -e 's|^https\?://||' -e 's|/$||')
-            
-            NEXTAUTH_URL="http://$ACCESS_DOMAIN:3000"
-            SETUP_URL="http://$ACCESS_DOMAIN:3000"
-            
-            echo ""
-            print_success "NEXTAUTH_URL set to: $NEXTAUTH_URL"
-            echo ""
-            print_warning "IMPORTANT: Visitors must access your site at: $SETUP_URL"
-            echo ""
-        fi
-    fi
-    
-    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-    
-    # Show OAuth redirect URI instructions if OAuth was configured
-    if [ "$SKIP_OAUTH" = false ]; then
-        echo ""
-        print_header "⚠️  IMPORTANT: Update Google OAuth Settings"
-        echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${YELLOW}You MUST add this redirect URI to your Google OAuth app:${NC}"
-        echo ""
-        echo -e "${GREEN}   $NEXTAUTH_URL/api/auth/callback/google${NC}"
-        echo ""
-        echo "Steps:"
-        echo "  1. Go to: https://console.cloud.google.com/apis/credentials"
-        echo "  2. Click on your OAuth 2.0 Client ID"
-        echo "  3. Under 'Authorized redirect URIs', click '+ ADD URI'"
-        echo "  4. Paste the URL above"
-        echo "  5. Click 'Save'"
-        echo ""
-        echo -e "${RED}OAuth will NOT work until you complete this step!${NC}"
-        echo ""
-        echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
-        echo ""
-        
-        if ! confirm "Have you added the redirect URI (or will you do it now)?"; then
-            print_warning "Remember to add the redirect URI before trying to log in!"
-        fi
-        echo ""
-    fi
-    
-    # Create .env.local file
-    cat > .env.local << 'ENV_FILE'
+fi
+
+# ═══════════════════════════════════════════════════════════
+# Create .env.local
+# ═══════════════════════════════════════════════════════════
+print_step "Creating configuration file..."
+
+# Handle KEEP_EXISTING values
+if [ "$GOOGLE_CLIENT_ID" == "KEEP_EXISTING" ]; then
+    GOOGLE_CLIENT_ID=$(grep "^GOOGLE_CLIENT_ID=" .env.local.backup-* 2>/dev/null | tail -1 | cut -d'=' -f2)
+    GOOGLE_CLIENT_SECRET=$(grep "^GOOGLE_CLIENT_SECRET=" .env.local.backup-* 2>/dev/null | tail -1 | cut -d'=' -f2)
+fi
+
+if [ "$SPOTIFY_CLIENT_ID" == "KEEP_EXISTING" ]; then
+    SPOTIFY_CLIENT_ID=$(grep "^SPOTIFY_CLIENT_ID=" .env.local.backup-* 2>/dev/null | tail -1 | cut -d'=' -f2)
+    SPOTIFY_CLIENT_SECRET=$(grep "^SPOTIFY_CLIENT_SECRET=" .env.local.backup-* 2>/dev/null | tail -1 | cut -d'=' -f2)
+fi
+
+cat > .env.local << 'ENV_FILE'
 # NextAuth Configuration
 NEXTAUTH_URL=PLACEHOLDER_NEXTAUTH_URL
 NEXTAUTH_SECRET=PLACEHOLDER_NEXTAUTH_SECRET
@@ -899,208 +989,109 @@ SMTP_PASS=PLACEHOLDER_SMTP_PASS
 NEXT_PUBLIC_TIMEZONE=PLACEHOLDER_TIMEZONE
 ENV_FILE
 
-    # Replace placeholders with actual values
-    sed -i.bak "s|PLACEHOLDER_NEXTAUTH_URL|$NEXTAUTH_URL|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_NEXTAUTH_SECRET|$NEXTAUTH_SECRET|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_ID|$GOOGLE_CLIENT_ID|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_SECRET|$GOOGLE_CLIENT_SECRET|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_ADMIN_EMAIL|$ADMIN_EMAIL|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_FPP_URL|$FPP_URL|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_ID|$SPOTIFY_CLIENT_ID|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_SECRET|$SPOTIFY_CLIENT_SECRET|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_OLLAMA_URL|$OLLAMA_URL|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_NEXT_PUBLIC_OLLAMA_URL|$NEXT_PUBLIC_OLLAMA_URL|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_SMTP_HOST|$SMTP_HOST|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_SMTP_PORT|$SMTP_PORT|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_SMTP_SECURE|$SMTP_SECURE|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_SMTP_USER|$SMTP_USER|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_SMTP_PASS|$SMTP_PASS|g" .env.local
-    sed -i.bak "s|PLACEHOLDER_TIMEZONE|$TIMEZONE|g" .env.local
-    rm -f .env.local.bak
+# Replace placeholders
+sed -i.bak "s|PLACEHOLDER_NEXTAUTH_URL|$NEXTAUTH_URL|g" .env.local
+sed -i.bak "s|PLACEHOLDER_NEXTAUTH_SECRET|$NEXTAUTH_SECRET|g" .env.local
+sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_ID|$GOOGLE_CLIENT_ID|g" .env.local
+sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_SECRET|$GOOGLE_CLIENT_SECRET|g" .env.local
+sed -i.bak "s|PLACEHOLDER_ADMIN_EMAIL|$ADMIN_EMAIL|g" .env.local
+sed -i.bak "s|PLACEHOLDER_FPP_URL|$FPP_URL|g" .env.local
+sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_ID|$SPOTIFY_CLIENT_ID|g" .env.local
+sed -i.bak "s|PLACEHOLDER_SPOTIFY_CLIENT_SECRET|$SPOTIFY_CLIENT_SECRET|g" .env.local
+sed -i.bak "s|PLACEHOLDER_OLLAMA_URL|$OLLAMA_URL|g" .env.local
+sed -i.bak "s|PLACEHOLDER_NEXT_PUBLIC_OLLAMA_URL|$NEXT_PUBLIC_OLLAMA_URL|g" .env.local
+sed -i.bak "s|PLACEHOLDER_SMTP_HOST|$SMTP_HOST|g" .env.local
+sed -i.bak "s|PLACEHOLDER_SMTP_PORT|$SMTP_PORT|g" .env.local
+sed -i.bak "s|PLACEHOLDER_SMTP_SECURE|$SMTP_SECURE|g" .env.local
+sed -i.bak "s|PLACEHOLDER_SMTP_USER|$SMTP_USER|g" .env.local
+sed -i.bak "s|PLACEHOLDER_SMTP_PASS|$SMTP_PASS|g" .env.local
+sed -i.bak "s|PLACEHOLDER_TIMEZONE|$TIMEZONE|g" .env.local
+rm -f .env.local.bak
 
-    print_success "Environment configuration created"
-    
-    # Validate required fields
+print_success "Configuration file created"
+
+# Show OAuth redirect URI if configured
+if [ "$SKIP_OAUTH" = false ]; then
     echo ""
-    print_step "Validating configuration..."
-    
-    VALIDATION_FAILED=false
-    MISSING_FIELDS=()
-    
-    # Check for placeholder values in REQUIRED fields
-    if grep -q "your-google-client-id" .env.local || grep -q "GOOGLE_CLIENT_ID=\s*$" .env.local 2>/dev/null; then
-        MISSING_FIELDS+=("Google OAuth Client ID")
-        VALIDATION_FAILED=true
-    fi
-    
-    if grep -q "your-google-client-secret" .env.local || grep -q "GOOGLE_CLIENT_SECRET=\s*$" .env.local 2>/dev/null; then
-        MISSING_FIELDS+=("Google OAuth Client Secret")
-        VALIDATION_FAILED=true
-    fi
-    
-    if grep -q "your-spotify-client-id" .env.local || grep -q "SPOTIFY_CLIENT_ID=\s*$" .env.local 2>/dev/null; then
-        MISSING_FIELDS+=("Spotify Client ID")
-        VALIDATION_FAILED=true
-    fi
-    
-    if grep -q "your-spotify-client-secret" .env.local || grep -q "SPOTIFY_CLIENT_SECRET=\s*$" .env.local 2>/dev/null; then
-        MISSING_FIELDS+=("Spotify Client Secret")
-        VALIDATION_FAILED=true
-    fi
-    
-    if [ "$VALIDATION_FAILED" = true ]; then
-        echo ""
-        print_warning "Some REQUIRED fields are not configured:"
-        for field in "${MISSING_FIELDS[@]}"; do
-            echo "  ❌ $field"
-        done
-        echo ""
-        print_info "These fields MUST be configured before the app will work properly"
-        print_info "Edit .env.local and add the missing credentials, then run:"
-        echo ""
-        echo "  npm run build"
-        echo "  pm2 restart fpp-control"
-        echo ""
-    else
-        print_success "All required fields validated!"
-    fi
+    print_header "⚠️  IMPORTANT: Update Google OAuth Settings"
+    echo ""
+    echo -e "${YELLOW}Add this redirect URI to your Google OAuth app:${NC}"
+    echo ""
+    echo -e "${GREEN}   $NEXTAUTH_URL/api/auth/callback/google${NC}"
+    echo ""
+    echo "Steps:"
+    echo "  1. Go to: https://console.cloud.google.com/apis/credentials"
+    echo "  2. Click on your OAuth 2.0 Client ID"
+    echo "  3. Add the URI above to 'Authorized redirect URIs'"
+    echo "  4. Click 'Save'"
+    echo ""
+fi
 
 # ═══════════════════════════════════════════════════════════
 # STEP 7: Build Application
 # ═══════════════════════════════════════════════════════════
-print_header "Step 7/8: Building Application"
+show_progress 7 "Building Application"
 
-# Clean previous build
 if [ -d ".next" ]; then
     print_step "Cleaning previous build..."
     rm -rf .next
 fi
 
-print_step "Building Next.js application for production..."
+print_step "Building Next.js application..."
 print_info "This may take 1-2 minutes..."
-npm run build
-print_success "Application built successfully"
+
+if npm run build; then
+    print_success "Application built successfully"
+else
+    if retry_or_skip "Build" true; then
+        npm run build
+    fi
+fi
 
 # ═══════════════════════════════════════════════════════════
-# STEP 8: Cloudflare Tunnel Setup (if public)
+# STEP 8: Start Application
 # ═══════════════════════════════════════════════════════════
+show_progress 8 "Starting Application"
+
+# Cloudflare setup for public installations
 if [[ "$INSTALL_TYPE" == "public" ]]; then
-    print_header "Step 8/8: Cloudflare Tunnel Setup"
-    
-    echo "Cloudflare Tunnel provides secure, public access to your FPP Control Center"
-    echo "without opening ports on your router or exposing your home IP address."
     echo ""
-    
     if confirm "Set up Cloudflare Tunnel now?"; then
         if [ -f "./scripts/setup-cloudflare-tunnel.sh" ]; then
             bash ./scripts/setup-cloudflare-tunnel.sh
         else
             print_warning "Cloudflare setup script not found"
-            print_info "You can run it manually later: bash scripts/setup-cloudflare-tunnel.sh"
+            print_info "Run later: bash scripts/setup-cloudflare-tunnel.sh"
         fi
-    else
-        print_info "Skipping Cloudflare Tunnel setup"
-        print_info "You can run it later: bash scripts/setup-cloudflare-tunnel.sh"
     fi
-else
-    print_header "Step 8/8: Final Configuration"
-    print_info "Local network installation - Cloudflare Tunnel not needed"
 fi
-
-# ═══════════════════════════════════════════════════════════
-# FINAL STEP: Start Application
-# ═══════════════════════════════════════════════════════════
-print_header "Starting Application"
 
 print_step "Stopping any existing instances..."
 pm2 delete fpp-control 2>/dev/null || true
 pm2 delete fpp-poller 2>/dev/null || true
 
-print_step "Starting FPP Control Center services with PM2..."
+print_step "Starting FPP Control Center services..."
 pm2 start ecosystem.config.js
 pm2 save
 
-# Verify both services are running
-sleep 2
-CONTROL_RUNNING=$(pm2 jlist 2>/dev/null | grep -c '"name":"fpp-control".*"status":"online"' || echo "0")
-POLLER_RUNNING=$(pm2 jlist 2>/dev/null | grep -c '"name":"fpp-poller".*"status":"online"' || echo "0")
+# Verify services
+sleep 3
+RUNNING=$(pm2 jlist 2>/dev/null | grep -c '"status":"online"' || echo "0")
 
-if [ "$CONTROL_RUNNING" -eq 0 ]; then
-    print_error "fpp-control failed to start"
-    pm2 logs fpp-control --lines 20 --nostream
-    exit 1
-fi
-
-if [ "$POLLER_RUNNING" -eq 0 ]; then
-    print_warning "fpp-poller failed to start - app will use fallback direct FPP queries"
-    print_info "Check logs: pm2 logs fpp-poller"
+if [ "$RUNNING" -ge 2 ]; then
+    print_success "All services started successfully!"
 else
-    print_success "Both services started successfully!"
+    print_warning "Some services may not have started"
+    print_info "Check logs: pm2 logs"
 fi
 
 # Setup auto-start
 echo ""
 print_step "Setting up auto-start on system boot..."
-pm2 startup
-echo ""
-print_info "If a command was shown above, run it to enable auto-start"
+pm2 startup 2>/dev/null || true
 
 # ═══════════════════════════════════════════════════════════
-# Configuration Summary
-# ═══════════════════════════════════════════════════════════
-echo ""
-print_header "📋 Configuration Summary"
-
-# Read .env.local to check what's configured
-if [ -f ".env.local" ]; then
-    echo ""
-    echo -e "${CYAN}Checking your configuration...${NC}"
-    echo ""
-    
-    # Check each required field
-    ADMIN_EMAILS_SET=$(grep "^ADMIN_EMAILS=" .env.local | grep -v "your-" | wc -l)
-    GOOGLE_OAUTH_SET=$(grep "^GOOGLE_CLIENT_ID=" .env.local | grep -v "your-" | wc -l)
-    SPOTIFY_SET=$(grep "^SPOTIFY_CLIENT_ID=" .env.local | grep -v "your-" | wc -l)
-    SMTP_SET=$(grep "^SMTP_USER=" .env.local | grep -v "your-" | wc -l)
-    
-    # Display status
-    if [ "$ADMIN_EMAILS_SET" -gt 0 ]; then
-        ADMIN_EMAIL_VALUE=$(grep "^ADMIN_EMAILS=" .env.local | cut -d'=' -f2)
-        echo -e "   ${GREEN}✅ Admin Email:${NC} $ADMIN_EMAIL_VALUE"
-    else
-        echo -e "   ${RED}❌ Admin Email:${NC} Not configured"
-    fi
-    
-    if [ "$GOOGLE_OAUTH_SET" -gt 0 ]; then
-        echo -e "   ${GREEN}✅ Google OAuth:${NC} Configured"
-    else
-        echo -e "   ${YELLOW}⚠️  Google OAuth:${NC} Not configured - Admin login won't work"
-    fi
-    
-    if [ "$SPOTIFY_SET" -gt 0 ]; then
-        echo -e "   ${GREEN}✅ Spotify API:${NC} Configured"
-    else
-        echo -e "   ${YELLOW}⚠️  Spotify API:${NC} Not configured - Jukebox won't show metadata"
-    fi
-    
-    if [ "$SMTP_SET" -gt 0 ]; then
-        echo -e "   ${GREEN}✅ Email (SMTP):${NC} Configured"
-    else
-        echo -e "   ${CYAN}ℹ  Email (SMTP):${NC} Not configured (optional)"
-    fi
-    
-    # Show NEXTAUTH_URL
-    NEXTAUTH_URL_VALUE=$(grep "^NEXTAUTH_URL=" .env.local | cut -d'=' -f2)
-    echo -e "   ${GREEN}✅ Access URL:${NC} $NEXTAUTH_URL_VALUE"
-    
-    FPP_URL_VALUE=$(grep "^FPP_URL=" .env.local | cut -d'=' -f2)
-    echo -e "   ${GREEN}✅ FPP Server:${NC} $FPP_URL_VALUE"
-    
-    echo ""
-fi
-
-# ═══════════════════════════════════════════════════════════
-# SUCCESS! Show Next Steps
+# SETUP COMPLETE
 # ═══════════════════════════════════════════════════════════
 clear
 print_header "🎉 Setup Complete! 🎉"
@@ -1109,71 +1100,43 @@ echo -e "${GREEN}FPP Control Center is now running!${NC}"
 echo ""
 
 # Show access URLs
+echo -e "${CYAN}📡 Access your control center:${NC}"
 if [[ "$INSTALL_TYPE" == "local" ]]; then
-    SERVER_IP=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "YOUR_SERVER_IP")
-    echo -e "${CYAN}📡 Access your control center:${NC}"
+    SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
     echo "   • From this computer: http://localhost:3000"
-    echo "   • From other devices:  http://$SERVER_IP:3000"
+    [ -n "$SERVER_IP" ] && echo "   • From other devices:  http://$SERVER_IP:3000"
 else
-    echo -e "${CYAN}📡 Access your control center:${NC}"
     echo "   • Public URL: https://$DOMAIN"
 fi
 
 echo ""
-echo -e "${CYAN}🎛️  Available Features:${NC}"
-echo "   • Jukebox - Song requests from visitors"
-echo "   • Santa Letters - AI-generated responses"
-echo "   • Device Monitoring - Track FPP status"
-echo "   • Admin Dashboard - Manage everything"
-echo ""
+echo -e "${CYAN}📋 Configuration Summary:${NC}"
+echo "   • Admin Email: $ADMIN_EMAIL"
+echo "   • FPP Server:  $FPP_URL"
+echo "   • Access URL:  $NEXTAUTH_URL"
+[ "$SKIP_OAUTH" = false ] && echo "   • Google OAuth: ✅ Configured"
+[ "$SKIP_OAUTH" = true ] && echo "   • Google OAuth: ❌ Not configured"
+[ "$SKIP_SPOTIFY" = false ] && echo "   • Spotify API:  ✅ Configured"
+[ "$SKIP_SPOTIFY" = true ] && echo "   • Spotify API:  ❌ Not configured"
 
-echo -e "${CYAN}🔧 Useful Commands:${NC}"
-echo "   • View logs:       pm2 logs fpp-control"
-echo "   • Restart:         pm2 restart fpp-control"
-echo "   • Stop:            pm2 stop fpp-control"
-echo "   • Status:          pm2 status"
 echo ""
+echo -e "${CYAN}🔧 Useful Commands:${NC}"
+echo "   • View logs:   pm2 logs fpp-control"
+echo "   • Restart:     pm2 restart fpp-control"
+echo "   • Status:      pm2 status"
 
 if [ "$SKIP_OAUTH" = true ] || [ "$SKIP_SPOTIFY" = true ]; then
+    echo ""
     echo -e "${YELLOW}⚠️  Action Required:${NC}"
-    echo ""
-    
-    if [ "$SKIP_OAUTH" = true ]; then
-        echo "   ❌ Google OAuth (Admin Login):"
-        echo "      1. Create OAuth credentials at: https://console.cloud.google.com/apis/credentials"
-        echo "      2. Update .env.local with your Client ID and Secret"
-        echo ""
-    fi
-    
-    if [ "$SKIP_SPOTIFY" = true ]; then
-        echo "   ❌ Spotify API (Jukebox Metadata - REQUIRED):"
-        echo "      1. Create app at: https://developer.spotify.com/dashboard"
-        echo "      2. Update .env.local with your Client ID and Secret"
-        echo ""
-    fi
-    
-    echo "   3. Restart: pm2 restart fpp-control"
-    echo ""
+    [ "$SKIP_OAUTH" = true ] && echo "   • Configure Google OAuth in .env.local"
+    [ "$SKIP_SPOTIFY" = true ] && echo "   • Configure Spotify API in .env.local"
+    echo "   • Then run: pm2 restart fpp-control"
 fi
 
-if [[ "$INSTALL_TYPE" == "public" ]] && [ "$SKIP_OAUTH" = false ]; then
-    echo -e "${YELLOW}⚠️  Don't Forget:${NC}"
-    echo ""
-    echo "   Update your Google OAuth redirect URIs to include:"
-    echo "   https://$DOMAIN/api/auth/callback/google"
-    echo ""
-fi
-
-echo -e "${CYAN}📚 Documentation:${NC}"
-echo "   • Full guide: README.md"
-echo "   • Security:   SECURITY-IMPLEMENTATION.md"
-echo "   • API docs:   docs/API.md"
 echo ""
-
 echo -e "${GREEN}Enjoy your Christmas light show! 🎄✨${NC}"
 echo ""
 
-# Ask if they want to view logs
 if confirm "View application logs now?"; then
-    pm2 logs fpp-control
+    pm2 logs fpp-control --lines 50
 fi
