@@ -3,6 +3,14 @@ import { requireAdmin } from '@/lib/auth-helpers';
 import fs from 'fs';
 import path from 'path';
 
+/**
+ * GET /api/system/update-status
+ * 
+ * Returns current update status and recent log lines.
+ * This endpoint is used by LiveUpdateModal for status polling.
+ * 
+ * Security: Admin authentication required
+ */
 export async function GET() {
   try {
     await requireAdmin();
@@ -24,9 +32,10 @@ export async function GET() {
       logLines = lines.slice(-30); // Show more lines for better visibility
     }
 
-    // Determine status
-    const isComplete = status === 'SUCCESS' || status === 'UP_TO_DATE';
-    const hasFailed = status === 'FAILED';
+    // Determine status flags
+    // NOTE: Daemon writes COMPLETED (not SUCCESS), map both for compatibility
+    const isComplete = status === 'SUCCESS' || status === 'COMPLETED' || status === 'UP_TO_DATE';
+    const hasFailed = status === 'FAILED' || status === 'LOCKED';
     const isRunning = status !== 'IDLE' && !isComplete && !hasFailed;
 
     // Map status to user-friendly messages
@@ -35,15 +44,19 @@ export async function GET() {
       'STOPPING': '⏸️ Stopping application...',
       'BACKING_UP': '💾 Creating backup...',
       'STASHING': '📦 Saving local changes...',
+      'DOWNLOADING': '📥 Downloading updates from GitHub...',
       'UPDATING': '📥 Downloading updates from GitHub...',
       'INSTALLING': '📦 Installing dependencies...',
       'MIGRATING': '🗄️ Running database migrations...',
       'BUILDING': '🔨 Building application...',
       'RESTORING': '📦 Restoring local changes...',
       'RESTARTING': '🔄 Restarting application...',
+      'VERIFYING': '✔️ Verifying deployment...',
       'SUCCESS': '✅ Update complete!',
+      'COMPLETED': '✅ Update complete!',
       'UP_TO_DATE': '✅ Already up to date!',
       'FAILED': '❌ Update failed',
+      'LOCKED': '⚠️ Another update is in progress',
       'IDLE': 'No update in progress'
     };
 
@@ -58,13 +71,14 @@ export async function GET() {
       statusFile: 'logs/update_status'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Update Status] Error:', error);
     
     return NextResponse.json({
       status: 'ERROR',
       statusMessage: 'Error checking status',
-      error: error.message,
+      error: errorMessage,
       isRunning: false,
       isComplete: false,
       hasFailed: true,

@@ -35,6 +35,7 @@ export async function GET() {
       const statusContent = readFileSync(STATUS_FILE, 'utf-8').trim();
       
       // Map status codes to user-friendly messages
+      // NOTE: Daemon writes COMPLETED (not SUCCESS), so we map both for compatibility
       const statusMap: { [key: string]: { status: string; message: string } } = {
         'IDLE': { status: 'idle', message: 'System ready' },
         'STARTING': { status: 'starting', message: 'Starting update process...' },
@@ -47,8 +48,10 @@ export async function GET() {
         'RESTARTING': { status: 'restarting', message: 'Restarting services (PM2)...' },
         'VERIFYING': { status: 'verifying', message: 'Verifying deployment...' },
         'SUCCESS': { status: 'completed', message: 'Update completed successfully! ✅' },
+        'COMPLETED': { status: 'completed', message: 'Update completed successfully! ✅' },
         'UP_TO_DATE': { status: 'up_to_date', message: 'Already up to date - no updates needed ✅' },
-        'FAILED': { status: 'error', message: 'Update failed - check logs for details ❌' }
+        'FAILED': { status: 'error', message: 'Update failed - check logs for details ❌' },
+        'LOCKED': { status: 'error', message: 'Another update is already in progress' }
       };
 
       const mappedStatus = statusMap[statusContent] || { status: 'idle', message: statusContent };

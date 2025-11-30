@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Terminal, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface LiveUpdateModalProps {
@@ -8,111 +8,149 @@ interface LiveUpdateModalProps {
   onClose: () => void;
 }
 
+// Terminal statuses that indicate update completion
+const TERMINAL_STATUSES = ['COMPLETED', 'SUCCESS', 'UP_TO_DATE', 'FAILED'];
+
+/**
+ * LiveUpdateModal - Displays live update progress with terminal output
+ * Uses Server-Sent Events (SSE) to stream real-time log output
+ */
 export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProps) {
   const [output, setOutput] = useState<string[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [autoCloseCountdown, setAutoCloseCountdown] = useState<number | null>(null);
-  const [usePolling, setUsePolling] = useState(false);
+  
   const outputEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Connect to SSE stream for live updates
+  const connectToStream = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    console.log('[LiveUpdateModal] Connecting to update stream...');
+    const eventSource = new EventSource('/api/admin/update-stream');
+    eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log('[LiveUpdateModal] Stream connected');
+    };
+
+    eventSource.addEventListener('log', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.isInitial) {
+          setOutput(data.lines || []);
+        } else {
+          setOutput(prev => [...prev, ...(data.lines || [])]);
+        }
+      } catch (error) {
+        console.error('[LiveUpdateModal] Failed to parse log event:', error);
+      }
+    });
+
+    eventSource.addEventListener('status', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const status = data.status?.toUpperCase() || 'IDLE';
+        
+        // Add status update to output
+        if (TERMINAL_STATUSES.includes(status)) {
+          const isSuccess = status === 'COMPLETED' || status === 'SUCCESS' || status === 'UP_TO_DATE';
+          setIsComplete(true);
+          setHasError(!isSuccess);
+          
+          if (isSuccess) {
+            setOutput(prev => [...prev, '', '✅ Update completed successfully!']);
+            startAutoReloadCountdown();
+          } else {
+            setOutput(prev => [...prev, '', '❌ Update failed. Check logs for details.']);
+          }
+        }
+      } catch (error) {
+        console.error('[LiveUpdateModal] Failed to parse status event:', error);
+      }
+    });
+
+    eventSource.addEventListener('complete', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('[LiveUpdateModal] Update complete:', data);
+        
+        setIsComplete(true);
+        setHasError(!data.success);
+        
+        if (data.success) {
+          setOutput(prev => [...prev, '', '✅ Update completed successfully!']);
+          startAutoReloadCountdown();
+        } else {
+          setOutput(prev => [...prev, '', '❌ Update failed. Check logs for details.']);
+        }
+        
+        // Close stream
+        eventSource.close();
+        eventSourceRef.current = null;
+      } catch (error) {
+        console.error('[LiveUpdateModal] Failed to parse complete event:', error);
+      }
+    });
+
+    eventSource.addEventListener('error', () => {
+      console.log('[LiveUpdateModal] Stream error or closed');
+    });
+
+    eventSource.onerror = () => {
+      // Connection may close during PM2 restart - that's expected
+      console.log('[LiveUpdateModal] Stream error - may be restarting');
+    };
+  }, []);
+
+  // Start auto-reload countdown
+  const startAutoReloadCountdown = () => {
+    let countdown = 5;
+    setAutoCloseCountdown(countdown);
+    
+    countdownIntervalRef.current = setInterval(() => {
+      countdown--;
+      setAutoCloseCountdown(countdown);
+      
+      if (countdown <= 0) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+        }
+        window.location.reload();
+      }
+    }, 1000);
+  };
+
+  // Effect: Connect to stream when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
     // Reset state
-    setOutput([]);
+    setOutput(['🔄 Connecting to update stream...', '']);
     setIsComplete(false);
     setHasError(false);
     setAutoCloseCountdown(null);
 
-    // Start with polling mode (no streaming endpoint)
-    console.log('[Update Modal] Starting update with status polling...');
-    setOutput(['🔄 Starting update process...', '📊 Monitoring update progress...', '']);
-    setUsePolling(true);
+    // Connect to SSE stream
+    connectToStream();
 
     return () => {
       if (eventSourceRef.current) {
-        console.log('[Update Modal] Closing stream');
+        console.log('[LiveUpdateModal] Closing stream');
         eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [isOpen]);
-
-  // Polling mode - used when stream dies (PM2 restart)
-  useEffect(() => {
-    if (!usePolling) return;
-
-    console.log('[Update Modal] Starting status polling...');
-    
-    const pollStatus = async () => {
-      try {
-        const response = await fetch('/api/system/update-status');
-        if (!response.ok) {
-          // Server not responding yet, keep polling
-          return;
-        }
-
-        const data = await response.json();
-        
-        // Update output with last lines from log
-        if (data.lastLines && data.lastLines.length > 0) {
-          setOutput(data.lastLines);
-        }
-
-        // Check status
-        if (data.status === 'COMPLETED' || data.status === 'SUCCESS' || data.status === 'UP_TO_DATE') {
-          setOutput((prev) => [...prev, '', '✅ Update completed successfully!']);
-          setIsComplete(true);
-          
-          // Start auto-reload countdown
-          let countdown = 5;
-          setAutoCloseCountdown(countdown);
-          
-          const interval = setInterval(() => {
-            countdown--;
-            setAutoCloseCountdown(countdown);
-            
-            if (countdown <= 0) {
-              clearInterval(interval);
-              window.location.reload();
-            }
-          }, 1000);
-          
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-          }
-        } else if (data.status === 'FAILED') {
-          setOutput((prev) => [...prev, '', '❌ Update failed. Check logs for details.']);
-          setHasError(true);
-          setIsComplete(true);
-          
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-          }
-        }
-      } catch (error) {
-        console.error('[Update Modal] Polling error:', error);
-        // Server still restarting, keep polling
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
       }
     };
-
-    // Poll immediately
-    pollStatus();
-    
-    // Then poll every 2 seconds
-    pollingIntervalRef.current = setInterval(pollStatus, 2000);
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [usePolling]);
+  }, [isOpen, connectToStream]);
 
   // Auto-scroll to bottom when new output arrives
   useEffect(() => {
@@ -152,12 +190,18 @@ export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProp
             {output.map((line, index) => (
               <div
                 key={index}
-                className="text-green-400 whitespace-pre-wrap break-words"
+                className={`whitespace-pre-wrap break-words ${
+                  line.includes('✅') || line.includes('SUCCESS') ? 'text-green-400' :
+                  line.includes('❌') || line.includes('ERROR') || line.includes('FAILED') ? 'text-red-400' :
+                  line.includes('⚠️') || line.includes('WARNING') ? 'text-yellow-400' :
+                  line.includes('🚀') || line.includes('🔄') ? 'text-blue-400' :
+                  'text-green-400'
+                }`}
                 style={{
                   textShadow: '0 0 5px rgba(34, 197, 94, 0.5)',
                 }}
               >
-                {line}
+                {line || '\u00A0'}
               </div>
             ))}
             {!isComplete && (

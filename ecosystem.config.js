@@ -49,26 +49,8 @@ module.exports = {
       merge_logs: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
     },
-    {
-      name: 'update-daemon',
-      script: './scripts/update-daemon.sh',
-      interpreter: 'bash',
-      cwd: './',
-      instances: 1,
-      exec_mode: 'fork',
-      autorestart: false,
-      watch: false,
-      max_memory_restart: '100M',
-      cron_restart: '0 */6 * * *',
-      env: {
-        NODE_ENV: 'production'
-      },
-      error_file: './logs/pm2-update-daemon-error.log',
-      out_file: './logs/pm2-update-daemon-out.log',
-      log_file: './logs/pm2-update-daemon-combined.log',
-      time: true,
-      merge_logs: true,
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
-    }
+    // Update daemon removed - updates are now triggered manually via UI only
+    // This improves security by preventing unauthorized automatic code execution
+    // Users can trigger updates from Settings > System Updates
   ]
 };
