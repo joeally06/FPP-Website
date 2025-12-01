@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { spawn, execSync } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, appendFileSync, statSync, unlinkSync, chmodSync, readFileSync, createWriteStream } from 'fs';
+import { exec } from 'child_process';
+import { existsSync, mkdirSync, writeFileSync, appendFileSync, statSync, unlinkSync } from 'fs';
 import path from 'path';
 
 const LOGS_DIR = path.join(process.cwd(), 'logs');
-const STATUS_FILE = path.join(LOGS_DIR, 'update_status');
-const LOG_FILE = path.join(LOGS_DIR, 'update.log');
 const LOCK_FILE = path.join(LOGS_DIR, 'update.lock');
-const SCRIPT_PATH = path.join(process.cwd(), 'scripts', 'update-daemon.sh');
+const UPDATE_SCRIPT = path.join(process.cwd(), 'update.sh');
 
 // Maximum age of a lock file before considering it stale (30 minutes)
 const STALE_LOCK_AGE_MS = 30 * 60 * 1000;
@@ -17,15 +15,15 @@ const STALE_LOCK_AGE_MS = 30 * 60 * 1000;
 /**
  * POST /api/admin/update-install
  * 
- * Trigger system update by spawning update-daemon.sh as a detached process.
- * Uses nohup to ensure the daemon survives PM2 restarts during the update.
+ * Execute system update synchronously, streaming output in real-time.
+ * Based on FPP's approach: run git pull directly in the request.
  * 
  * Security:
  * - Admin authentication required
  * - Lock file prevents concurrent updates
  * - Stale lock detection (30 min timeout)
- * - Daemon runs with inherited environment (no privilege escalation)
- * - All actions logged to update.log
+ * - Update runs in foreground with output streaming
+ * - Automatic app restart after completion
  */
 export async function POST() {
   try {
@@ -47,34 +45,12 @@ export async function POST() {
       mkdirSync(LOGS_DIR, { recursive: true });
     }
 
-    // Check if daemon script exists
-    if (!existsSync(SCRIPT_PATH)) {
-      console.error('[Update Install] Daemon script not found:', SCRIPT_PATH);
+    // Check if update script exists
+    if (!existsSync(UPDATE_SCRIPT)) {
+      console.error('[Update Install] Update script not found:', UPDATE_SCRIPT);
       return NextResponse.json({
         success: false,
-        error: 'Update daemon script not found'
-      }, { status: 500 });
-    }
-
-    // Verify bash is available
-    try {
-      execSync('which bash', { stdio: 'pipe' });
-    } catch (error) {
-      console.error('[Update Install] bash not found in PATH');
-      return NextResponse.json({
-        success: false,
-        error: 'bash shell not found - required for update daemon'
-      }, { status: 500 });
-    }
-
-    // Verify nohup is available
-    try {
-      execSync('which nohup', { stdio: 'pipe' });
-    } catch (error) {
-      console.error('[Update Install] nohup not found in PATH');
-      return NextResponse.json({
-        success: false,
-        error: 'nohup command not found - required for background execution'
+        error: 'Update script not found'
       }, { status: 500 });
     }
 
@@ -97,103 +73,102 @@ export async function POST() {
       unlinkSync(LOCK_FILE);
     }
 
-    // Make daemon executable (may fail on some systems, that's ok)
-    try {
-      chmodSync(SCRIPT_PATH, 0o755);
-    } catch (error) {
-      console.warn('[Update Install] Could not chmod script (may be ok):', error);
-    }
+    // Create lock file
+    writeFileSync(LOCK_FILE, `${timestamp}|${adminEmail}`);
 
-    // Initialize status and log files
-    writeFileSync(STATUS_FILE, 'STARTING');
-    writeFileSync(LOG_FILE, 
-      `[${timestamp}] ════════════════════════════════════════════════════════════\n` +
-      `[${timestamp}] Update triggered by: ${adminEmail}\n` +
-      `[${timestamp}] Project directory: ${process.cwd()}\n` +
-      `[${timestamp}] ════════════════════════════════════════════════════════════\n`
-    );
+    console.log(`[Update Install] Running update script: ${UPDATE_SCRIPT}`);
 
-    console.log(`[Update Install] Spawning daemon: ${SCRIPT_PATH}`);
+    // Run update script with bash - output will be streamed
+    // This follows FPP's approach: run synchronously, let the client handle streaming
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          
+          // Send header
+          controller.enqueue(encoder.encode(
+            `════════════════════════════════════════════════════════════\n` +
+            `FPP Control Center Update\n` +
+            `Triggered by: ${adminEmail}\n` +
+            `Time: ${timestamp}\n` +
+            `════════════════════════════════════════════════════════════\n\n`
+          ));
 
-    // Spawn daemon with nohup for proper detachment
-    // This ensures the process survives even when PM2 restarts Node.js
-    // Note: We ignore all stdio to allow proper detachment
-    const daemon = spawn('nohup', ['bash', SCRIPT_PATH, process.cwd()], {
-      detached: true,
-      stdio: ['ignore', 'ignore', 'ignore'], // All stdio ignored for proper detachment
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        // Ensure PATH includes common binary locations
-        PATH: '/usr/local/bin:/usr/bin:/bin:' + (process.env.PATH || ''),
-        HOME: process.env.HOME || '/home/' + (process.env.USER || 'root'),
-        USER: process.env.USER || 'root',
-      },
-    });
-
-    // Handle spawn errors
-    daemon.on('error', (error) => {
-      console.error('[Update Install] Daemon spawn error:', error);
-      appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ERROR: Failed to spawn daemon: ${error.message}\n`);
-      writeFileSync(STATUS_FILE, 'FAILED');
-    });
-
-    // Unref so Node.js can exit while daemon continues
-    daemon.unref();
-
-    const pid = daemon.pid;
-    console.log(`[Update Install] Daemon spawned with PID: ${pid}`);
-    appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Daemon started with PID: ${pid}\n`);
-
-    // Wait longer to verify daemon actually started
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Verify daemon started successfully by checking status file
-    if (existsSync(STATUS_FILE)) {
-      const status = readFileSync(STATUS_FILE, 'utf-8').trim();
-      if (status === 'FAILED' || status === 'ERROR' || status === 'LOCKED') {
-        console.error(`[Update Install] Daemon failed to start. Status: ${status}`);
-        
-        // Read log file for error details
-        let logContent = '';
-        if (existsSync(LOG_FILE)) {
           try {
-            const fullLog = readFileSync(LOG_FILE, 'utf-8');
-            const lines = fullLog.split('\n');
-            logContent = lines.slice(-20).join('\n'); // Last 20 lines
-          } catch (e) {
-            // Ignore read errors
-          }
-        }
-        
-        return NextResponse.json({
-          success: false,
-          error: `Daemon failed to start (Status: ${status})`,
-          details: logContent || 'Check logs/update.log for details'
-        }, { status: 500 });
-      }
-    }
+            // Execute update script
+            const updateProcess = exec(`bash ${UPDATE_SCRIPT}`, {
+              cwd: process.cwd(),
+              maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+            });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Update started - monitor progress via update-stream endpoint',
-      pid,
-      streamUrl: '/api/admin/update-stream',
-      statusUrl: '/api/admin/update-status',
-      logFile: 'logs/update.log'
-    });
+            // Stream stdout
+            updateProcess.stdout?.on('data', (data) => {
+              controller.enqueue(encoder.encode(data.toString()));
+            });
+
+            // Stream stderr
+            updateProcess.stderr?.on('data', (data) => {
+              controller.enqueue(encoder.encode(`ERROR: ${data.toString()}`));
+            });
+
+            // Wait for completion
+            await new Promise<void>((resolve, reject) => {
+              updateProcess.on('exit', (code) => {
+                if (code === 0) {
+                  controller.enqueue(encoder.encode(
+                    `\n════════════════════════════════════════════════════════════\n` +
+                    `Update Complete!\n` +
+                    `════════════════════════════════════════════════════════════\n`
+                  ));
+                  resolve();
+                } else {
+                  controller.enqueue(encoder.encode(
+                    `\n════════════════════════════════════════════════════════════\n` +
+                    `Update Failed (Exit Code: ${code})\n` +
+                    `════════════════════════════════════════════════════════════\n`
+                  ));
+                  reject(new Error(`Update failed with code ${code}`));
+                }
+              });
+
+              updateProcess.on('error', reject);
+            });
+
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            controller.enqueue(encoder.encode(
+              `\n════════════════════════════════════════════════════════════\n` +
+              `ERROR: ${errorMessage}\n` +
+              `════════════════════════════════════════════════════════════\n`
+            ));
+          } finally {
+            // Remove lock file
+            try {
+              unlinkSync(LOCK_FILE);
+            } catch {}
+            controller.close();
+          }
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'X-Accel-Buffering': 'no', // Disable nginx buffering
+        },
+      }
+    );
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Update Install] Error:', error);
     
-    // Log error to file
+    // Remove lock file on error
     try {
-      appendFileSync(LOG_FILE, `[${new Date().toISOString()}] API ERROR: ${errorMessage}\n`);
-      writeFileSync(STATUS_FILE, 'FAILED');
-    } catch {
-      // Ignore logging errors
-    }
+      if (existsSync(LOCK_FILE)) {
+        unlinkSync(LOCK_FILE);
+      }
+    } catch {}
     
     return NextResponse.json({ 
       success: false,
