@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { existsSync, readFileSync, statSync, watchFile, unwatchFile } from 'fs';
+import { existsSync, readFileSync, statSync, watchFile, unwatchFile, writeFileSync } from 'fs';
 import path from 'path';
 
 const STATUS_FILE = path.join(process.cwd(), 'logs', 'update_status');
@@ -44,6 +44,8 @@ export async function GET(request: NextRequest) {
   let lastLogContent = '';
   let streamClosed = false;
   let watchInterval: NodeJS.Timeout | null = null;
+  let startingStatusTime: number | null = null;
+  let lastStatus = 'IDLE';
   
   const stream = new ReadableStream({
     start(controller) {
@@ -94,6 +96,28 @@ export async function GET(request: NextRequest) {
           if (existsSync(STATUS_FILE)) {
             status = readFileSync(STATUS_FILE, 'utf-8').trim();
           }
+
+          // Track how long status has been stuck at STARTING
+          if (status === 'STARTING') {
+            if (lastStatus !== 'STARTING') {
+              startingStatusTime = Date.now();
+            } else if (startingStatusTime && Date.now() - startingStatusTime > 30000) {
+              // Stuck at STARTING for >30 seconds - daemon likely failed
+              console.error('[Update Stream] Update stuck at STARTING for >30s');
+              sendEvent('error', { 
+                message: 'Update stuck at STARTING - daemon may have failed. Check logs/daemon-stderr.log',
+                timeout: true
+              });
+              status = 'FAILED';
+              if (existsSync(STATUS_FILE)) {
+                writeFileSync(STATUS_FILE, 'FAILED');
+              }
+            }
+          } else {
+            startingStatusTime = null;
+          }
+          
+          lastStatus = status;
 
           // Check for new log content
           if (existsSync(LOG_FILE)) {

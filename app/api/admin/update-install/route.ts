@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { spawn } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, appendFileSync, statSync, unlinkSync, chmodSync } from 'fs';
+import { spawn, execSync } from 'child_process';
+import { existsSync, mkdirSync, writeFileSync, appendFileSync, statSync, unlinkSync, chmodSync, readFileSync, createWriteStream } from 'fs';
 import path from 'path';
 
 const LOGS_DIR = path.join(process.cwd(), 'logs');
@@ -56,6 +56,28 @@ export async function POST() {
       }, { status: 500 });
     }
 
+    // Verify bash is available
+    try {
+      execSync('which bash', { stdio: 'pipe' });
+    } catch (error) {
+      console.error('[Update Install] bash not found in PATH');
+      return NextResponse.json({
+        success: false,
+        error: 'bash shell not found - required for update daemon'
+      }, { status: 500 });
+    }
+
+    // Verify nohup is available
+    try {
+      execSync('which nohup', { stdio: 'pipe' });
+    } catch (error) {
+      console.error('[Update Install] nohup not found in PATH');
+      return NextResponse.json({
+        success: false,
+        error: 'nohup command not found - required for background execution'
+      }, { status: 500 });
+    }
+
     // Check for lock file (prevent concurrent updates)
     if (existsSync(LOCK_FILE)) {
       const lockAge = Date.now() - statSync(LOCK_FILE).mtimeMs;
@@ -93,11 +115,15 @@ export async function POST() {
 
     console.log(`[Update Install] Spawning daemon: ${SCRIPT_PATH}`);
 
+    // Create stderr log for daemon diagnostics
+    const stderrFile = path.join(LOGS_DIR, 'daemon-stderr.log');
+    const stderrStream = createWriteStream(stderrFile, { flags: 'w' });
+
     // Spawn daemon with nohup for proper detachment
     // This ensures the process survives even when PM2 restarts Node.js
     const daemon = spawn('nohup', ['bash', SCRIPT_PATH, process.cwd()], {
       detached: true,
-      stdio: ['ignore', 'ignore', 'ignore'],
+      stdio: ['ignore', 'ignore', stderrStream], // Capture stderr for diagnostics
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -113,6 +139,7 @@ export async function POST() {
       console.error('[Update Install] Daemon spawn error:', error);
       appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ERROR: Failed to spawn daemon: ${error.message}\n`);
       writeFileSync(STATUS_FILE, 'FAILED');
+      stderrStream.end();
     });
 
     // Unref so Node.js can exit while daemon continues
@@ -122,8 +149,35 @@ export async function POST() {
     console.log(`[Update Install] Daemon spawned with PID: ${pid}`);
     appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Daemon started with PID: ${pid}\n`);
 
-    // Brief delay to check if daemon started successfully
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Wait longer to verify daemon actually started
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Close stderr stream after initial spawn
+    stderrStream.end();
+
+    // Verify daemon started successfully by checking status file
+    if (existsSync(STATUS_FILE)) {
+      const status = readFileSync(STATUS_FILE, 'utf-8').trim();
+      if (status === 'FAILED' || status === 'ERROR' || status === 'LOCKED') {
+        console.error(`[Update Install] Daemon failed to start. Status: ${status}`);
+        
+        // Read any stderr output
+        let stderrContent = '';
+        if (existsSync(stderrFile)) {
+          try {
+            stderrContent = readFileSync(stderrFile, 'utf-8');
+          } catch (e) {
+            // Ignore read errors
+          }
+        }
+        
+        return NextResponse.json({
+          success: false,
+          error: `Daemon failed to start (Status: ${status})`,
+          details: stderrContent || 'Check logs/update.log for details'
+        }, { status: 500 });
+      }
+    }
 
     return NextResponse.json({
       success: true,
