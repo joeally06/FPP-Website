@@ -379,24 +379,6 @@ export default function DeviceStatusPage() {
                   transition-all hover:shadow-xl relative
                 `}
               >
-                {/* Action Buttons */}
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <button
-                    onClick={() => openEditModal(device)}
-                    className="w-8 h-8 bg-blue-500/80 hover:bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm transition-colors"
-                    title="Edit Device"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => openDeleteModal(device)}
-                    className="w-8 h-8 bg-red-500/80 hover:bg-red-600 rounded-lg flex items-center justify-center text-white text-sm transition-colors"
-                    title="Delete Device"
-                  >
-                    🗑️
-                  </button>
-                </div>
-
                 {/* Device Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0 pr-3">
@@ -405,8 +387,27 @@ export default function DeviceStatusPage() {
                     </AdminH3>
                     <AdminTextSmall className="break-words">{device.description}</AdminTextSmall>
                   </div>
-                  <div className="text-2xl sm:text-3xl flex-shrink-0">
-                    {getStatusIcon(device.id)}
+                  <div className="flex items-start gap-2">
+                    <div className="text-2xl sm:text-3xl flex-shrink-0">
+                      {getStatusIcon(device.id)}
+                    </div>
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openEditModal(device)}
+                        className="w-8 h-8 bg-blue-500/80 hover:bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm transition-colors"
+                        title="Edit Device"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(device)}
+                        className="w-8 h-8 bg-red-500/80 hover:bg-red-600 rounded-lg flex items-center justify-center text-white text-sm transition-colors"
+                        title="Delete Device"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 </div>
 
