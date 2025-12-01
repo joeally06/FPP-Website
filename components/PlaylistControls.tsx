@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Play, Square, SkipForward, SkipBack, Repeat, Shuffle } from 'lucide-react';
+import { Play, Square, SkipForward, SkipBack, Repeat, Shuffle, Pause, RotateCcw } from 'lucide-react';
 
 interface Playlist {
   name: string;
@@ -9,6 +9,12 @@ interface Playlist {
 
 interface Sequence {
   name: string;
+}
+
+interface Status {
+  status_name: string;
+  current_playlist: { playlist: string; count: string; index: string };
+  current_sequence: string;
 }
 
 interface PlaylistControlsProps {
@@ -23,6 +29,7 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [repeat, setRepeat] = useState(false);
+  const [status, setStatus] = useState<Status | null>(null);
 
   // Fetch available playlists
   useEffect(() => {
@@ -42,6 +49,29 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
     };
 
     fetchPlaylists();
+  }, []);
+
+  // Fetch current FPP status
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const response = await fetch('/api/fppd/status');
+        if (response.ok) {
+          const data = await response.json();
+          setStatus(data);
+          // Auto-select the currently playing playlist
+          if (data.current_playlist?.playlist) {
+            setSelectedPlaylist(data.current_playlist.playlist);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch FPP status:', error);
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch available sequences
@@ -125,6 +155,18 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
     sendCommand('Start Playlist At Random Item', [selectedPlaylist, repeat, false]);
   };
 
+  const pausePlaylist = () => {
+    sendCommand('Pause Playlist', []);
+  };
+
+  const resumePlaylist = () => {
+    sendCommand('Resume Playlist', []);
+  };
+
+  const restartItem = () => {
+    sendCommand('Restart Playlist Item', []);
+  };
+
   // Sequence Controls
   const startSequence = () => {
     if (!selectedSequence) {
@@ -153,10 +195,48 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
     <div className="backdrop-blur-md bg-white/10 rounded-xl p-8 shadow-2xl border border-white/20">
       <h2 className="text-2xl font-bold text-white mb-4">Playlist & Sequence Controls</h2>
 
+      {/* Currently Playing Status */}
+      {status?.current_playlist?.playlist && (
+        <div className="mb-6 p-4 bg-green-600/20 border border-green-600/30 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+              <div>
+                <p className="text-sm text-green-300 font-medium">Currently Playing</p>
+                <p className="text-lg text-white font-bold">{status.current_playlist.playlist}</p>
+                <p className="text-sm text-white/70">
+                  Track {status.current_playlist.index} of {status.current_playlist.count}
+                </p>
+              </div>
+            </div>
+            <span className="text-3xl">▶️</span>
+          </div>
+          {status.current_sequence && (
+            <div className="mt-3 pt-3 border-t border-green-600/20">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-green-300 font-medium">Sequence:</span>
+                <span className="text-white font-semibold">{status.current_sequence}</span>
+                <div className="flex items-center gap-1 ml-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1 h-3 bg-green-400 rounded-full animate-pulse"
+                      style={{
+                        animationDelay: `${i * 0.15}s`,
+                      }}
+                    ></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Status Message */}
       {message && (
         <div
-          className={`p-3 rounded-lg ${
+          className={`mb-4 p-3 rounded-lg ${
             message.type === 'success'
               ? 'bg-green-600/20 text-green-400 border border-green-600/30'
               : 'bg-red-600/20 text-red-400 border border-red-600/30'
@@ -201,7 +281,7 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
           </label>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <button
             onClick={startPlaylist}
             disabled={loading || !selectedPlaylist}
@@ -221,6 +301,24 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
           </button>
 
           <button
+            onClick={pausePlaylist}
+            disabled={loading || status?.status_name !== 'playing'}
+            className="flex items-center justify-center gap-2 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg font-semibold transition shadow-lg"
+          >
+            <Pause size={20} />
+            Pause
+          </button>
+
+          <button
+            onClick={resumePlaylist}
+            disabled={loading || status?.status_name === 'playing'}
+            className="flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg font-semibold transition shadow-lg"
+          >
+            <Play size={20} />
+            Resume
+          </button>
+
+          <button
             onClick={stopPlaylist}
             disabled={loading}
             className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg font-semibold transition shadow-lg"
@@ -236,6 +334,15 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
           >
             <Square size={20} />
             Stop Now
+          </button>
+
+          <button
+            onClick={restartItem}
+            disabled={loading || !status?.current_playlist?.playlist}
+            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-3 rounded-lg font-semibold transition shadow-lg"
+          >
+            <RotateCcw size={20} />
+            Restart Item
           </button>
 
           <button
