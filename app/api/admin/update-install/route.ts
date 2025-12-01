@@ -115,15 +115,12 @@ export async function POST() {
 
     console.log(`[Update Install] Spawning daemon: ${SCRIPT_PATH}`);
 
-    // Create stderr log for daemon diagnostics
-    const stderrFile = path.join(LOGS_DIR, 'daemon-stderr.log');
-    const stderrStream = createWriteStream(stderrFile, { flags: 'w' });
-
     // Spawn daemon with nohup for proper detachment
     // This ensures the process survives even when PM2 restarts Node.js
+    // Note: We ignore all stdio to allow proper detachment
     const daemon = spawn('nohup', ['bash', SCRIPT_PATH, process.cwd()], {
       detached: true,
-      stdio: ['ignore', 'ignore', stderrStream], // Capture stderr for diagnostics
+      stdio: ['ignore', 'ignore', 'ignore'], // All stdio ignored for proper detachment
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -139,7 +136,6 @@ export async function POST() {
       console.error('[Update Install] Daemon spawn error:', error);
       appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ERROR: Failed to spawn daemon: ${error.message}\n`);
       writeFileSync(STATUS_FILE, 'FAILED');
-      stderrStream.end();
     });
 
     // Unref so Node.js can exit while daemon continues
@@ -152,20 +148,19 @@ export async function POST() {
     // Wait longer to verify daemon actually started
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Close stderr stream after initial spawn
-    stderrStream.end();
-
     // Verify daemon started successfully by checking status file
     if (existsSync(STATUS_FILE)) {
       const status = readFileSync(STATUS_FILE, 'utf-8').trim();
       if (status === 'FAILED' || status === 'ERROR' || status === 'LOCKED') {
         console.error(`[Update Install] Daemon failed to start. Status: ${status}`);
         
-        // Read any stderr output
-        let stderrContent = '';
-        if (existsSync(stderrFile)) {
+        // Read log file for error details
+        let logContent = '';
+        if (existsSync(LOG_FILE)) {
           try {
-            stderrContent = readFileSync(stderrFile, 'utf-8');
+            const fullLog = readFileSync(LOG_FILE, 'utf-8');
+            const lines = fullLog.split('\n');
+            logContent = lines.slice(-20).join('\n'); // Last 20 lines
           } catch (e) {
             // Ignore read errors
           }
@@ -174,7 +169,7 @@ export async function POST() {
         return NextResponse.json({
           success: false,
           error: `Daemon failed to start (Status: ${status})`,
-          details: stderrContent || 'Check logs/update.log for details'
+          details: logContent || 'Check logs/update.log for details'
         }, { status: 500 });
       }
     }
