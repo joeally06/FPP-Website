@@ -12,7 +12,7 @@ import EnhancedVotingCard from '@/components/EnhancedVotingCard';
 import JukeboxBanner from '@/components/JukeboxBanner';
 import AudioSyncPlayer from '@/components/AudioSyncPlayer';
 import { formatDateTime } from '@/lib/time-utils';
-import { LayoutGrid, List, Music, Radio } from 'lucide-react';
+import { Radio, Music } from 'lucide-react';
 
 interface QueueItem {
   id: number;
@@ -110,7 +110,6 @@ export default function JukeboxPage() {
   const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
   const [selectedYouTubeVideo, setSelectedYouTubeVideo] = useState<YouTubeVideo | null>(null);
   const [loadingYouTubeVideos, setLoadingYouTubeVideos] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [scheduleStatus, setScheduleStatus] = useState<ScheduleStatus | null>(null);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [jukeboxRateLimit, setJukeboxRateLimit] = useState<number>(3);
@@ -1038,39 +1037,9 @@ export default function JukeboxPage() {
                 Vote for your favorite songs and help build the perfect playlist! 🎶
               </p>
             </div>
-            
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1 self-end sm:self-auto">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  viewMode === 'grid'
-                    ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:scale-105'
-                }`}
-                title="Grid View"
-              >
-                <LayoutGrid size={20} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  viewMode === 'list'
-                    ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:scale-105'
-                }`}
-                title="List View"
-              >
-                <List size={20} />
-              </button>
-            </div>
           </div>
 
-          <div className={`max-h-[600px] overflow-y-auto ${
-            viewMode === 'grid' 
-              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-              : 'space-y-3'
-          }`}>
+          <div className="max-h-[600px] overflow-y-auto space-y-3">
             {availableSequences
               .sort((a, b) => {
                 // Sort by votes (descending)
@@ -1098,7 +1067,7 @@ export default function JukeboxPage() {
                       await handleVote(sequence, 'up');
                     }}
                     loading={loading}
-                    compact={viewMode === 'list'}
+                    compact={true}
                   />
                 );
               })}
