@@ -245,7 +245,7 @@ export default function ThemeSettings() {
           Available Themes
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {themes.map((theme) => {
             const isActive = activeThemeId === theme.id;
             
@@ -298,7 +298,7 @@ export default function ThemeSettings() {
                       className="w-full bg-white/10 text-white border border-white/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
                       {particleOptions.map(option => (
-                        <option key={option.value} value={option.value} className="bg-gray-900">
+                        <option key={option.value} value={option.value} className="bg-gray-800 text-white">
                           {option.label}
                         </option>
                       ))}

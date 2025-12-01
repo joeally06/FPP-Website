@@ -315,7 +315,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="relative overflow-hidden rounded-xl p-6 bg-gradient-to-br from-blue-500/80 to-blue-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
             <div className="flex items-start justify-between">
               <div>
@@ -658,7 +658,7 @@ export default function AnalyticsPage() {
           {/* Tab Content */}
           <div className="overflow-x-auto">
             {activeTab === 'sequences' && (
-              <table className="w-full">
+              <table className="w-full min-w-[500px]">
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-3 px-4 text-white font-semibold">Sequence</th>
@@ -685,7 +685,7 @@ export default function AnalyticsPage() {
             )}
 
             {activeTab === 'playlists' && (
-              <table className="w-full">
+              <table className="w-full min-w-[500px]">
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-3 px-4 text-white font-semibold">Playlist</th>
@@ -710,7 +710,7 @@ export default function AnalyticsPage() {
             )}
 
             {activeTab === 'pages' && (
-              <table className="w-full">
+              <table className="w-full min-w-[500px]">
                 <thead>
                   <tr className="border-b border-white/10">
                     <th className="text-left py-3 px-4 text-white font-semibold">Page</th>

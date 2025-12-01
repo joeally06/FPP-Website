@@ -39,7 +39,7 @@ export default function SettingsPage() {
           </AdminText>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Settings Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 space-y-2">

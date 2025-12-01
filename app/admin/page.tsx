@@ -194,7 +194,7 @@ export default function AdminAnalytics() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <div className="backdrop-blur-md bg-gradient-to-br from-blue-500/80 to-blue-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">

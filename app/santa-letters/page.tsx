@@ -237,7 +237,7 @@ export default function SantaLettersPage() {
           {/* Letter Overview */}
           <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
             <AdminH3 className="mb-4">📊 Letter Overview</AdminH3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10">
                 <AdminTextSmall className="mb-2">Total Letters</AdminTextSmall>
                 <AdminValueMedium>{letters.length}</AdminValueMedium>
@@ -299,11 +299,11 @@ export default function SantaLettersPage() {
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
-                <option value="all" className="bg-gray-800">All Letters</option>
-                <option value="pending" className="bg-gray-800">Pending</option>
-                <option value="approved" className="bg-gray-800">Approved</option>
-                <option value="sent" className="bg-gray-800">Sent</option>
-                <option value="rejected" className="bg-gray-800">Rejected</option>
+                <option value="all" className="bg-gray-800 text-white">All Letters</option>
+                <option value="pending" className="bg-gray-800 text-white">Pending</option>
+                <option value="approved" className="bg-gray-800 text-white">Approved</option>
+                <option value="sent" className="bg-gray-800 text-white">Sent</option>
+                <option value="rejected" className="bg-gray-800 text-white">Rejected</option>
               </select>
             </div>
             <div className="flex gap-2">
@@ -334,7 +334,7 @@ export default function SantaLettersPage() {
         <div className="bg-white/10 backdrop-blur-md rounded-xl shadow-lg border border-white/20 overflow-hidden">
           {filteredLetters.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[900px]">
                 <thead className="bg-gradient-to-r from-red-600 to-green-600 text-white">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-semibold">ID</th>

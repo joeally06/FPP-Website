@@ -16,6 +16,12 @@ export async function GET(request: NextRequest) {
     const range = searchParams.get('range') || '7d';
     const days = range === '30d' ? 30 : 7;
 
+    // Get system timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timezoneAbbr = new Date().toLocaleTimeString('en-US', { 
+      timeZoneName: 'short' 
+    }).split(' ').pop() || '';
+
     // Calculate date range
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
@@ -36,15 +42,24 @@ export async function GET(request: NextRequest) {
       WHERE view_time >= ?
     `).get(todayStart) as { count: number };
 
-    // Get peak hour
+    // Get peak hour (convert to local timezone and format as 12-hour)
     const peakHourResult = db.prepare(`
-      SELECT strftime('%H:00', view_time) as hour, COUNT(*) as count
+      SELECT strftime('%H', datetime(view_time, 'localtime')) as hour, COUNT(*) as count
       FROM page_views
       WHERE view_time >= ?
       GROUP BY hour
       ORDER BY count DESC
       LIMIT 1
     `).get(startDateStr) as { hour: string; count: number } | undefined;
+
+    // Format peak hour in 12-hour format with timezone
+    let peakHour = 'N/A';
+    if (peakHourResult) {
+      const hour24 = parseInt(peakHourResult.hour);
+      const period = hour24 >= 12 ? 'PM' : 'AM';
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      peakHour = `${hour12}:00 ${period} ${timezoneAbbr}`;
+    }
 
     // Get average rating (calculate from upvotes/downvotes ratio)
     const voteStatsResult = db.prepare(`
@@ -61,12 +76,12 @@ export async function GET(request: NextRequest) {
       ? ((voteStatsResult.upvotes || 0) / totalVotes) * 5 
       : 0;
 
-    // Get daily trends
+    // Get daily trends (using local timezone)
     const trendsResult = db.prepare(`
-      SELECT DATE(view_time) as date, COUNT(*) as views
+      SELECT DATE(datetime(view_time, 'localtime')) as date, COUNT(*) as views
       FROM page_views
       WHERE view_time >= ?
-      GROUP BY DATE(view_time)
+      GROUP BY DATE(datetime(view_time, 'localtime'))
       ORDER BY date ASC
     `).all(startDateStr) as { date: string; views: number }[];
 
@@ -139,7 +154,7 @@ export async function GET(request: NextRequest) {
       overview: {
         totalViews: totalViewsResult.count,
         todayViews: todayViewsResult.count,
-        peakHour: peakHourResult?.hour || 'N/A',
+        peakHour: peakHour,
         avgRating: avgRating,
       },
       trends,
@@ -154,6 +169,7 @@ export async function GET(request: NextRequest) {
         sent: santaSent.count,
         failed: santaFailed.count,
       },
+      timezone, // Include for debugging
     };
 
     return NextResponse.json({

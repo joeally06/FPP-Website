@@ -88,7 +88,7 @@ export default function Home() {
       subtitle="Monitor and control your Falcon Player"
     >
       {/* Status Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <div className={`backdrop-blur-md bg-gradient-to-br ${status && isOnline ? getStatusColor(status.status_name) : 'from-gray-500 to-slate-600'} rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105`}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-white/80 text-sm font-medium">Status</span>

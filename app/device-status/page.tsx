@@ -398,27 +398,27 @@ export default function DeviceStatusPage() {
                 </div>
 
                 {/* Device Header */}
-                <div className="flex items-start justify-between mb-4 pr-20">
-                  <div>
-                    <AdminH3 className="mb-1">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1 min-w-0 pr-3">
+                    <AdminH3 className="mb-1 break-words">
                       {device.name}
                     </AdminH3>
-                    <AdminTextSmall>{device.description}</AdminTextSmall>
+                    <AdminTextSmall className="break-words">{device.description}</AdminTextSmall>
                   </div>
-                  <div className="text-3xl">
+                  <div className="text-2xl sm:text-3xl flex-shrink-0">
                     {getStatusIcon(device.id)}
                   </div>
                 </div>
 
                 {/* Device Info */}
                 <div className="space-y-2 mb-4">
-                  <div className="flex justify-between">
-                    <AdminTextSmall>Type:</AdminTextSmall>
-                    <AdminTextSmall className="font-medium text-white">{formatType(device.type)}</AdminTextSmall>
+                  <div className="flex justify-between gap-2">
+                    <AdminTextSmall className="flex-shrink-0">Type:</AdminTextSmall>
+                    <AdminTextSmall className="font-medium text-white text-right">{formatType(device.type)}</AdminTextSmall>
                   </div>
-                  <div className="flex justify-between">
-                    <AdminTextSmall>IP Address:</AdminTextSmall>
-                    <AdminTextSmall className="font-mono text-white">{device.ip}</AdminTextSmall>
+                  <div className="flex justify-between gap-2">
+                    <AdminTextSmall className="flex-shrink-0">IP Address:</AdminTextSmall>
+                    <AdminTextSmall className="font-mono text-white text-right break-all">{device.ip}</AdminTextSmall>
                   </div>
                 </div>
 
@@ -481,7 +481,7 @@ export default function DeviceStatusPage() {
         {/* Add Device Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-2xl p-8 max-w-md w-full border-2 border-white/20">
+            <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-2xl p-4 sm:p-8 max-w-md w-full border-2 border-white/20 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-6">Add New Device</h2>
               
               <div className="space-y-4">
@@ -514,20 +514,20 @@ export default function DeviceStatusPage() {
                     onChange={(e) => setFormData({...formData, type: e.target.value})}
                     className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:border-blue-400"
                   >
-                    <option value="">Select a type...</option>
-                    <option value="fpp">FPP Controller</option>
-                    <option value="falcon">Falcon Controller</option>
-                    <option value="projector">Projector</option>
-                    <option value="switch">Network Switch</option>
-                    <option value="router">Router</option>
-                    <option value="camera">Camera</option>
-                    <option value="ups">UPS</option>
-                    <option value="nas">NAS Storage</option>
-                    <option value="server">Server</option>
+                    <option value="" className="bg-gray-800 text-white">Select a type...</option>
+                    <option value="fpp" className="bg-gray-800 text-white">FPP Controller</option>
+                    <option value="falcon" className="bg-gray-800 text-white">Falcon Controller</option>
+                    <option value="projector" className="bg-gray-800 text-white">Projector</option>
+                    <option value="switch" className="bg-gray-800 text-white">Network Switch</option>
+                    <option value="router" className="bg-gray-800 text-white">Router</option>
+                    <option value="camera" className="bg-gray-800 text-white">Camera</option>
+                    <option value="ups" className="bg-gray-800 text-white">UPS</option>
+                    <option value="nas" className="bg-gray-800 text-white">NAS Storage</option>
+                    <option value="server" className="bg-gray-800 text-white">Server</option>
                     {getUniqueTypes()
                       .filter(type => !['fpp', 'falcon', 'projector', 'switch', 'router', 'camera', 'ups', 'nas', 'server'].includes(type))
                       .map(type => (
-                        <option key={type} value={type}>{formatType(type)}</option>
+                        <option key={type} value={type} className="bg-gray-800 text-white">{formatType(type)}</option>
                       ))
                     }
                   </select>
@@ -619,20 +619,20 @@ export default function DeviceStatusPage() {
                     onChange={(e) => setFormData({...formData, type: e.target.value})}
                     className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:border-blue-400"
                   >
-                    <option value="">Select a type...</option>
-                    <option value="fpp">FPP Controller</option>
-                    <option value="falcon">Falcon Controller</option>
-                    <option value="projector">Projector</option>
-                    <option value="switch">Network Switch</option>
-                    <option value="router">Router</option>
-                    <option value="camera">Camera</option>
-                    <option value="ups">UPS</option>
-                    <option value="nas">NAS Storage</option>
-                    <option value="server">Server</option>
+                    <option value="" className="bg-gray-800 text-white">Select a type...</option>
+                    <option value="fpp" className="bg-gray-800 text-white">FPP Controller</option>
+                    <option value="falcon" className="bg-gray-800 text-white">Falcon Controller</option>
+                    <option value="projector" className="bg-gray-800 text-white">Projector</option>
+                    <option value="switch" className="bg-gray-800 text-white">Network Switch</option>
+                    <option value="router" className="bg-gray-800 text-white">Router</option>
+                    <option value="camera" className="bg-gray-800 text-white">Camera</option>
+                    <option value="ups" className="bg-gray-800 text-white">UPS</option>
+                    <option value="nas" className="bg-gray-800 text-white">NAS Storage</option>
+                    <option value="server" className="bg-gray-800 text-white">Server</option>
                     {getUniqueTypes()
                       .filter(type => !['fpp', 'falcon', 'projector', 'switch', 'router', 'camera', 'ups', 'nas', 'server'].includes(type))
                       .map(type => (
-                        <option key={type} value={type}>{formatType(type)}</option>
+                        <option key={type} value={type} className="bg-gray-800 text-white">{formatType(type)}</option>
                       ))
                     }
                   </select>

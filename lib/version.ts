@@ -10,7 +10,7 @@
 
 export const APP_VERSION = {
   major: 1,
-  minor: 1,
+  minor: 4,
   patch: 0,
   prerelease: undefined, // Stable release
   build: null as string | null, // Git commit hash

@@ -301,15 +301,15 @@ export default function ModelsPage() {
           onChange={(e) => setFilter(e.target.value)}
           className={`px-4 py-2 min-w-[200px] ${glassStyles.input}`}
         >
-          <option value="all">All Controllers</option>
+          <option value="all" className="bg-gray-800 text-white">All Controllers</option>
           {controllers.map(controller => (
-            <option key={controller} value={controller}>{controller}</option>
+            <option key={controller} value={controller} className="bg-gray-800 text-white">{controller}</option>
           ))}
         </select>
       </div>
 
       {/* Stats Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard
           icon={File}
           label="Total Models"
@@ -343,7 +343,7 @@ export default function ModelsPage() {
       </div>
 
       {/* Models Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {filteredModels.map(model => {
           const isExpanded = expandedModels.has(model.id);
           return (

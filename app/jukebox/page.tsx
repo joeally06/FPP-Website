@@ -891,9 +891,9 @@ export default function JukeboxPage() {
                     required
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/40 backdrop-blur-sm"
                   >
-                    <option value="" className="bg-gray-800">Select a song...</option>
+                    <option value="" className="bg-gray-800 text-white">Select a song...</option>
                     {availableSequences.map((sequence) => (
-                      <option key={sequence} value={sequence} className="bg-gray-800">
+                      <option key={sequence} value={sequence} className="bg-gray-800 text-white">
                         {sequence}
                       </option>
                     ))}
@@ -1025,22 +1025,22 @@ export default function JukeboxPage() {
         {/* All Available Songs with Voting */}
         <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mt-6 border">
           {/* Enhanced Header with Animation */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Radio className="w-8 h-8 text-purple-400 animate-pulse" />
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <Radio className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 animate-pulse flex-shrink-0" />
+                <h2 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
                   🎵 Music Jukebox
                 </h2>
-                <Music className="w-8 h-8 text-blue-400 animate-bounce" />
+                <Music className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 animate-bounce flex-shrink-0" />
               </div>
-              <p className="text-lg text-gray-300 font-light ml-11">
+              <p className="text-sm sm:text-lg text-gray-300 font-light sm:ml-11">
                 Vote for your favorite songs and help build the perfect playlist! 🎶
               </p>
             </div>
             
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1">
+            <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1 self-end sm:self-auto">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-lg transition-all duration-300 ${

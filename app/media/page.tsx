@@ -157,6 +157,7 @@ export default function MediaCenter() {
   const [mappingSequence, setMappingSequence] = useState<string | null>(null);
   const [selectedAudioFile, setSelectedAudioFile] = useState<string>('');
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [audioSyncMessage, setAudioSyncMessage] = useState<string>('');
 
   useEffect(() => {
@@ -476,6 +477,54 @@ export default function MediaCenter() {
       setAudioSyncMessage('❌ Failed to delete file');
     } finally {
       setDeletingFile(null);
+      setTimeout(() => setAudioSyncMessage(''), 5000);
+    }
+  };
+
+  const deleteAllLocalFiles = async () => {
+    if (!confirm(`Delete all ${localAudioFiles.length} local audio files? This cannot be undone.`)) return;
+    
+    setDeletingAll(true);
+    setAudioSyncMessage('');
+    
+    try {
+      let successCount = 0;
+      let failCount = 0;
+
+      // Delete files one by one
+      for (const file of localAudioFiles) {
+        try {
+          const res = await fetch(`/api/audio/local-files/${encodeURIComponent(file.name)}`, {
+            method: 'DELETE'
+          });
+
+          const data = await res.json();
+          
+          if (res.ok && data.success) {
+            successCount++;
+          } else {
+            failCount++;
+            console.error(`Failed to delete ${file.name}:`, data.error);
+          }
+        } catch (error) {
+          failCount++;
+          console.error(`Error deleting ${file.name}:`, error);
+        }
+      }
+
+      // Show results
+      if (failCount === 0) {
+        setAudioSyncMessage(`✅ Successfully deleted all ${successCount} files`);
+      } else {
+        setAudioSyncMessage(`⚠️ Deleted ${successCount} files, ${failCount} failed`);
+      }
+      
+      await loadLocalFiles();
+    } catch (error) {
+      console.error('[Audio Sync] Delete all error:', error);
+      setAudioSyncMessage('❌ Failed to delete files');
+    } finally {
+      setDeletingAll(false);
       setTimeout(() => setAudioSyncMessage(''), 5000);
     }
   };
@@ -1128,28 +1177,29 @@ export default function MediaCenter() {
                 const stats = getAudioSyncStats();
                 return (
                   <div className="backdrop-blur-md bg-white/10 rounded-xl p-4 shadow-2xl border border-white/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Link2 className="w-5 h-5 text-white" />
-                        <span className="text-white font-semibold">Audio Sync Status: {selectedAudioSyncPlaylist.name}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Link2 className="w-5 h-5 text-white flex-shrink-0" />
+                        <span className="text-white font-semibold truncate">Audio Sync: {selectedAudioSyncPlaylist.name}</span>
                       </div>
-                      <div className="flex items-center gap-6 text-sm">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-400" />
-                          <span className="text-green-400">{stats.ready} Ready</span>
+                      <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                          <span className="text-green-400 whitespace-nowrap">{stats.ready} Ready</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Download className="w-4 h-4 text-yellow-400" />
-                          <span className="text-yellow-400">{stats.needsDownload} Need Download</span>
+                        <div className="flex items-center gap-1.5">
+                          <Download className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                          <span className="text-yellow-400 whitespace-nowrap">{stats.needsDownload} Download</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-orange-400" />
-                          <span className="text-orange-400">{stats.needsMapping} Need Mapping</span>
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                          <span className="text-orange-400 whitespace-nowrap">{stats.needsMapping} Mapping</span>
                         </div>
                         <button
                           onClick={loadAudioSyncData}
                           disabled={loadingAudioSync}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors touch-manipulation"
+                          title="Refresh audio sync data"
                         >
                           <RefreshCw className={`w-4 h-4 text-white ${loadingAudioSync ? 'animate-spin' : ''}`} />
                         </button>
@@ -1175,7 +1225,8 @@ export default function MediaCenter() {
                     <p className="text-white/70">No sequences found in this playlist</p>
                   </div>
                 ) : (
-                  <table className="w-full">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px]">
                     <thead className="bg-white/5 border-b border-white/10">
                       <tr>
                         <th className="text-left py-3 px-4 text-white/80 font-medium">Sequence</th>
@@ -1187,80 +1238,81 @@ export default function MediaCenter() {
                     <tbody className="divide-y divide-white/10">
                       {playlistSequences.map((seq) => (
                         <tr key={seq.sequenceName} className="hover:bg-white/5 transition-colors">
-                          <td className="py-3 px-4">
-                            <span className="text-white font-medium">{seq.sequenceName}</span>
+                          <td className="py-3 px-4 max-w-[200px]">
+                            <span className="text-white font-medium block truncate" title={seq.sequenceName}>{seq.sequenceName}</span>
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 max-w-[250px]">
                             {mappingSequence === seq.sequenceName ? (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 min-w-0">
                                 <select
                                   value={selectedAudioFile}
                                   onChange={(e) => setSelectedAudioFile(e.target.value)}
-                                  className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm"
+                                  className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm"
                                 >
-                                  <option value="">Select audio file...</option>
+                                  <option value="" className="bg-gray-800 text-white">Select...</option>
                                   {localAudioFiles.map((file) => (
-                                    <option key={file.name} value={file.name}>{file.name}</option>
+                                    <option key={file.name} value={file.name} className="bg-gray-800 text-white">{file.name}</option>
                                   ))}
                                 </select>
                                 <button
                                   onClick={() => selectedAudioFile && saveAudioMapping(seq.sequenceName, selectedAudioFile)}
                                   disabled={!selectedAudioFile}
-                                  className="p-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                                  className="flex-shrink-0 p-1.5 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 touch-manipulation"
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => setMappingSequence(null)}
-                                  className="p-1 bg-white/10 text-white rounded hover:bg-white/20"
+                                  className="flex-shrink-0 p-1.5 bg-white/10 text-white rounded hover:bg-white/20 touch-manipulation"
                                 >
                                   <X className="w-4 h-4" />
                                 </button>
                               </div>
                             ) : seq.audioFile ? (
-                              <span className="text-green-400">{seq.audioFile}</span>
+                              <span className="text-green-400 block truncate" title={seq.audioFile}>{seq.audioFile}</span>
                             ) : seq.mediaName ? (
-                              <span className="text-yellow-400 text-sm">FPP: {seq.mediaName}</span>
+                              <span className="text-yellow-400 text-sm block truncate" title={`FPP: ${seq.mediaName}`}>FPP: {seq.mediaName}</span>
                             ) : (
                               <span className="text-white/50">Not mapped</span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
                             {seq.status === 'ready' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded text-sm">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs whitespace-nowrap" title="Ready">
                                 <CheckCircle className="w-3 h-3" />
-                                Ready
+                                <span className="hidden sm:inline">Ready</span>
                               </span>
                             ) : seq.status === 'needs-download' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-sm">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs whitespace-nowrap" title="Need Download">
                                 <Download className="w-3 h-3" />
-                                Need Download
+                                <span className="hidden sm:inline">Download</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-sm">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-xs whitespace-nowrap" title="Need Mapping">
                                 <AlertCircle className="w-3 h-3" />
-                                Need Mapping
+                                <span className="hidden sm:inline">Mapping</span>
                               </span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1">
                               {/* Download button - shows when audio needs to be downloaded from FPP */}
                               {seq.status === 'needs-download' && seq.mediaName && (
                                 <button
                                   onClick={() => downloadAudioFromFPP(seq.sequenceName, seq.mediaName)}
                                   disabled={downloadingSequence === seq.sequenceName}
-                                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                                  className="px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 whitespace-nowrap touch-manipulation"
+                                  title="Download audio from FPP"
                                 >
                                   {downloadingSequence === seq.sequenceName ? (
                                     <>
                                       <RefreshCw className="w-3 h-3 animate-spin" />
-                                      Downloading...
+                                      <span className="hidden sm:inline">Downloading...</span>
                                     </>
                                   ) : (
                                     <>
                                       <Download className="w-3 h-3" />
-                                      Download
+                                      <span className="hidden sm:inline">Download</span>
                                     </>
                                   )}
                                 </button>
@@ -1269,11 +1321,11 @@ export default function MediaCenter() {
                               {mappingSequence !== seq.sequenceName && (
                                 <button
                                   onClick={() => setMappingSequence(seq.sequenceName)}
-                                  className={`px-3 py-1 ${seq.status === 'ready' ? 'bg-white/10 hover:bg-white/20' : 'bg-orange-600 hover:bg-orange-700'} text-white rounded text-sm font-medium flex items-center gap-1`}
+                                  className={`px-2 py-1.5 ${seq.status === 'ready' ? 'bg-white/10 hover:bg-white/20' : 'bg-orange-600 hover:bg-orange-700'} text-white rounded text-xs font-medium flex items-center gap-1 whitespace-nowrap touch-manipulation`}
                                   title={seq.status === 'ready' ? 'Change audio mapping' : 'Map to local audio file'}
                                 >
                                   <Link2 className="w-3 h-3" />
-                                  {seq.status === 'ready' ? 'Remap' : 'Map Audio'}
+                                  <span className="hidden sm:inline">{seq.status === 'ready' ? 'Remap' : 'Map'}</span>
                                 </button>
                               )}
                             </div>
@@ -1282,6 +1334,7 @@ export default function MediaCenter() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
             </>
@@ -1300,12 +1353,36 @@ export default function MediaCenter() {
                 <span className="text-white font-semibold">Local Audio Files</span>
                 <span className="text-white/60 text-sm">({localAudioFiles.length} files)</span>
               </div>
-              <button
-                onClick={loadLocalFiles}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                <RefreshCw className="w-4 h-4 text-white" />
-              </button>
+              <div className="flex items-center gap-2">
+                {localAudioFiles.length > 0 && (
+                  <button
+                    onClick={deleteAllLocalFiles}
+                    disabled={deletingAll}
+                    className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm touch-manipulation"
+                    title="Delete all files"
+                  >
+                    {deletingAll ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span className="hidden sm:inline">Deleting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Delete All</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={loadLocalFiles}
+                  disabled={deletingAll}
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="Refresh file list"
+                >
+                  <RefreshCw className="w-4 h-4 text-white" />
+                </button>
+              </div>
             </div>
             {audioSyncMessage && (
               <div className="mt-3 text-sm text-white">{audioSyncMessage}</div>
@@ -1323,21 +1400,21 @@ export default function MediaCenter() {
             ) : (
               <div className="divide-y divide-white/10">
                 {localAudioFiles.map((file) => (
-                  <div key={file.name} className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <FileAudio className="w-8 h-8 text-blue-400" />
-                      <div>
-                        <p className="text-white font-medium">{file.name}</p>
-                        <div className="flex items-center gap-4 text-sm text-white/50">
+                  <div key={file.name} className="flex items-start sm:items-center justify-between gap-3 p-4 hover:bg-white/5 transition-colors">
+                    <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                      <FileAudio className="w-8 h-8 text-blue-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white font-medium break-words" title={file.name}>{file.name}</p>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-white/50">
                           <span>{formatFileSize(file.size)}</span>
-                          <span>{new Date(file.lastModified).toLocaleDateString()}</span>
+                          <span className="whitespace-nowrap">{new Date(file.lastModified).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
                     <button
                       onClick={() => deleteLocalFile(file.name)}
-                      disabled={deletingFile === file.name}
-                      className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50"
+                      disabled={deletingFile === file.name || deletingAll}
+                      className="flex-shrink-0 p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-50 touch-manipulation"
                       title="Delete file"
                     >
                       {deletingFile === file.name ? (
