@@ -66,11 +66,15 @@ export async function POST(request: NextRequest) {
     // 5. WHITELIST CHECK (security)
     const allowedCommands = [
       'Start Playlist',
+      'Start Playlist At Item',
       'Stop Gracefully',
       'Stop Now',
       'Next Playlist Item',
       'Prev Playlist Item',
       'Start Playlist At Random Item',
+      'Pause Playlist',
+      'Resume Playlist',
+      'Restart Playlist Item',
       'FSEQ Effect Start',
       'FSEQ Effect Stop',
       'Effects Stop',
