@@ -18,6 +18,7 @@ export default function LocationPermissionModal({
   const { theme } = useTheme();
   const [isVisible, setIsVisible] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if user has already responded (stored in sessionStorage)
@@ -31,6 +32,7 @@ export default function LocationPermissionModal({
 
   const handleAllow = async () => {
     setIsChecking(true);
+    setErrorMessage(null);
     
     try {
       const location = await getBrowserLocation();
@@ -40,9 +42,9 @@ export default function LocationPermissionModal({
       onLocationGranted(location);
     } catch (error: any) {
       console.error('[Location] Permission denied:', error);
-      sessionStorage.setItem('location-permission-requested', 'denied');
-      setIsVisible(false);
-      onLocationDenied();
+      // Show error but keep modal open so user can try again or see instructions
+      setErrorMessage(error.message || 'Location permission was denied');
+      // Don't set denied status yet - let user try again or manually deny
     } finally {
       setIsChecking(false);
     }
@@ -93,6 +95,32 @@ export default function LocationPermissionModal({
 
         {/* Body */}
         <div className="p-6 space-y-4">
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="bg-red-500/20 border-2 border-red-500/60 rounded-lg p-4 animate-scale-in">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl">⚠️</span>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-lg mb-2">Permission Denied</h3>
+                  <p className="text-white/90 text-sm mb-3">{errorMessage}</p>
+                  <div className="bg-black/30 rounded p-3 text-xs text-white/80 space-y-2">
+                    <p className="font-semibold">To enable location access:</p>
+                    <p>• <strong>Chrome/Edge:</strong> Click the 🔒 or ⓘ icon in the address bar → Site settings → Location → Allow</p>
+                    <p>• <strong>Firefox:</strong> Click the 🔒 icon → Clear permissions → Reload → Try again</p>
+                    <p>• <strong>Safari:</strong> Safari menu → Settings → Websites → Location → Allow</p>
+                    <p>• <strong>Mobile:</strong> Phone Settings → Apps → Browser → Permissions → Location → Allow</p>
+                  </div>
+                  <button
+                    onClick={() => setErrorMessage(null)}
+                    className="mt-3 text-sm text-white/60 hover:text-white underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white/10 rounded-lg p-4 border border-white/20">
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
               <span className="text-2xl">🎯</span>
@@ -184,6 +212,10 @@ export default function LocationPermissionModal({
               <span className="flex items-center justify-center gap-2">
                 <span className="animate-spin">📍</span>
                 Getting Location...
+              </span>
+            ) : errorMessage ? (
+              <span className="flex items-center justify-center gap-2">
+                🔄 Try Again
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
