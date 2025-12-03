@@ -44,21 +44,17 @@ export function getBrowserLocation(): Promise<UserLocation> {
     console.log('[Location] Hostname:', window.location.hostname);
     console.log('[Location] Is secure context:', isSecure);
 
-    // Check permission state if available
+    // Check permission state if available (but don't block based on it)
     if ('permissions' in navigator) {
       try {
         const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        console.log('[Location] Current permission state:', permissionStatus.state);
-        
-        if (permissionStatus.state === 'denied') {
-          reject(new Error('Location permission is permanently denied. To fix:\n1. Click the 🔒 icon in your address bar\n2. Find "Location" setting\n3. Change it to "Allow"\n4. Refresh the page and try again'));
-          return;
-        }
+        console.log('[Location] Permission API reports state:', permissionStatus.state);
       } catch (e) {
         console.log('[Location] Could not check permission state:', e);
       }
     }
 
+    // Always try the actual geolocation request - it's more reliable than the Permissions API
     navigator.geolocation.getCurrentPosition(
       (position) => {
         console.log('[Location] ✅ SUCCESS! Position obtained:');
