@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,12 +8,13 @@ import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { useTheme } from '@/lib/themes/theme-context';
 import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
 import LetterToSantaModal from '@/components/LetterToSantaModal';
+import LocationPermissionModal from '@/components/LocationPermissionModal';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import EnhancedVotingCard from '@/components/EnhancedVotingCard';
 import JukeboxBanner from '@/components/JukeboxBanner';
 import AudioSyncPlayer from '@/components/AudioSyncPlayer';
 import { formatDateTime } from '@/lib/time-utils';
-import { getBrowserLocation } from '@/lib/location-utils';
+import { getBrowserLocation, type UserLocation } from '@/lib/location-utils';
 import { Radio, Music } from 'lucide-react';
 
 interface QueueItem {
@@ -117,6 +119,54 @@ export default function JukeboxPage() {
   const [requestsRemaining, setRequestsRemaining] = useState<number | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [checkingLocation, setCheckingLocation] = useState(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<'granted' | 'denied' | 'skipped' | null>(null);
+
+  // Restore cached location from sessionStorage on mount
+  useEffect(() => {
+    const cachedLocation = sessionStorage.getItem('user-location');
+    const cachedPermission = sessionStorage.getItem('location-permission-requested');
+    
+    if (cachedLocation) {
+      try {
+        const location = JSON.parse(cachedLocation);
+        setUserLocation(location);
+      } catch (error) {
+        console.error('Failed to parse cached location:', error);
+      }
+    }
+    
+    if (cachedPermission) {
+      setLocationPermissionStatus(cachedPermission as 'granted' | 'denied' | 'skipped');
+    }
+  }, []);
+
+  // Location modal callbacks
+  const handleLocationGranted = (location: UserLocation) => {
+    setUserLocation(location);
+    setLocationPermissionStatus('granted');
+    setLocationError(null);
+    sessionStorage.setItem('user-location', JSON.stringify(location));
+    sessionStorage.setItem('location-permission-requested', 'granted');
+  };
+
+  const handleLocationDenied = () => {
+    setLocationPermissionStatus('denied');
+    setUserLocation(null);
+    sessionStorage.removeItem('user-location');
+    sessionStorage.setItem('location-permission-requested', 'denied');
+  };
+
+  const handleLocationSkipped = () => {
+    setLocationPermissionStatus('skipped');
+    sessionStorage.setItem('location-permission-requested', 'skipped');
+  };
+
+  const resetLocationPermission = () => {
+    sessionStorage.removeItem('location-permission-requested');
+    sessionStorage.removeItem('user-location');
+    window.location.reload();
+  };
 
   // Re-fetch YouTube videos when theme changes
   useEffect(() => {
@@ -307,15 +357,20 @@ export default function JukeboxPage() {
 
   const handleVote = async (sequenceName: string, voteType: 'up' | 'down') => {
     try {
-      // Get user's GPS location first
-      let userLocation = null;
+      // Use cached location if available, otherwise request it
+      let locationToUse = userLocation;
       
-      try {
-        userLocation = await getBrowserLocation();
-        console.log(`[Location] Got GPS location for vote: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`);
-      } catch (locError: any) {
-        setLocationError(locError.message);
-        return;
+      if (!locationToUse) {
+        try {
+          locationToUse = await getBrowserLocation();
+          // Cache the location for future use
+          setUserLocation(locationToUse);
+          sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          console.log(`[Location] Got GPS location for vote: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)}`);
+        } catch (locError: any) {
+          setLocationError(locError.message);
+          return;
+        }
       }
 
       const response = await fetch('/api/votes', {
@@ -324,7 +379,7 @@ export default function JukeboxPage() {
         body: JSON.stringify({ 
           sequenceName, 
           voteType,
-          userLocation: userLocation // Include GPS coordinates
+          userLocation: locationToUse! // Include GPS coordinates
         })
       });
 
@@ -434,21 +489,25 @@ export default function JukeboxPage() {
     setLocationError(null);
 
     try {
-      // Get user's GPS location first
-      setCheckingLocation(true);
-      let userLocation = null;
+      // Use cached location if available, otherwise request it
+      let locationToUse = userLocation;
       
-      try {
-        userLocation = await getBrowserLocation();
-        console.log(`[Location] Got GPS location: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)} (±${userLocation.accuracy}m)`);
-      } catch (locError: any) {
-        setLocationError(locError.message);
-        setLoading(false);
+      if (!locationToUse) {
+        setCheckingLocation(true);
+        try {
+          locationToUse = await getBrowserLocation();
+          // Cache the location for future use
+          setUserLocation(locationToUse);
+          sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
+        } catch (locError: any) {
+          setLocationError(locError.message);
+          setLoading(false);
+          setCheckingLocation(false);
+          return;
+        }
         setCheckingLocation(false);
-        return;
       }
-      
-      setCheckingLocation(false);
 
       const response = await fetch('/api/jukebox/queue', {
         method: 'POST',
@@ -458,7 +517,7 @@ export default function JukeboxPage() {
         body: JSON.stringify({
           sequence_name: newRequest.trim(),
           requester_name: requesterName.trim() || undefined,
-          userLocation: userLocation // Include GPS coordinates
+          userLocation: locationToUse! // Include GPS coordinates
         }),
       });
 
@@ -493,21 +552,25 @@ export default function JukeboxPage() {
     setLocationError(null);
 
     try {
-      // Get user's GPS location first
-      setCheckingLocation(true);
-      let userLocation = null;
+      // Use cached location if available, otherwise request it
+      let locationToUse = userLocation;
       
-      try {
-        userLocation = await getBrowserLocation();
-        console.log(`[Location] Got GPS location: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)} (±${userLocation.accuracy}m)`);
-      } catch (locError: any) {
-        setLocationError(locError.message);
-        setLoading(false);
+      if (!locationToUse) {
+        setCheckingLocation(true);
+        try {
+          locationToUse = await getBrowserLocation();
+          // Cache the location for future use
+          setUserLocation(locationToUse);
+          sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
+        } catch (locError: any) {
+          setLocationError(locError.message);
+          setLoading(false);
+          setCheckingLocation(false);
+          return;
+        }
         setCheckingLocation(false);
-        return;
       }
-      
-      setCheckingLocation(false);
 
       const response = await fetch('/api/jukebox/queue', {
         method: 'POST',
@@ -517,7 +580,7 @@ export default function JukeboxPage() {
         body: JSON.stringify({
           sequence_name: sequenceName,
           requester_name: requesterName.trim() || undefined,
-          userLocation: userLocation // Include GPS coordinates
+          userLocation: locationToUse! // Include GPS coordinates
         }),
       });
 
@@ -645,7 +708,37 @@ export default function JukeboxPage() {
 
   return (
     <ThemedJukeboxWrapper>
+      {/* Location Permission Modal */}
+      {locationPermissionStatus === null && (
+        <LocationPermissionModal
+          onLocationGranted={handleLocationGranted}
+          onLocationDenied={handleLocationDenied}
+          onSkip={handleLocationSkipped}
+        />
+      )}
+
       <div className="max-w-6xl mx-auto">
+        {/* Location Permission Denied Warning Banner */}
+        {locationPermissionStatus === 'denied' && (
+          <div className="mb-6 bg-red-900/90 backdrop-blur-sm border-2 border-red-600 rounded-lg p-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">🚫</span>
+              <div className="flex-1">
+                <h3 className="text-white font-bold text-lg mb-2">Location Access Denied</h3>
+                <p className="text-white/90 text-sm mb-3">
+                  You won't be able to request songs or vote without location permission. This helps ensure only visitors at the light show can interact with the jukebox.
+                </p>
+                <button
+                  onClick={resetLocationPermission}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition shadow-md text-sm"
+                >
+                  🔄 Change Location Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header with Admin Login */}
         <div className="mb-6">
           {/* Title - Full width on mobile */}
