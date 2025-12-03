@@ -10,10 +10,33 @@ export function addToQueueTransactional(db: Database.Database, params: {
   requester_name?: string | null;
   requester_ip: string;
   rateLimit: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+  region?: string | null;
+  countryCode?: string | null;
+  distanceFromShow?: number | null;
 }) {
-  const { sequence_name, media_name, requester_name, requester_ip, rateLimit } = params;
+  const { 
+    sequence_name, 
+    media_name, 
+    requester_name, 
+    requester_ip, 
+    rateLimit,
+    latitude,
+    longitude,
+    city,
+    region,
+    countryCode,
+    distanceFromShow
+  } = params;
 
-  const insert = db.prepare(`INSERT INTO jukebox_queue (sequence_name, media_name, requester_name, requester_ip) VALUES (?, ?, ?, ?)`);
+  const insert = db.prepare(`
+    INSERT INTO jukebox_queue (
+      sequence_name, media_name, requester_name, requester_ip,
+      latitude, longitude, city, region, country_code, distance_from_show
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
   const countStmt = db.prepare(`SELECT COUNT(*) as count FROM jukebox_queue WHERE requester_ip = ? AND created_at >= datetime('now', '-1 hour')`);
   const duplicateStmt = db.prepare(`SELECT id FROM jukebox_queue WHERE requester_ip = ? AND sequence_name = ? AND created_at >= datetime('now', '-5 minutes') LIMIT 1`);
 
@@ -36,8 +59,19 @@ export function addToQueueTransactional(db: Database.Database, params: {
       throw err;
     }
 
-    // Insert the queue item
-    const res = insert.run(sequence_name, media_name || null, requester_name || 'Anonymous', requester_ip);
+    // Insert the queue item with location data
+    const res = insert.run(
+      sequence_name, 
+      media_name || null, 
+      requester_name || 'Anonymous', 
+      requester_ip,
+      latitude || null,
+      longitude || null,
+      city || null,
+      region || null,
+      countryCode || null,
+      distanceFromShow || null
+    );
     return { id: res.lastInsertRowid, requestsUsed: used + 1 };
   });
 
