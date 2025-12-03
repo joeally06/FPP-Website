@@ -365,10 +365,16 @@ export default function JukeboxPage() {
           locationToUse = await getBrowserLocation();
           // Cache the location for future use
           setUserLocation(locationToUse);
+          setLocationPermissionStatus('granted');
           sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          sessionStorage.setItem('location-permission-requested', 'granted');
           console.log(`[Location] Got GPS location for vote: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)}`);
         } catch (locError: any) {
+          // Permission denied - reset to show modal again
           setLocationError(locError.message);
+          setLocationPermissionStatus(null);
+          sessionStorage.removeItem('location-permission-requested');
+          sessionStorage.removeItem('user-location');
           return;
         }
       }
@@ -498,10 +504,16 @@ export default function JukeboxPage() {
           locationToUse = await getBrowserLocation();
           // Cache the location for future use
           setUserLocation(locationToUse);
+          setLocationPermissionStatus('granted');
           sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          sessionStorage.setItem('location-permission-requested', 'granted');
           console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
         } catch (locError: any) {
+          // Permission denied - reset to show modal again
           setLocationError(locError.message);
+          setLocationPermissionStatus(null);
+          sessionStorage.removeItem('location-permission-requested');
+          sessionStorage.removeItem('user-location');
           setLoading(false);
           setCheckingLocation(false);
           return;
@@ -561,10 +573,16 @@ export default function JukeboxPage() {
           locationToUse = await getBrowserLocation();
           // Cache the location for future use
           setUserLocation(locationToUse);
+          setLocationPermissionStatus('granted');
           sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          sessionStorage.setItem('location-permission-requested', 'granted');
           console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
         } catch (locError: any) {
+          // Permission denied - reset to show modal again
           setLocationError(locError.message);
+          setLocationPermissionStatus(null);
+          sessionStorage.removeItem('location-permission-requested');
+          sessionStorage.removeItem('user-location');
           setLoading(false);
           setCheckingLocation(false);
           return;
