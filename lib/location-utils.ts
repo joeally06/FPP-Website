@@ -1,15 +1,13 @@
 /**
  * Location utilities for jukebox geo-restrictions
- * Prevents remote requests from users not physically at the light show
+ * Uses browser GPS for accurate distance checking
  */
 
 export interface UserLocation {
-  ip: string;
   lat: number;
   lng: number;
-  city: string;
-  region: string;
-  countryCode: string;
+  accuracy?: number; // Accuracy in meters
+  source: 'gps' | 'ip'; // Track location source
 }
 
 export interface ShowLocation {
@@ -21,45 +19,47 @@ export interface ShowLocation {
 }
 
 /**
- * Fetch geolocation from IP using free ip-api service
- * Rate limit: 45 req/min on free tier
+ * Get user's location from browser (GPS) - CLIENT SIDE ONLY
+ * This is far more accurate than IP geolocation
  */
-export async function fetchLocationFromIP(ipAddress: string): Promise<UserLocation | null> {
-  // Skip local network IPs
-  if (ipAddress === '127.0.0.1' || ipAddress.startsWith('192.168.') || 
-      ipAddress.startsWith('10.') || ipAddress.startsWith('172.16.')) {
-    console.log(`[Location] Local IP detected: ${ipAddress}`);
-    return null;
-  }
-
-  try {
-    const apiUrl = `http://ip-api.com/json/${ipAddress}?fields=status,lat,lon,city,regionName,countryCode`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-    
-    const response = await fetch(apiUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    
-    if (data.status === 'success') {
-      return {
-        ip: ipAddress,
-        lat: data.lat || 0,
-        lng: data.lon || 0,
-        city: data.city || 'Unknown',
-        region: data.regionName || '',
-        countryCode: data.countryCode || '',
-      };
+export function getBrowserLocation(): Promise<UserLocation> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      reject(new Error('Geolocation not supported'));
+      return;
     }
-    
-    return null;
-  } catch (err) {
-    console.error('[Location] Lookup error:', err);
-    return null;
-  }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          source: 'gps'
+        });
+      },
+      (error) => {
+        let message = 'Location access denied';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message = 'Location permission denied. Please enable location access in your browser settings.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message = 'Location information unavailable';
+            break;
+          case error.TIMEOUT:
+            message = 'Location request timed out';
+            break;
+        }
+        reject(new Error(message));
+      },
+      {
+        enableHighAccuracy: true, // Use GPS, not just WiFi/cell tower
+        timeout: 10000, // 10 second timeout
+        maximumAge: 60000 // Cache for 1 minute
+      }
+    );
+  });
 }
 
 /**
@@ -96,9 +96,12 @@ export function isWithinAllowedDistance(
   showLat: number,
   showLng: number,
   maxMiles: number
-): boolean {
+): { allowed: boolean; distance: number } {
   const distance = getDistanceInMiles(userLat, userLng, showLat, showLng);
-  return distance <= maxMiles;
+  return {
+    allowed: distance <= maxMiles,
+    distance
+  };
 }
 
 /**

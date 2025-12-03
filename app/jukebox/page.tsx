@@ -12,6 +12,7 @@ import EnhancedVotingCard from '@/components/EnhancedVotingCard';
 import JukeboxBanner from '@/components/JukeboxBanner';
 import AudioSyncPlayer from '@/components/AudioSyncPlayer';
 import { formatDateTime } from '@/lib/time-utils';
+import { getBrowserLocation } from '@/lib/location-utils';
 import { Radio, Music } from 'lucide-react';
 
 interface QueueItem {
@@ -114,6 +115,8 @@ export default function JukeboxPage() {
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [jukeboxRateLimit, setJukeboxRateLimit] = useState<number>(3);
   const [requestsRemaining, setRequestsRemaining] = useState<number | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [checkingLocation, setCheckingLocation] = useState(false);
 
   // Re-fetch YouTube videos when theme changes
   useEffect(() => {
@@ -304,15 +307,39 @@ export default function JukeboxPage() {
 
   const handleVote = async (sequenceName: string, voteType: 'up' | 'down') => {
     try {
+      // Get user's GPS location first
+      let userLocation = null;
+      
+      try {
+        userLocation = await getBrowserLocation();
+        console.log(`[Location] Got GPS location for vote: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`);
+      } catch (locError: any) {
+        setLocationError(locError.message);
+        return;
+      }
+
       const response = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sequenceName, voteType })
+        body: JSON.stringify({ 
+          sequenceName, 
+          voteType,
+          userLocation: userLocation // Include GPS coordinates
+        })
       });
+
+      const data = await response.json();
+
       if (response.ok) {
         // Refresh votes after voting
         await fetchVotes();
         await fetchUserVotes();
+      } else {
+        if (data.requiresLocation) {
+          setLocationError(data.error);
+        } else {
+          console.error('Failed to vote:', data.error);
+        }
       }
     } catch (err) {
       console.error('Failed to vote:', err);
@@ -404,8 +431,25 @@ export default function JukeboxPage() {
 
     setLoading(true);
     setMessage('');
+    setLocationError(null);
 
     try {
+      // Get user's GPS location first
+      setCheckingLocation(true);
+      let userLocation = null;
+      
+      try {
+        userLocation = await getBrowserLocation();
+        console.log(`[Location] Got GPS location: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)} (±${userLocation.accuracy}m)`);
+      } catch (locError: any) {
+        setLocationError(locError.message);
+        setLoading(false);
+        setCheckingLocation(false);
+        return;
+      }
+      
+      setCheckingLocation(false);
+
       const response = await fetch('/api/jukebox/queue', {
         method: 'POST',
         headers: {
@@ -413,7 +457,8 @@ export default function JukeboxPage() {
         },
         body: JSON.stringify({
           sequence_name: newRequest.trim(),
-          requester_name: requesterName.trim() || undefined
+          requester_name: requesterName.trim() || undefined,
+          userLocation: userLocation // Include GPS coordinates
         }),
       });
 
@@ -430,7 +475,11 @@ export default function JukeboxPage() {
         setNewRequest('');
         fetchData(); // Refresh the queue
       } else {
-        setMessage(`❌ ${data.error || 'Failed to add song'}`);
+        if (data.requiresLocation) {
+          setLocationError(data.error);
+        } else {
+          setMessage(`❌ ${data.error || 'Failed to add song'}`);
+        }
       }
     } catch (error) {
       setMessage('❌ Error submitting request');
@@ -441,7 +490,25 @@ export default function JukeboxPage() {
 
   const requestPopularSequence = async (sequenceName: string) => {
     setLoading(true);
+    setLocationError(null);
+
     try {
+      // Get user's GPS location first
+      setCheckingLocation(true);
+      let userLocation = null;
+      
+      try {
+        userLocation = await getBrowserLocation();
+        console.log(`[Location] Got GPS location: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)} (±${userLocation.accuracy}m)`);
+      } catch (locError: any) {
+        setLocationError(locError.message);
+        setLoading(false);
+        setCheckingLocation(false);
+        return;
+      }
+      
+      setCheckingLocation(false);
+
       const response = await fetch('/api/jukebox/queue', {
         method: 'POST',
         headers: {
@@ -449,7 +516,8 @@ export default function JukeboxPage() {
         },
         body: JSON.stringify({
           sequence_name: sequenceName,
-          requester_name: requesterName.trim() || undefined
+          requester_name: requesterName.trim() || undefined,
+          userLocation: userLocation // Include GPS coordinates
         }),
       });
 
@@ -465,7 +533,11 @@ export default function JukeboxPage() {
         
         fetchData();
       } else {
-        setMessage(`❌ ${data.error || 'Failed to add sequence'}`);
+        if (data.requiresLocation) {
+          setLocationError(data.error);
+        } else {
+          setMessage(`❌ ${data.error || 'Failed to add sequence'}`);
+        }
       }
     } catch (error) {
       setMessage('❌ Error submitting request');
@@ -863,6 +935,36 @@ export default function JukeboxPage() {
             </div>
 
             <form onSubmit={handleRequest} className="space-y-4">
+              {/* Location Permission Warning */}
+              {locationError && (
+                <div className="p-4 bg-yellow-500/20 border border-yellow-500/40 rounded-lg backdrop-blur-sm">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📍</span>
+                    <div className="flex-1">
+                      <p className="text-yellow-200 font-medium mb-2">Location Access Required</p>
+                      <p className="text-yellow-100 text-sm mb-3">{locationError}</p>
+                      <details className="text-yellow-100 text-xs">
+                        <summary className="cursor-pointer hover:text-yellow-50 font-medium">Why do we need location?</summary>
+                        <p className="mt-2 pl-4 border-l-2 border-yellow-500/40">
+                          To ensure a fair experience for visitors at the light show, we verify you're physically present. 
+                          Your precise location is only used to calculate distance and is not stored or shared.
+                        </p>
+                      </details>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Checking Location Status */}
+              {checkingLocation && (
+                <div className="p-4 bg-blue-500/20 border border-blue-500/40 rounded-lg backdrop-blur-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin">📍</div>
+                    <p className="text-blue-200">Getting your location...</p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-white/90 mb-2">
                   Your Name (Optional)
@@ -906,10 +1008,10 @@ export default function JukeboxPage() {
               </div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || checkingLocation}
                 className={`w-full bg-gradient-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white py-3 px-4 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg backdrop-blur-sm`}
               >
-                {loading ? 'Adding...' : '✓ Add to Queue'}
+                {checkingLocation ? '📍 Getting Location...' : loading ? 'Adding...' : '✓ Add to Queue'}
               </button>
             </form>
             {message && (

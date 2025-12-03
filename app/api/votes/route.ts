@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { insertVote, getVoteCounts, getUserVote } from '../../../lib/database';
-import { fetchLocationFromIP, getDistanceInMiles } from '@/lib/location-utils';
+import { getDistanceInMiles } from '@/lib/location-utils';
 import db from '@/lib/database';
 
 export async function POST(request: NextRequest) {
   try {
-    const { sequenceName, voteType } = await request.json();
+    const body = await request.json();
+    const { sequenceName, voteType, userLocation } = body;
 
     if (!sequenceName || !['up', 'down'].includes(voteType)) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
@@ -15,42 +16,61 @@ export async function POST(request: NextRequest) {
     const forwarded = request.headers.get('x-forwarded-for');
     const ip = forwarded ? forwarded.split(',')[0] : 'unknown';
 
-    // Get user's geolocation and check restrictions
-    let userLocation = null;
+    // Check location restrictions if user provided GPS location
     let distanceFromShow = null;
+    let locationDetails = {
+      latitude: null as number | null,
+      longitude: null as number | null,
+      accuracy: null as number | null,
+      source: null as string | null
+    };
 
     try {
-      userLocation = await fetchLocationFromIP(ip);
+      // Check if location restrictions are enabled
+      const restrictions = db.prepare(`
+        SELECT is_active, max_distance_miles, show_latitude, show_longitude
+        FROM location_restrictions WHERE id = 1
+      `).get() as any;
       
-      if (userLocation) {
-        // Check if location restrictions are enabled
-        const restrictions = db.prepare(`
-          SELECT is_active, max_distance_miles, show_latitude, show_longitude
-          FROM location_restrictions WHERE id = 1
-        `).get() as any;
+      if (restrictions?.is_active && restrictions.show_latitude && restrictions.show_longitude) {
+        // Require GPS location from client
+        if (!userLocation || !userLocation.lat || !userLocation.lng) {
+          return NextResponse.json({
+            error: 'Location access required. Please enable location permissions in your browser to vote.',
+            requiresLocation: true
+          }, { status: 403 });
+        }
+
+        // Store user's GPS location
+        locationDetails = {
+          latitude: userLocation.lat,
+          longitude: userLocation.lng,
+          accuracy: userLocation.accuracy || null,
+          source: userLocation.source || 'gps'
+        };
+
+        // Calculate distance using accurate GPS coordinates
+        distanceFromShow = getDistanceInMiles(
+          userLocation.lat,
+          userLocation.lng,
+          restrictions.show_latitude,
+          restrictions.show_longitude
+        );
         
-        if (restrictions?.is_active && restrictions.show_latitude && restrictions.show_longitude) {
-          distanceFromShow = getDistanceInMiles(
-            userLocation.lat,
-            userLocation.lng,
-            restrictions.show_latitude,
-            restrictions.show_longitude
-          );
+        if (distanceFromShow > restrictions.max_distance_miles) {
+          console.log(`[Security] Vote blocked - User is ${distanceFromShow.toFixed(2)} miles away (limit: ${restrictions.max_distance_miles})`);
           
-          if (distanceFromShow > restrictions.max_distance_miles) {
-            console.log(`[Security] Vote blocked - ${ip} is ${distanceFromShow.toFixed(2)} miles away (limit: ${restrictions.max_distance_miles})`);
-            
-            return NextResponse.json({
-              error: `You must be within ${restrictions.max_distance_miles} mile(s) of the light show to vote. You are ${distanceFromShow.toFixed(1)} miles away.`,
-              distanceMiles: distanceFromShow,
-              maxDistance: restrictions.max_distance_miles
-            }, { status: 403 });
-          }
+          return NextResponse.json({
+            error: `You must be within ${restrictions.max_distance_miles} mile(s) of the light show to vote. You are ${distanceFromShow.toFixed(1)} miles away.`,
+            distanceMiles: distanceFromShow,
+            maxDistance: restrictions.max_distance_miles,
+            accuracy: userLocation.accuracy ? `±${Math.round(userLocation.accuracy)}m` : undefined
+          }, { status: 403 });
         }
       }
     } catch (geoError) {
       console.warn('[Geo] Location check failed for vote:', geoError);
-      // Allow vote if geolocation fails
+      // Allow vote if geolocation check fails
     }
 
     // Insert or update vote with location data
@@ -71,11 +91,11 @@ export async function POST(request: NextRequest) {
       sequenceName,
       voteType,
       ip,
-      userLocation?.lat || null,
-      userLocation?.lng || null,
-      userLocation?.city || null,
-      userLocation?.region || null,
-      userLocation?.countryCode || null,
+      locationDetails.latitude,
+      locationDetails.longitude,
+      null, // city
+      null, // region
+      null, // country_code
       distanceFromShow
     );
 

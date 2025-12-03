@@ -6,7 +6,7 @@ import { getUtcNow, getUtcOffset, getUtcSqlTimestampOffset } from '@/lib/time-ut
 import { debugLog } from '@/lib/logging';
 import db from '@/lib/database';
 import { getFppUrl } from '@/lib/fpp-config';
-import { fetchLocationFromIP, getDistanceInMiles } from '@/lib/location-utils';
+import { getDistanceInMiles } from '@/lib/location-utils';
 
 export async function GET() {
   try {
@@ -20,7 +20,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { sequence_name, requester_name } = await request.json();
+    const body = await request.json();
+    const { sequence_name, requester_name, userLocation } = body;
     const requester_ip = getClientIP(request);
 
     // Get current rate limit from settings
@@ -30,44 +31,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
     }
 
-    // Get user's geolocation
-    let userLocation = null;
+    // Check location restrictions if user provided GPS location
     let distanceFromShow = null;
     let locationBlocked = false;
+    let locationDetails = {
+      latitude: null as number | null,
+      longitude: null as number | null,
+      accuracy: null as number | null,
+      source: null as string | null
+    };
 
     try {
-      userLocation = await fetchLocationFromIP(requester_ip);
+      // Check if location restrictions are enabled
+      const restrictions = db.prepare(`
+        SELECT is_active, max_distance_miles, show_latitude, show_longitude
+        FROM location_restrictions WHERE id = 1
+      `).get() as any;
       
-      if (userLocation) {
-        // Check if location restrictions are enabled
-        const restrictions = db.prepare(`
-          SELECT is_active, max_distance_miles, show_latitude, show_longitude
-          FROM location_restrictions WHERE id = 1
-        `).get() as any;
+      if (restrictions?.is_active && restrictions.show_latitude && restrictions.show_longitude) {
+        // Require GPS location from client
+        if (!userLocation || !userLocation.lat || !userLocation.lng) {
+          return NextResponse.json({
+            error: 'Location access required. Please enable location permissions in your browser to request songs.',
+            requiresLocation: true
+          }, { status: 403 });
+        }
+
+        // Store user's GPS location
+        locationDetails = {
+          latitude: userLocation.lat,
+          longitude: userLocation.lng,
+          accuracy: userLocation.accuracy || null,
+          source: userLocation.source || 'gps'
+        };
+
+        // Calculate distance using accurate GPS coordinates
+        distanceFromShow = getDistanceInMiles(
+          userLocation.lat,
+          userLocation.lng,
+          restrictions.show_latitude,
+          restrictions.show_longitude
+        );
         
-        if (restrictions?.is_active && restrictions.show_latitude && restrictions.show_longitude) {
-          distanceFromShow = getDistanceInMiles(
-            userLocation.lat,
-            userLocation.lng,
-            restrictions.show_latitude,
-            restrictions.show_longitude
-          );
+        if (distanceFromShow > restrictions.max_distance_miles) {
+          locationBlocked = true;
+          console.log(`[Security] Request blocked - User is ${distanceFromShow.toFixed(2)} miles away (limit: ${restrictions.max_distance_miles})`);
           
-          if (distanceFromShow > restrictions.max_distance_miles) {
-            locationBlocked = true;
-            console.log(`[Security] Request blocked - ${requester_ip} is ${distanceFromShow.toFixed(2)} miles away (limit: ${restrictions.max_distance_miles})`);
-            
-            return NextResponse.json({
-              error: `You must be within ${restrictions.max_distance_miles} mile(s) of the light show to request songs. You are ${distanceFromShow.toFixed(1)} miles away.`,
-              distanceMiles: distanceFromShow,
-              maxDistance: restrictions.max_distance_miles
-            }, { status: 403 });
-          }
+          return NextResponse.json({
+            error: `You must be within ${restrictions.max_distance_miles} mile(s) of the light show to request songs. You are ${distanceFromShow.toFixed(1)} miles away.`,
+            distanceMiles: distanceFromShow,
+            maxDistance: restrictions.max_distance_miles,
+            accuracy: userLocation.accuracy ? `±${Math.round(userLocation.accuracy)}m` : undefined
+          }, { status: 403 });
         }
       }
     } catch (geoError) {
       console.warn('[Geo] Location check failed:', geoError);
-      // Allow request if geolocation fails (don't punish users for API issues)
+      // Allow request if geolocation check fails (don't punish users for technical issues)
     }
 
     
@@ -134,11 +154,11 @@ export async function POST(request: NextRequest) {
         requester_name: requester_name || 'Anonymous',
         requester_ip,
         rateLimit,
-        latitude: userLocation?.lat || null,
-        longitude: userLocation?.lng || null,
-        city: userLocation?.city || null,
-        region: userLocation?.region || null,
-        countryCode: userLocation?.countryCode || null,
+        latitude: locationDetails.latitude,
+        longitude: locationDetails.longitude,
+        city: null,
+        region: null,
+        countryCode: null,
         distanceFromShow: distanceFromShow
       });
     } catch (txError: any) {
