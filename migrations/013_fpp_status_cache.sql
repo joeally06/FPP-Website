@@ -36,7 +36,6 @@ CREATE TABLE IF NOT EXISTS cached_playlists (
 CREATE INDEX IF NOT EXISTS idx_cached_playlists_name ON cached_playlists(name);
 CREATE INDEX IF NOT EXISTS idx_cached_playlists_cached_at ON cached_playlists(cached_at DESC);
 
--- Add unique constraint to prevent duplicate recent caches
-CREATE UNIQUE INDEX IF NOT EXISTS idx_cached_playlists_name_recent 
-ON cached_playlists(name, cached_at) 
-WHERE cached_at > datetime('now', '-5 minutes');
+-- Add unique constraint to prevent duplicate entries for same name and timestamp
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cached_playlists_name_time 
+ON cached_playlists(name, cached_at);
