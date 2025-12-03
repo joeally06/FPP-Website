@@ -14,7 +14,7 @@ import EnhancedVotingCard from '@/components/EnhancedVotingCard';
 import JukeboxBanner from '@/components/JukeboxBanner';
 import AudioSyncPlayer from '@/components/AudioSyncPlayer';
 import { formatDateTime } from '@/lib/time-utils';
-import { getBrowserLocation, type UserLocation } from '@/lib/location-utils';
+import { getBrowserLocation, getDistanceInMiles, type UserLocation } from '@/lib/location-utils';
 import { Radio, Music } from 'lucide-react';
 
 interface QueueItem {
@@ -121,16 +121,31 @@ export default function JukeboxPage() {
   const [checkingLocation, setCheckingLocation] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<'granted' | 'denied' | 'skipped' | null>(null);
+  const [distanceFromShow, setDistanceFromShow] = useState<number | null>(null);
+  const [showLocation, setShowLocation] = useState<{ lat: number; lng: number; maxDistance: number } | null>(null);
 
   // Restore cached location from sessionStorage on mount
   useEffect(() => {
     const cachedLocation = sessionStorage.getItem('user-location');
+    const cachedTimestamp = sessionStorage.getItem('user-location-timestamp');
     const cachedPermission = sessionStorage.getItem('location-permission-requested');
     
-    if (cachedLocation) {
+    if (cachedLocation && cachedTimestamp) {
       try {
-        const location = JSON.parse(cachedLocation);
-        setUserLocation(location);
+        const locationAge = Date.now() - parseInt(cachedTimestamp);
+        const LOCATION_MAX_AGE = 30 * 60 * 1000; // 30 minutes (matches typical show duration)
+        
+        if (locationAge < LOCATION_MAX_AGE) {
+          const location = JSON.parse(cachedLocation);
+          setUserLocation(location);
+          console.log(`[Location] Restored cached location (${Math.round(locationAge / 60000)} minutes old)`);
+        } else {
+          // Location too old, clear it
+          console.log(`[Location] Cached location expired (${Math.round(locationAge / 60000)} minutes old)`);
+          sessionStorage.removeItem('user-location');
+          sessionStorage.removeItem('user-location-timestamp');
+          sessionStorage.removeItem('location-permission-requested');
+        }
       } catch (error) {
         console.error('Failed to parse cached location:', error);
       }
@@ -147,6 +162,7 @@ export default function JukeboxPage() {
     setLocationPermissionStatus('granted');
     setLocationError(null);
     sessionStorage.setItem('user-location', JSON.stringify(location));
+    sessionStorage.setItem('user-location-timestamp', Date.now().toString());
     sessionStorage.setItem('location-permission-requested', 'granted');
   };
 
@@ -165,6 +181,7 @@ export default function JukeboxPage() {
   const resetLocationPermission = () => {
     sessionStorage.removeItem('location-permission-requested');
     sessionStorage.removeItem('user-location');
+    sessionStorage.removeItem('user-location-timestamp');
     window.location.reload();
   };
 
@@ -173,6 +190,20 @@ export default function JukeboxPage() {
     fetchYouTubeVideos();
   }, [theme.id]);
 
+  // Calculate distance when user location and show location are both available
+  useEffect(() => {
+    if (userLocation && showLocation) {
+      const distance = getDistanceInMiles(
+        userLocation.lat,
+        userLocation.lng,
+        showLocation.lat,
+        showLocation.lng
+      );
+      setDistanceFromShow(distance);
+      console.log(`[Location] Distance from show: ${distance.toFixed(2)} miles (max: ${showLocation.maxDistance})`);
+    }
+  }, [userLocation, showLocation]);
+
   useEffect(() => {
     fetchAvailableSequences();
     fetchData();
@@ -180,6 +211,7 @@ export default function JukeboxPage() {
     fetchYouTubeVideos();
     fetchScheduleStatus(); // Check schedule status
     fetchJukeboxSettings(); // Fetch jukebox rate limit and insert mode
+    fetchLocationRestrictions(); // Fetch location settings for distance calculation
     
     const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
     const scheduleInterval = setInterval(fetchScheduleStatus, 30000); // Check every 30 seconds
@@ -355,6 +387,24 @@ export default function JukeboxPage() {
     }
   };
 
+  const fetchLocationRestrictions = async () => {
+    try {
+      const response = await fetch('/api/location-restrictions');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.enabled && data.show_latitude && data.show_longitude) {
+          setShowLocation({
+            lat: data.show_latitude,
+            lng: data.show_longitude,
+            maxDistance: data.max_distance_miles || 1
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch location restrictions:', error);
+    }
+  };
+
   const handleVote = async (sequenceName: string, voteType: 'up' | 'down') => {
     try {
       // Use cached location if available, otherwise request it
@@ -367,6 +417,7 @@ export default function JukeboxPage() {
           setUserLocation(locationToUse);
           setLocationPermissionStatus('granted');
           sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          sessionStorage.setItem('user-location-timestamp', Date.now().toString());
           sessionStorage.setItem('location-permission-requested', 'granted');
           console.log(`[Location] Got GPS location for vote: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)}`);
         } catch (locError: any) {
@@ -506,6 +557,7 @@ export default function JukeboxPage() {
           setUserLocation(locationToUse);
           setLocationPermissionStatus('granted');
           sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          sessionStorage.setItem('user-location-timestamp', Date.now().toString());
           sessionStorage.setItem('location-permission-requested', 'granted');
           console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
         } catch (locError: any) {
@@ -575,6 +627,7 @@ export default function JukeboxPage() {
           setUserLocation(locationToUse);
           setLocationPermissionStatus('granted');
           sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
+          sessionStorage.setItem('user-location-timestamp', Date.now().toString());
           sessionStorage.setItem('location-permission-requested', 'granted');
           console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
         } catch (locError: any) {
@@ -1037,6 +1090,29 @@ export default function JukeboxPage() {
             </div>
 
             <form onSubmit={handleRequest} className="space-y-4">
+              {/* Distance Feedback - Show when location is granted and within range */}
+              {userLocation && distanceFromShow !== null && showLocation && distanceFromShow <= showLocation.maxDistance && (
+                <div className="p-4 bg-green-500/20 border border-green-500/40 rounded-lg backdrop-blur-sm animate-scale-in">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">✅</span>
+                    <div className="flex-1">
+                      <p className="text-green-200 font-medium mb-1">Location Verified!</p>
+                      <p className="text-green-100 text-sm">
+                        You're <strong>{distanceFromShow.toFixed(2)} miles</strong> from the light show. 
+                        You can request songs and vote! 🎵
+                      </p>
+                      <button
+                        type="button"
+                        onClick={resetLocationPermission}
+                        className="mt-2 text-xs text-green-200 hover:text-green-100 underline"
+                      >
+                        🔄 Update Location
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Location Permission Warning */}
               {locationError && (
                 <div className="p-4 bg-yellow-500/20 border border-yellow-500/40 rounded-lg backdrop-blur-sm">

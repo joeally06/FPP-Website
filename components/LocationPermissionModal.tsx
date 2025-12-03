@@ -34,14 +34,18 @@ export default function LocationPermissionModal({
     setIsChecking(true);
     setErrorMessage(null);
     
+    console.log('[Modal] User clicked Allow - requesting location...');
+    
     try {
       const location = await getBrowserLocation();
+      console.log('[Modal] Location granted successfully:', location);
       sessionStorage.setItem('location-permission-requested', 'granted');
       sessionStorage.setItem('user-location', JSON.stringify(location));
+      sessionStorage.setItem('user-location-timestamp', Date.now().toString());
       setIsVisible(false);
       onLocationGranted(location);
     } catch (error: any) {
-      console.error('[Location] Permission denied:', error);
+      console.error('[Modal] Location request failed:', error);
       // Show error but keep modal open so user can try again or see instructions
       setErrorMessage(error.message || 'Location permission was denied');
       // Don't set denied status yet - let user try again or manually deny
@@ -95,26 +99,66 @@ export default function LocationPermissionModal({
 
         {/* Body */}
         <div className="p-6 space-y-4">
+          {/* Debug Info */}
+          {typeof window !== 'undefined' && (
+            <details className="bg-gray-500/20 border border-gray-400/40 rounded-lg p-3 text-xs">
+              <summary className="cursor-pointer text-white/60 hover:text-white font-semibold">
+                🔧 Debug Info (click to expand)
+              </summary>
+              <div className="mt-2 text-white/70 space-y-1 font-mono">
+                <p>Protocol: {window.location.protocol}</p>
+                <p>Hostname: {window.location.hostname}</p>
+                <p>Geolocation supported: {('geolocation' in navigator) ? '✅ Yes' : '❌ No'}</p>
+                <p>Is secure context: {(window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '✅ Yes' : '⚠️ No (HTTP)'}</p>
+                <p className="mt-2 text-white/50">Check browser console (F12) for detailed logs</p>
+              </div>
+            </details>
+          )}
+
           {/* Error Message */}
           {errorMessage && (
             <div className="bg-red-500/20 border-2 border-red-500/60 rounded-lg p-4 animate-scale-in">
               <div className="flex items-start gap-3">
                 <span className="text-3xl">⚠️</span>
                 <div className="flex-1">
-                  <h3 className="text-white font-bold text-lg mb-2">Permission Denied</h3>
-                  <p className="text-white/90 text-sm mb-3">{errorMessage}</p>
-                  <div className="bg-black/30 rounded p-3 text-xs text-white/80 space-y-2">
-                    <p className="font-semibold">To enable location access:</p>
-                    <p>• <strong>Chrome/Edge:</strong> Click the 🔒 or ⓘ icon in the address bar → Site settings → Location → Allow</p>
-                    <p>• <strong>Firefox:</strong> Click the 🔒 icon → Clear permissions → Reload → Try again</p>
-                    <p>• <strong>Safari:</strong> Safari menu → Settings → Websites → Location → Allow</p>
-                    <p>• <strong>Mobile:</strong> Phone Settings → Apps → Browser → Permissions → Location → Allow</p>
+                  <h3 className="text-white font-bold text-lg mb-2">Location Access Issue</h3>
+                  <div className="text-white/90 text-sm mb-3 whitespace-pre-line">{errorMessage}</div>
+                  
+                  {/* Visual guide with screenshot hint */}
+                  <div className="bg-yellow-500/20 border border-yellow-400/40 rounded p-3 mb-3">
+                    <p className="text-yellow-100 text-xs font-semibold mb-2">👀 Look for this in your browser:</p>
+                    <div className="bg-black/40 rounded p-2 text-center">
+                      <p className="text-white text-lg">🔒 localhost:3000 ⓘ</p>
+                      <p className="text-white/60 text-xs mt-1">↑ Click this icon in the address bar</p>
+                    </div>
                   </div>
+
+                  <details className="bg-black/30 rounded p-3 text-xs text-white/80">
+                    <summary className="cursor-pointer hover:text-white font-semibold">Still having trouble? Click for detailed steps</summary>
+                    <div className="mt-2 space-y-2 pl-2">
+                      <p><strong>Chrome/Edge:</strong></p>
+                      <ol className="list-decimal list-inside space-y-1 pl-2">
+                        <li>Click the 🔒 or ⓘ icon next to the address bar</li>
+                        <li>Click "Site settings" or "Permissions"</li>
+                        <li>Find "Location" in the list</li>
+                        <li>Change it from "Block" to "Allow"</li>
+                        <li>Close settings and click "Try Again" below</li>
+                      </ol>
+                      <p className="mt-2"><strong>Firefox:</strong></p>
+                      <ol className="list-decimal list-inside space-y-1 pl-2">
+                        <li>Click the 🔒 icon in the address bar</li>
+                        <li>Click the "X" next to "Blocked Temporarily"</li>
+                        <li>Refresh the page (F5)</li>
+                        <li>Click "Allow Location Access" again</li>
+                      </ol>
+                    </div>
+                  </details>
+                  
                   <button
                     onClick={() => setErrorMessage(null)}
                     className="mt-3 text-sm text-white/60 hover:text-white underline"
                   >
-                    Dismiss
+                    Dismiss this message
                   </button>
                 </div>
               </div>

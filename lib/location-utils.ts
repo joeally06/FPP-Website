@@ -23,14 +23,48 @@ export interface ShowLocation {
  * This is far more accurate than IP geolocation
  */
 export function getBrowserLocation(): Promise<UserLocation> {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-      reject(new Error('Geolocation not supported'));
+  return new Promise(async (resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('Cannot access location - not in browser environment'));
       return;
+    }
+
+    if (!('geolocation' in navigator)) {
+      reject(new Error('Geolocation not supported by your browser. Try updating your browser or using Chrome/Firefox.'));
+      return;
+    }
+
+    // Check if we're on a secure context (HTTPS or localhost)
+    const isSecure = window.location.protocol === 'https:' || 
+                     window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1';
+    
+    console.log('[Location] Requesting location from browser...');
+    console.log('[Location] Protocol:', window.location.protocol);
+    console.log('[Location] Hostname:', window.location.hostname);
+    console.log('[Location] Is secure context:', isSecure);
+
+    // Check permission state if available
+    if ('permissions' in navigator) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        console.log('[Location] Current permission state:', permissionStatus.state);
+        
+        if (permissionStatus.state === 'denied') {
+          reject(new Error('Location permission is permanently denied. To fix:\n1. Click the 🔒 icon in your address bar\n2. Find "Location" setting\n3. Change it to "Allow"\n4. Refresh the page and try again'));
+          return;
+        }
+      } catch (e) {
+        console.log('[Location] Could not check permission state:', e);
+      }
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        console.log('[Location] ✅ SUCCESS! Position obtained:');
+        console.log('[Location] Latitude:', position.coords.latitude);
+        console.log('[Location] Longitude:', position.coords.longitude);
+        console.log('[Location] Accuracy:', position.coords.accuracy, 'meters');
         resolve({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -39,24 +73,34 @@ export function getBrowserLocation(): Promise<UserLocation> {
         });
       },
       (error) => {
-        let message = 'Location access denied';
+        console.error('[Location] ❌ ERROR:');
+        console.error('[Location] Error code:', error.code);
+        console.error('[Location] Error message:', error.message);
+        console.error('[Location] PERMISSION_DENIED = 1, POSITION_UNAVAILABLE = 2, TIMEOUT = 3');
+        
+        let message = 'Location access failed';
+        let helpText = '';
+        
         switch (error.code) {
-          case error.PERMISSION_DENIED:
-            message = 'Location permission denied. Please enable location access in your browser settings.';
+          case 1: // PERMISSION_DENIED
+            message = 'Location permission was denied.';
+            helpText = '\n\nTo fix this:\n1. Look for the 🔒 icon in your browser\'s address bar (top-left)\n2. Click it and find "Location" or "Permissions"\n3. Change "Location" to "Allow"\n4. Refresh this page\n5. Try clicking "Allow Location Access" again';
             break;
-          case error.POSITION_UNAVAILABLE:
-            message = 'Location information unavailable';
+          case 2: // POSITION_UNAVAILABLE
+            message = 'Location information is unavailable.';
+            helpText = '\n\nMake sure:\n1. Your device has location services enabled\n2. You have GPS/Wi-Fi enabled\n3. You\'re not blocking location with a browser extension';
             break;
-          case error.TIMEOUT:
-            message = 'Location request timed out';
+          case 3: // TIMEOUT
+            message = 'Location request timed out.';
+            helpText = '\n\nPlease try again. If this keeps happening:\n1. Check your internet connection\n2. Try restarting your browser\n3. Make sure location services are enabled on your device';
             break;
         }
-        reject(new Error(message));
+        reject(new Error(message + helpText));
       },
       {
-        enableHighAccuracy: true, // Use GPS, not just WiFi/cell tower
-        timeout: 10000, // 10 second timeout
-        maximumAge: 60000 // Cache for 1 minute
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 1800000
       }
     );
   });
