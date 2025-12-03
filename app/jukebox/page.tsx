@@ -889,17 +889,8 @@ export default function JukeboxPage() {
                     href={currentMetadata.spotify_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`
-                      inline-flex items-center justify-center gap-2 w-full
-                      px-4 py-3 rounded-lg font-semibold text-white
-                      transition-all duration-200 transform hover:scale-105
-                      shadow-lg hover:shadow-xl
-                      ${theme.id === 'christmas' 
-                        ? 'bg-green-600 hover:bg-green-700' 
-                        : 'bg-orange-600 hover:bg-orange-700'
-                      }
-                    `}
                     aria-label="Listen on Spotify"
+                    className={`inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg font-semibold text-white transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl ${theme.id === 'christmas' ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'}`}
                   >
                     <svg
                       className="w-5 h-5"

@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/lib/themes/theme-context';
-import { getBrowserLocation } from '@/lib/location-utils';
+import { getBrowserLocation, UserLocation } from '@/lib/location-utils';
 
 interface LocationPermissionModalProps {
-  onLocationGranted: (location: { lat: number; lng: number; accuracy?: number; source: string }) => void;
+  onLocationGranted: (location: UserLocation) => void;
   onLocationDenied: () => void;
   onSkip: () => void;
 }
@@ -195,11 +195,7 @@ export default function LocationPermissionModal({
           <button
             onClick={handleDeny}
             disabled={isChecking}
-            className="
-              sm:w-auto py-4 px-6 rounded-lg font-semibold text-white
-              bg-white/10 hover:bg-white/20 border border-white/30
-              transition-all disabled:opacity-50 disabled:cursor-not-allowed
-            "
+            className="sm:w-auto py-4 px-6 rounded-lg font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             No Thanks
           </button>
