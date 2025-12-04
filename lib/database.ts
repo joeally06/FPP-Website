@@ -173,6 +173,100 @@ try {
   // Column might already exist, ignore error
 }
 
+// Add geolocation columns to jukebox_queue for location-based access control
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN latitude REAL;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN longitude REAL;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN city TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN region TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN country_code TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN distance_from_show REAL;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+// Add geolocation columns to votes table for location-based access control
+try {
+  db.exec(`ALTER TABLE votes ADD COLUMN latitude REAL;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE votes ADD COLUMN longitude REAL;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE votes ADD COLUMN city TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE votes ADD COLUMN region TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE votes ADD COLUMN country_code TEXT;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  db.exec(`ALTER TABLE votes ADD COLUMN distance_from_show REAL;`);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+// Create location restrictions table for geolocation-based access control
+db.exec(`
+  CREATE TABLE IF NOT EXISTS location_restrictions (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    is_active BOOLEAN DEFAULT 0,
+    max_distance_miles INTEGER DEFAULT 1,
+    show_latitude REAL,
+    show_longitude REAL,
+    show_location_name TEXT,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by_admin TEXT
+  );
+`);
+
+// Insert default location restriction settings if not exists (disabled by default)
+db.exec(`
+  INSERT OR IGNORE INTO location_restrictions (id, is_active, max_distance_miles)
+  VALUES (1, 0, 1);
+`);
+
 // Create sequence requests tracking table
 db.exec(`
   CREATE TABLE IF NOT EXISTS sequence_requests (
