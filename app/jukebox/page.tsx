@@ -1,14 +1,20 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { useTheme } from '@/lib/themes/theme-context';
 import ThemedJukeboxWrapper from '@/components/ThemedJukeboxWrapper';
 import LetterToSantaModal from '@/components/LetterToSantaModal';
-import LocationPermissionModal from '@/components/LocationPermissionModal';
+import LocationPermissionModal, { 
+  getCachedLocation, 
+  getStoredPermissionStatus, 
+  clearLocationPermission 
+} from '@/components/LocationPermissionModal';
+import LocationStatusBadge, { type LocationStatus } from '@/components/LocationStatusBadge';
+import Toast from '@/components/Toast';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import EnhancedVotingCard from '@/components/EnhancedVotingCard';
 import JukeboxBanner from '@/components/JukeboxBanner';
@@ -123,36 +129,82 @@ export default function JukeboxPage() {
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<'granted' | 'denied' | 'skipped' | null>(null);
   const [distanceFromShow, setDistanceFromShow] = useState<number | null>(null);
   const [showLocation, setShowLocation] = useState<{ lat: number; lng: number; maxDistance: number } | null>(null);
+  const [locationRestrictionsEnabled, setLocationRestrictionsEnabled] = useState<boolean | null>(null); // null = loading, true/false = loaded
+  
+  // Lazy location modal state - only show when user tries to take action
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
+    message: '',
+    type: 'info',
+    isVisible: false
+  });
 
-  // Restore cached location from sessionStorage on mount
-  useEffect(() => {
-    const cachedLocation = sessionStorage.getItem('user-location');
-    const cachedTimestamp = sessionStorage.getItem('user-location-timestamp');
-    const cachedPermission = sessionStorage.getItem('location-permission-requested');
+  // Show toast helper
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type, isVisible: true });
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToast(prev => ({ ...prev, isVisible: false }));
+  }, []);
+
+  // Compute location badge status - returns null if restrictions disabled
+  const getLocationBadgeStatus = useCallback((): LocationStatus | null => {
+    // Don't show badge if restrictions are disabled or still loading
+    if (locationRestrictionsEnabled === false) return null;
+    if (locationRestrictionsEnabled === null) return null; // Still loading
     
-    if (cachedLocation && cachedTimestamp) {
-      try {
-        const locationAge = Date.now() - parseInt(cachedTimestamp);
-        const LOCATION_MAX_AGE = 30 * 60 * 1000; // 30 minutes (matches typical show duration)
-        
-        if (locationAge < LOCATION_MAX_AGE) {
-          const location = JSON.parse(cachedLocation);
-          setUserLocation(location);
-          console.log(`[Location] Restored cached location (${Math.round(locationAge / 60000)} minutes old)`);
-        } else {
-          // Location too old, clear it
-          console.log(`[Location] Cached location expired (${Math.round(locationAge / 60000)} minutes old)`);
-          sessionStorage.removeItem('user-location');
-          sessionStorage.removeItem('user-location-timestamp');
-          sessionStorage.removeItem('location-permission-requested');
-        }
-      } catch (error) {
-        console.error('Failed to parse cached location:', error);
+    if (checkingLocation) return 'checking';
+    if (locationPermissionStatus === 'denied') return 'denied';
+    if (userLocation && showLocation) {
+      if (distanceFromShow !== null && distanceFromShow > showLocation.maxDistance) {
+        return 'out-of-range';
       }
+      return 'granted';
     }
+    return 'unknown';
+  }, [checkingLocation, locationPermissionStatus, userLocation, showLocation, distanceFromShow, locationRestrictionsEnabled]);
+
+  // Restore cached location from localStorage on mount
+  useEffect(() => {
+    // Try localStorage first (persistent)
+    const cachedLocation = getCachedLocation();
+    const storedStatus = getStoredPermissionStatus();
     
-    if (cachedPermission) {
-      setLocationPermissionStatus(cachedPermission as 'granted' | 'denied' | 'skipped');
+    if (cachedLocation) {
+      setUserLocation(cachedLocation);
+      setLocationPermissionStatus('granted');
+      console.log('[Location] Restored location from localStorage');
+    } else if (storedStatus) {
+      setLocationPermissionStatus(storedStatus);
+    } else {
+      // Fall back to sessionStorage for backwards compatibility
+      const sessionLocation = sessionStorage.getItem('user-location');
+      const sessionTimestamp = sessionStorage.getItem('user-location-timestamp');
+      const sessionPermission = sessionStorage.getItem('location-permission-requested');
+      
+      if (sessionLocation && sessionTimestamp) {
+        try {
+          const locationAge = Date.now() - parseInt(sessionTimestamp);
+          const LOCATION_MAX_AGE = 30 * 60 * 1000;
+          
+          if (locationAge < LOCATION_MAX_AGE) {
+            const location = JSON.parse(sessionLocation);
+            setUserLocation(location);
+            setLocationPermissionStatus('granted');
+            console.log(`[Location] Restored cached location from session (${Math.round(locationAge / 60000)} minutes old)`);
+          }
+        } catch (error) {
+          console.error('Failed to parse cached location:', error);
+        }
+      }
+      
+      if (sessionPermission && !cachedLocation) {
+        setLocationPermissionStatus(sessionPermission as 'granted' | 'denied' | 'skipped');
+      }
     }
   }, []);
 
@@ -161,29 +213,102 @@ export default function JukeboxPage() {
     setUserLocation(location);
     setLocationPermissionStatus('granted');
     setLocationError(null);
+    setShowLocationModal(false);
+    
+    // localStorage is now handled in the modal itself
+    // Also update sessionStorage for backwards compatibility
     sessionStorage.setItem('user-location', JSON.stringify(location));
     sessionStorage.setItem('user-location-timestamp', Date.now().toString());
     sessionStorage.setItem('location-permission-requested', 'granted');
+    
+    showToast('📍 Location enabled! You can now request songs.', 'success');
+    
+    // Execute pending action if any
+    if (pendingAction) {
+      setTimeout(() => {
+        pendingAction();
+        setPendingAction(null);
+      }, 500);
+    }
   };
 
   const handleLocationDenied = () => {
     setLocationPermissionStatus('denied');
     setUserLocation(null);
+    setShowLocationModal(false);
     sessionStorage.removeItem('user-location');
     sessionStorage.setItem('location-permission-requested', 'denied');
+    setPendingAction(null);
+    
+    showToast('🚫 Location access blocked. Enable it to request songs.', 'error');
   };
 
   const handleLocationSkipped = () => {
     setLocationPermissionStatus('skipped');
+    setShowLocationModal(false);
     sessionStorage.setItem('location-permission-requested', 'skipped');
+    setPendingAction(null);
   };
 
   const resetLocationPermission = () => {
-    sessionStorage.removeItem('location-permission-requested');
-    sessionStorage.removeItem('user-location');
-    sessionStorage.removeItem('user-location-timestamp');
-    window.location.reload();
+    clearLocationPermission();
+    setUserLocation(null);
+    setLocationPermissionStatus(null);
+    setDistanceFromShow(null);
+    setLocationError(null);
+    // Show the modal to allow re-granting
+    setShowLocationModal(true);
   };
+
+  /**
+   * Request location permission lazily - shows modal if permission not yet granted
+   * Returns true if location is available (or not required), false if modal was shown
+   */
+  const ensureLocationPermission = useCallback(async (onSuccess?: () => void): Promise<boolean> => {
+    // If location restrictions are disabled, skip the whole flow
+    if (locationRestrictionsEnabled === false) {
+      console.log('[Location] Restrictions disabled - skipping location check');
+      return true;
+    }
+    
+    // Already have location? Great!
+    if (userLocation) {
+      return true;
+    }
+    
+    // Permission was denied? Show modal to let user try again
+    if (locationPermissionStatus === 'denied') {
+      setPendingAction(onSuccess ? () => onSuccess : null);
+      setShowLocationModal(true);
+      return false;
+    }
+    
+    // No previous interaction? Show the explanation modal
+    if (locationPermissionStatus === null || locationPermissionStatus === 'skipped') {
+      setPendingAction(onSuccess ? () => onSuccess : null);
+      setShowLocationModal(true);
+      return false;
+    }
+    
+    // Permission was granted but no location (expired?) - try to get it silently
+    setCheckingLocation(true);
+    try {
+      const location = await getBrowserLocation();
+      setUserLocation(location);
+      setLocationPermissionStatus('granted');
+      sessionStorage.setItem('user-location', JSON.stringify(location));
+      sessionStorage.setItem('user-location-timestamp', Date.now().toString());
+      setCheckingLocation(false);
+      return true;
+    } catch (error: any) {
+      setCheckingLocation(false);
+      // Permission revoked - show modal
+      setLocationPermissionStatus(null);
+      setPendingAction(onSuccess ? () => onSuccess : null);
+      setShowLocationModal(true);
+      return false;
+    }
+  }, [userLocation, locationPermissionStatus, locationRestrictionsEnabled]);
 
   // Re-fetch YouTube videos when theme changes
   useEffect(() => {
@@ -392,51 +517,45 @@ export default function JukeboxPage() {
       const response = await fetch('/api/location-restrictions');
       if (response.ok) {
         const data = await response.json();
-        if (data.enabled && data.show_latitude && data.show_longitude) {
+        // Track if restrictions are enabled
+        const isEnabled = data.enabled && data.show_latitude && data.show_longitude;
+        setLocationRestrictionsEnabled(isEnabled);
+        
+        if (isEnabled) {
           setShowLocation({
             lat: data.show_latitude,
             lng: data.show_longitude,
             maxDistance: data.max_distance_miles || 1
           });
+          console.log('[Location] Restrictions enabled - max distance:', data.max_distance_miles, 'miles');
+        } else {
+          setShowLocation(null);
+          console.log('[Location] Restrictions disabled - location not required');
         }
       }
     } catch (error) {
       console.error('Failed to fetch location restrictions:', error);
+      setLocationRestrictionsEnabled(false); // Assume disabled on error
     }
   };
 
   const handleVote = async (sequenceName: string, voteType: 'up' | 'down') => {
-    try {
-      // Use cached location if available, otherwise request it
-      let locationToUse = userLocation;
-      
-      if (!locationToUse) {
-        try {
-          locationToUse = await getBrowserLocation();
-          // Cache the location for future use
-          setUserLocation(locationToUse);
-          setLocationPermissionStatus('granted');
-          sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
-          sessionStorage.setItem('user-location-timestamp', Date.now().toString());
-          sessionStorage.setItem('location-permission-requested', 'granted');
-          console.log(`[Location] Got GPS location for vote: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)}`);
-        } catch (locError: any) {
-          // Permission denied - reset to show modal again
-          setLocationError(locError.message);
-          setLocationPermissionStatus(null);
-          sessionStorage.removeItem('location-permission-requested');
-          sessionStorage.removeItem('user-location');
-          return;
-        }
-      }
+    // Ensure location permission first (lazy approach)
+    const hasLocation = await ensureLocationPermission();
+    if (!hasLocation) {
+      // Modal will be shown, pending action will execute the vote after permission granted
+      setPendingAction(() => () => handleVote(sequenceName, voteType));
+      return;
+    }
 
+    try {
       const response = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           sequenceName, 
           voteType,
-          userLocation: locationToUse! // Include GPS coordinates
+          userLocation: userLocation!
         })
       });
 
@@ -449,12 +568,17 @@ export default function JukeboxPage() {
       } else {
         if (data.requiresLocation) {
           setLocationError(data.error);
+          showToast(data.error, 'error');
+        } else if (data.error?.includes('too far')) {
+          showToast(`📍 ${data.error}`, 'error');
         } else {
           console.error('Failed to vote:', data.error);
+          showToast(`Failed to vote: ${data.error}`, 'error');
         }
       }
     } catch (err) {
       console.error('Failed to vote:', err);
+      showToast('Failed to submit vote. Please try again.', 'error');
     }
   };
 
@@ -541,38 +665,18 @@ export default function JukeboxPage() {
     e.preventDefault();
     if (!newRequest.trim()) return;
 
+    // Ensure location permission first (lazy approach)
+    const hasLocation = await ensureLocationPermission();
+    if (!hasLocation) {
+      // Modal will be shown, user needs to grant permission first
+      return;
+    }
+
     setLoading(true);
     setMessage('');
     setLocationError(null);
 
     try {
-      // Use cached location if available, otherwise request it
-      let locationToUse = userLocation;
-      
-      if (!locationToUse) {
-        setCheckingLocation(true);
-        try {
-          locationToUse = await getBrowserLocation();
-          // Cache the location for future use
-          setUserLocation(locationToUse);
-          setLocationPermissionStatus('granted');
-          sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
-          sessionStorage.setItem('user-location-timestamp', Date.now().toString());
-          sessionStorage.setItem('location-permission-requested', 'granted');
-          console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
-        } catch (locError: any) {
-          // Permission denied - reset to show modal again
-          setLocationError(locError.message);
-          setLocationPermissionStatus(null);
-          sessionStorage.removeItem('location-permission-requested');
-          sessionStorage.removeItem('user-location');
-          setLoading(false);
-          setCheckingLocation(false);
-          return;
-        }
-        setCheckingLocation(false);
-      }
-
       const response = await fetch('/api/jukebox/queue', {
         method: 'POST',
         headers: {
@@ -581,7 +685,7 @@ export default function JukeboxPage() {
         body: JSON.stringify({
           sequence_name: newRequest.trim(),
           requester_name: requesterName.trim() || undefined,
-          userLocation: locationToUse! // Include GPS coordinates
+          userLocation: userLocation!
         }),
       });
 
@@ -589,6 +693,7 @@ export default function JukeboxPage() {
 
       if (response.ok) {
         setMessage(data.message || '✅ Song added to queue!');
+        showToast(data.message || '🎵 Song added to queue!', 'success');
         
         // Update remaining requests count
         if (typeof data.requestsRemaining === 'number') {
@@ -600,49 +705,35 @@ export default function JukeboxPage() {
       } else {
         if (data.requiresLocation) {
           setLocationError(data.error);
+          showToast(data.error, 'error');
+        } else if (data.error?.includes('too far')) {
+          showToast(`📍 ${data.error}`, 'error');
+          setMessage(`📍 ${data.error}`);
         } else {
           setMessage(`❌ ${data.error || 'Failed to add song'}`);
+          showToast(data.error || 'Failed to add song', 'error');
         }
       }
     } catch (error) {
       setMessage('❌ Error submitting request');
+      showToast('Error submitting request. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const requestPopularSequence = async (sequenceName: string) => {
+    // Ensure location permission first (lazy approach)
+    const hasLocation = await ensureLocationPermission();
+    if (!hasLocation) {
+      // Modal will be shown, user needs to grant permission first
+      return;
+    }
+
     setLoading(true);
     setLocationError(null);
 
     try {
-      // Use cached location if available, otherwise request it
-      let locationToUse = userLocation;
-      
-      if (!locationToUse) {
-        setCheckingLocation(true);
-        try {
-          locationToUse = await getBrowserLocation();
-          // Cache the location for future use
-          setUserLocation(locationToUse);
-          setLocationPermissionStatus('granted');
-          sessionStorage.setItem('user-location', JSON.stringify(locationToUse));
-          sessionStorage.setItem('user-location-timestamp', Date.now().toString());
-          sessionStorage.setItem('location-permission-requested', 'granted');
-          console.log(`[Location] Got GPS location: ${locationToUse.lat.toFixed(6)}, ${locationToUse.lng.toFixed(6)} (±${locationToUse.accuracy}m)`);
-        } catch (locError: any) {
-          // Permission denied - reset to show modal again
-          setLocationError(locError.message);
-          setLocationPermissionStatus(null);
-          sessionStorage.removeItem('location-permission-requested');
-          sessionStorage.removeItem('user-location');
-          setLoading(false);
-          setCheckingLocation(false);
-          return;
-        }
-        setCheckingLocation(false);
-      }
-
       const response = await fetch('/api/jukebox/queue', {
         method: 'POST',
         headers: {
@@ -651,7 +742,7 @@ export default function JukeboxPage() {
         body: JSON.stringify({
           sequence_name: sequenceName,
           requester_name: requesterName.trim() || undefined,
-          userLocation: locationToUse! // Include GPS coordinates
+          userLocation: userLocation!
         }),
       });
 
@@ -659,6 +750,7 @@ export default function JukeboxPage() {
 
       if (response.ok) {
         setMessage(data.message || `✅ "${sequenceName}" added to queue!`);
+        showToast(`🎵 "${sequenceName}" added to queue!`, 'success');
         
         // Update remaining requests count
         if (typeof data.requestsRemaining === 'number') {
@@ -669,12 +761,18 @@ export default function JukeboxPage() {
       } else {
         if (data.requiresLocation) {
           setLocationError(data.error);
+          showToast(data.error, 'error');
+        } else if (data.error?.includes('too far')) {
+          showToast(`📍 ${data.error}`, 'error');
+          setMessage(`📍 ${data.error}`);
         } else {
           setMessage(`❌ ${data.error || 'Failed to add sequence'}`);
+          showToast(data.error || 'Failed to add sequence', 'error');
         }
       }
     } catch (error) {
       setMessage('❌ Error submitting request');
+      showToast('Error submitting request. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -779,18 +877,29 @@ export default function JukeboxPage() {
 
   return (
     <ThemedJukeboxWrapper>
-      {/* Location Permission Modal */}
-      {locationPermissionStatus === null && (
+      {/* Location Permission Modal - Lazy triggered */}
+      {showLocationModal && (
         <LocationPermissionModal
+          isOpen={showLocationModal}
+          onClose={() => setShowLocationModal(false)}
           onLocationGranted={handleLocationGranted}
           onLocationDenied={handleLocationDenied}
           onSkip={handleLocationSkipped}
         />
       )}
 
+      {/* Toast Notifications */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+        duration={4000}
+      />
+
       <div className="max-w-6xl mx-auto">
-        {/* Location Permission Denied Warning Banner */}
-        {locationPermissionStatus === 'denied' && (
+        {/* Location Permission Denied Warning Banner - Only show when restrictions are enabled */}
+        {locationRestrictionsEnabled && locationPermissionStatus === 'denied' && (
           <div className="mb-6 bg-red-900/90 backdrop-blur-sm border-2 border-red-600 rounded-lg p-4 shadow-xl">
             <div className="flex items-start gap-3">
               <span className="text-3xl">🚫</span>
@@ -803,7 +912,7 @@ export default function JukeboxPage() {
                   onClick={resetLocationPermission}
                   className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition shadow-md text-sm"
                 >
-                  🔄 Change Location Settings
+                  🔄 Enable Location Access
                 </button>
               </div>
             </div>
@@ -819,6 +928,18 @@ export default function JukeboxPage() {
               <span className="break-words">Light Show Jukebox</span>
             </h1>
             <p className="text-white/80 text-sm md:text-base px-4">Request your favorite songs and see what's playing!</p>
+            
+            {/* Location Status Badge - Only shows when restrictions are enabled */}
+            {getLocationBadgeStatus() !== null && (
+              <div className="mt-3 flex justify-center">
+                <LocationStatusBadge
+                  status={getLocationBadgeStatus()!}
+                  distanceFromShow={distanceFromShow}
+                  maxDistance={showLocation?.maxDistance}
+                  onRequestPermission={() => setShowLocationModal(true)}
+                />
+              </div>
+            )}
           </div>
           
           {/* Admin Controls - Centered on mobile, right-aligned on desktop */}
@@ -1090,44 +1211,21 @@ export default function JukeboxPage() {
             </div>
 
             <form onSubmit={handleRequest} className="space-y-4">
-              {/* Distance Feedback - Show when location is granted and within range */}
-              {userLocation && distanceFromShow !== null && showLocation && distanceFromShow <= showLocation.maxDistance && (
-                <div className="p-4 bg-green-500/20 border border-green-500/40 rounded-lg backdrop-blur-sm animate-scale-in">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">✅</span>
-                    <div className="flex-1">
-                      <p className="text-green-200 font-medium mb-1">Location Verified!</p>
-                      <p className="text-green-100 text-sm">
-                        You're <strong>{distanceFromShow.toFixed(2)} miles</strong> from the light show. 
-                        You can request songs and vote! 🎵
-                      </p>
-                      <button
-                        type="button"
-                        onClick={resetLocationPermission}
-                        className="mt-2 text-xs text-green-200 hover:text-green-100 underline"
-                      >
-                        🔄 Update Location
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Location Permission Warning */}
+              {/* Location Permission Warning - shown when user needs to enable location */}
               {locationError && (
                 <div className="p-4 bg-yellow-500/20 border border-yellow-500/40 rounded-lg backdrop-blur-sm">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">📍</span>
                     <div className="flex-1">
-                      <p className="text-yellow-200 font-medium mb-2">Location Access Required</p>
+                      <p className="text-yellow-200 font-medium mb-2">Location Required</p>
                       <p className="text-yellow-100 text-sm mb-3">{locationError}</p>
-                      <details className="text-yellow-100 text-xs">
-                        <summary className="cursor-pointer hover:text-yellow-50 font-medium">Why do we need location?</summary>
-                        <p className="mt-2 pl-4 border-l-2 border-yellow-500/40">
-                          To ensure a fair experience for visitors at the light show, we verify you're physically present. 
-                          Your precise location is only used to calculate distance and is not stored or shared.
-                        </p>
-                      </details>
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationModal(true)}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
+                      >
+                        📍 Enable Location
+                      </button>
                     </div>
                   </div>
                 </div>
