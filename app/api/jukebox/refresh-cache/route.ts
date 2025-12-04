@@ -97,7 +97,11 @@ export async function POST() {
     });
 
     // Then, get sequence files from each scheduled playlist
-    const sequenceSet = new Set<string>();
+    // Use an array to preserve playlist order
+    const sequenceList: { name: string; order: number }[] = [];
+    const seenSequences = new Set<string>();
+    let orderIndex = 0;
+    
     for (const playlistName of playlistNames) {
       try {
         const controller = new AbortController();
@@ -111,25 +115,30 @@ export async function POST() {
         
         if (playlistResponse.ok) {
           const playlist = await playlistResponse.json();
-          // Extract sequence names from leadIn and mainPlaylist
+          
+          // Helper function to add sequences with order
+          const addSequence = (item: any) => {
+            if (item.sequenceName) {
+              // Remove .fseq extension
+              const sequenceName = item.sequenceName.replace(/\.fseq$/i, '');
+              if (!seenSequences.has(sequenceName)) {
+                seenSequences.add(sequenceName);
+                sequenceList.push({ name: sequenceName, order: orderIndex++ });
+              }
+            }
+          };
+          
+          // Extract sequence names from leadIn first (they play first)
           if (playlist.leadIn) {
-            playlist.leadIn.forEach((item: any) => {
-              if (item.sequenceName) {
-                // Remove .fseq extension and add to set
-                const sequenceName = item.sequenceName.replace(/\.fseq$/i, '');
-                sequenceSet.add(sequenceName);
-              }
-            });
+            playlist.leadIn.forEach(addSequence);
           }
-          // Extract from mainPlaylist
+          // Then extract from mainPlaylist (in order)
           if (playlist.mainPlaylist) {
-            playlist.mainPlaylist.forEach((item: any) => {
-              if (item.sequenceName) {
-                // Remove .fseq extension and add to set
-                const sequenceName = item.sequenceName.replace(/\.fseq$/i, '');
-                sequenceSet.add(sequenceName);
-              }
-            });
+            playlist.mainPlaylist.forEach(addSequence);
+          }
+          // Then leadOut if it exists
+          if (playlist.leadOut) {
+            playlist.leadOut.forEach(addSequence);
           }
         } else {
           console.warn(`Failed to fetch playlist ${playlistName}: ${playlistResponse.status}`);
@@ -140,17 +149,17 @@ export async function POST() {
       }
     }
 
-    // Clear existing cache and insert new sequence names
+    // Clear existing cache and insert new sequence names with order
     clearCachedSequences.run();
 
-    for (const sequenceName of sequenceSet) {
-      insertCachedSequence.run(sequenceName);
+    for (const seq of sequenceList) {
+      insertCachedSequence.run(seq.name, seq.order);
     }
 
     return NextResponse.json({
       success: true,
-      sequencesCached: sequenceSet.size,
-      sequences: Array.from(sequenceSet).sort()
+      sequencesCached: sequenceList.length,
+      sequences: sequenceList.map(s => s.name)
     });
   } catch (error: any) {
     if (error.message?.includes('Authentication required')) {

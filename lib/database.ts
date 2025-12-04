@@ -740,13 +740,13 @@ export const clearCachedSequences = db.prepare(`
 `);
 
 export const insertCachedSequence = db.prepare(`
-  INSERT INTO cached_sequences (sequence_name, last_updated)
-  VALUES (?, CURRENT_TIMESTAMP)
+  INSERT INTO cached_sequences (sequence_name, playlist_order, last_updated)
+  VALUES (?, ?, CURRENT_TIMESTAMP)
 `);
 
 export const getCachedSequences = db.prepare(`
   SELECT sequence_name FROM cached_sequences 
-  ORDER BY sequence_name ASC
+  ORDER BY playlist_order ASC, sequence_name ASC
 `);
 
 export const getMediaNameForSequence = db.prepare(`

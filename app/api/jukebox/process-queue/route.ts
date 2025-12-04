@@ -3,7 +3,6 @@ import { requireAdmin } from '@/lib/auth-helpers';
 import { getCircuitBreaker } from '@/lib/circuit-breaker';
 import { getFppUrl } from '@/lib/fpp-config';
 import { 
-  getCurrentlyPlaying, 
   getQueue, 
   updateQueueStatus,
   updateStartTimeAndDuration
@@ -177,17 +176,20 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
       const inserted = await insertPlaylistImmediate(pendingItem.sequence_name);
       
       if (inserted) {
-        updateQueueStatus.run('playing', pendingItem.id);
+        // DON'T mark as 'playing' yet - wait until FPP confirms it's playing
+        // Keep as 'pending' and transition to MONITORING_SEQUENCE
         processingState = 'MONITORING_SEQUENCE';
+        sequenceStartTime = Date.now();
         
         // Record start time
         const defaultDurationMs = 5 * 60 * 1000; // 5 minutes default
         updateStartTimeAndDuration.run(defaultDurationMs, pendingItem.id);
         
-        console.log('[Queue] Sequence inserted, now monitoring...');
+        console.log('[Queue] Sequence inserted, waiting for FPP to start playing...');
       } else {
         console.error('[Queue] Failed to insert sequence');
         updateQueueStatus.run('completed', pendingItem.id);
+        currentQueueItemId = null;
       }
       break;
     }
@@ -198,24 +200,38 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
         return;
       }
 
-      const currentlyPlaying = getCurrentlyPlaying.get() as QueueItem | undefined;
+      // Get the queue item we're monitoring (might still be 'pending' or 'playing')
+      const dbPath = path.join(process.cwd(), 'votes.db');
+      const db = new Database(dbPath, { readonly: true });
+      const currentItem = db.prepare('SELECT * FROM jukebox_queue WHERE id = ?').get(currentQueueItemId) as QueueItem | undefined;
+      db.close();
 
-      if (!currentlyPlaying || currentlyPlaying.id !== currentQueueItemId) {
+      if (!currentItem) {
         processingState = 'IDLE';
         currentQueueItemId = null;
         sequenceStartTime = null;
         return;
       }
 
-      const expectedSeq = currentlyPlaying.sequence_name.endsWith('.fseq')
-        ? currentlyPlaying.sequence_name
-        : `${currentlyPlaying.sequence_name}.fseq`;
+      const expectedSeq = currentItem.sequence_name.endsWith('.fseq')
+        ? currentItem.sequence_name
+        : `${currentItem.sequence_name}.fseq`;
+
+      // Check if FPP is now playing our sequence
+      const fppIsPlayingOurSequence = fppStatus.current_sequence === expectedSeq;
+      
+      // If FPP is playing our sequence and item is still 'pending', mark as 'playing' now
+      if (fppIsPlayingOurSequence && currentItem.status === 'pending') {
+        console.log(`[Queue] FPP confirmed playing: ${expectedSeq}`);
+        updateQueueStatus.run('playing', currentQueueItemId);
+        return; // Continue monitoring on next cycle
+      }
 
       // Check if sequence finished (FPP no longer playing it)
       const sequenceFinished = !fppStatus.current_sequence || 
                               fppStatus.current_sequence !== expectedSeq;
 
-      // Also check minimum play time (at least 10 seconds)
+      // Also check minimum play time (at least 10 seconds since insert)
       const minPlayTime = sequenceStartTime && (Date.now() - sequenceStartTime) > 10000;
 
       if (sequenceFinished && minPlayTime) {
@@ -228,15 +244,28 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
         processingState = 'IDLE';
         currentQueueItemId = null;
         sequenceStartTime = null;
-      } else if (sequenceFinished && !minPlayTime) {
-        console.log('[Queue] Sequence ended too quickly, might be an error - treating as finished');
+      } else if (sequenceFinished && !minPlayTime && currentItem.status === 'pending') {
+        // Sequence hasn't started yet and hasn't been too long - keep waiting
+        const waitTime = sequenceStartTime ? (Date.now() - sequenceStartTime) / 1000 : 0;
+        console.log(`[Queue] Waiting for sequence to start... (${waitTime.toFixed(1)}s)`);
+        
+        // If we've waited more than 30 seconds and FPP never started our sequence, mark as failed
+        if (waitTime > 30) {
+          console.log('[Queue] Timed out waiting for FPP to play sequence');
+          updateQueueStatus.run('completed', currentQueueItemId);
+          processingState = 'IDLE';
+          currentQueueItemId = null;
+          sequenceStartTime = null;
+        }
+      } else if (sequenceFinished && !minPlayTime && currentItem.status === 'playing') {
+        console.log('[Queue] Sequence ended too quickly - treating as finished');
         updateQueueStatus.run('completed', currentQueueItemId);
         
         processingState = 'IDLE';
         currentQueueItemId = null;
         sequenceStartTime = null;
       } else {
-        console.log(`[Queue] Monitoring... Current: ${fppStatus.current_sequence}`);
+        console.log(`[Queue] Monitoring... Current: ${fppStatus.current_sequence}, Status: ${currentItem.status}`);
       }
       break;
     }
