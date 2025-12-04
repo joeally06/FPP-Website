@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.7.0 - Auto-detect project root directory
+# Version: 3.8.0 - Make PM2 reload exit codes non-fatal
 
 set -e
 
@@ -233,19 +233,23 @@ if [ -n "$PM2_BIN" ]; then
     if [ -f "ecosystem.config.js" ]; then
         log "Restarting services with new code..."
         
-        # Use PM2 reload for zero-downtime restart (or restart if reload not available)
-        if "$PM2_BIN" reload ecosystem.config.js >> "$LOG_FILE" 2>&1; then
+        # Try PM2 reload for zero-downtime restart
+        "$PM2_BIN" reload ecosystem.config.js >> "$LOG_FILE" 2>&1
+        RELOAD_EXIT=$?
+        
+        if [ $RELOAD_EXIT -eq 0 ]; then
             log "✅ Services reloaded with zero downtime"
         else
-            log "⚠️  Reload failed, trying restart..."
+            log "⚠️  Reload returned exit code $RELOAD_EXIT, trying restart..."
             # If reload fails, try restart
-            "$PM2_BIN" restart ecosystem.config.js >> "$LOG_FILE" 2>&1 || {
+            if "$PM2_BIN" restart ecosystem.config.js >> "$LOG_FILE" 2>&1; then
+                log "✅ Services restarted"
+            else
                 log "⚠️  Restart failed, trying individual restarts..."
                 # Last resort: restart each service individually
                 "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-control restart failed"
                 "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-poller restart failed"
-            }
-            log "✅ Services restarted"
+            fi
         fi
     else
         # Fallback: restart services individually
@@ -270,7 +274,7 @@ if [ -n "$PM2_BIN" ]; then
     # Show current status
     "$PM2_BIN" status >> "$LOG_FILE" 2>&1
     
-    # Verify services are running
+    # Verify services are running - this is the real test
     FPP_CONTROL_STATUS=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-control") | .pm2_env.status' 2>/dev/null || echo "unknown")
     FPP_POLLER_STATUS=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-poller") | .pm2_env.status' 2>/dev/null || echo "unknown")
     
