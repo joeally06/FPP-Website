@@ -1198,10 +1198,13 @@ function JukeboxSettings() {
   const [error, setError] = useState('');
   const [jukeboxUsers, setJukeboxUsers] = useState<JukeboxUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [refreshingCache, setRefreshingCache] = useState(false);
+  const [cacheInfo, setCacheInfo] = useState<{ count: number; lastRefresh: string | null }>({ count: 0, lastRefresh: null });
 
   useEffect(() => {
     fetchSettings();
     fetchJukeboxUsers();
+    fetchCacheInfo();
   }, []);
 
   async function fetchSettings() {
@@ -1232,6 +1235,58 @@ function JukeboxSettings() {
       console.error('Error fetching jukebox users:', error);
     } finally {
       setLoadingUsers(false);
+    }
+  }
+
+  async function fetchCacheInfo() {
+    try {
+      const response = await fetch('/api/jukebox/sequences');
+      if (response.ok) {
+        const data = await response.json();
+        setCacheInfo({
+          count: data.sequences?.length || 0,
+          lastRefresh: data.lastRefresh || null
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching cache info:', error);
+    }
+  }
+
+  async function handleRefreshCache() {
+    setRefreshingCache(true);
+    setSuccess('');
+    setError('');
+
+    try {
+      const response = await fetch('/api/jukebox/refresh-cache', {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`✅ Cache refreshed! ${data.sequencesCached} sequences loaded.`);
+        await fetchCacheInfo();
+      } else {
+        const errorMsg = data.details || data.error || 'Failed to refresh cache';
+        if (data.error === 'FPP is offline') {
+          setError('⚠️ FPP is offline. Cannot refresh cache at this time.');
+        } else if (data.error === 'FPP server timeout') {
+          setError('⏱️ FPP server timeout. The server may be offline or busy.');
+        } else {
+          setError(`❌ ${errorMsg}`);
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing cache:', err);
+      setError('❌ Network error while refreshing cache.');
+    } finally {
+      setRefreshingCache(false);
+      setTimeout(() => {
+        setSuccess('');
+        setError('');
+      }, 5000);
     }
   }
 
@@ -1447,6 +1502,62 @@ function JukeboxSettings() {
           <li><AdminTextSmall>• Settings take effect immediately for all new requests</AdminTextSmall></li>
           <li><AdminTextSmall>• Visitors see the current rate limit and queue behavior on the request page</AdminTextSmall></li>
         </ul>
+      </div>
+
+      {/* Sequence Cache Management */}
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <AdminH3>🎵 Song Cache Management</AdminH3>
+            <AdminTextMuted>
+              Refresh the list of available songs from FPP
+            </AdminTextMuted>
+          </div>
+        </div>
+
+        {/* Cache Status */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+            <AdminTextSmall className="mb-1">Cached Songs</AdminTextSmall>
+            <AdminValue>{cacheInfo.count}</AdminValue>
+          </div>
+          <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+            <AdminTextSmall className="mb-1">Cache Status</AdminTextSmall>
+            <AdminValue>
+              {cacheInfo.count > 0 ? (
+                <span className="text-green-400">✅ Active</span>
+              ) : (
+                <span className="text-yellow-400">⚠️ Empty</span>
+              )}
+            </AdminValue>
+          </div>
+        </div>
+
+        {/* Refresh Button */}
+        <div className="space-y-4">
+          <button
+            onClick={handleRefreshCache}
+            disabled={refreshingCache}
+            className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          >
+            {refreshingCache ? '🔄 Refreshing...' : '🔄 Refresh Song Cache from FPP'}
+          </button>
+
+          <AdminTextSmall className="text-white/60">
+            This fetches the latest playlist from your FPP server and updates the available songs for visitors to request.
+          </AdminTextSmall>
+        </div>
+
+        {/* Info Box */}
+        <div className="mt-6 p-4 bg-blue-500/20 rounded-lg border border-blue-500/30">
+          <AdminH4>ℹ️ When to Refresh</AdminH4>
+          <ul className="space-y-1 mt-2">
+            <li><AdminTextSmall>• After adding or removing songs from your FPP playlist</AdminTextSmall></li>
+            <li><AdminTextSmall>• After reordering songs in FPP</AdminTextSmall></li>
+            <li><AdminTextSmall>• If visitors report missing songs</AdminTextSmall></li>
+            <li><AdminTextSmall>• The cache also refreshes automatically in the background when admins visit the jukebox page</AdminTextSmall></li>
+          </ul>
+        </div>
       </div>
 
       {/* Unified Banner Configuration */}
