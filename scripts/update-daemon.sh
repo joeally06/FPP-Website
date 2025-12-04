@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.5.0 - Install devDependencies for TypeScript builds
+# Version: 3.6.0 - Use PM2 reload/restart instead of delete
 
 set -e
 
@@ -216,37 +216,34 @@ log "🔄 Phase 7: Restarting all services..."
 write_status "RESTARTING"
 
 if [ -n "$PM2_BIN" ]; then
-    # Restart all services from ecosystem config
+    # Restart all services gracefully
     if [ -f "ecosystem.config.js" ]; then
-        log "Restarting all services from ecosystem.config.js..."
+        log "Restarting services with new code..."
         
-        # Delete all old processes to ensure clean restart
-        log "Removing old PM2 processes..."
-        "$PM2_BIN" delete all >> "$LOG_FILE" 2>&1 || {
-            log "⚠️  Could not delete old processes"
-        }
-        
-        sleep 2
-        
-        # Start fresh from ecosystem config (includes fpp-control and fpp-poller)
-        log "Starting fresh from ecosystem.config.js..."
-        "$PM2_BIN" start ecosystem.config.js >> "$LOG_FILE" 2>&1 || {
-            log "❌ Could not start services from ecosystem.config.js"
-            write_status "FAILED"
-            exit 1
-        }
-        
-        log "✅ All services started from ecosystem.config.js"
+        # Use PM2 reload for zero-downtime restart (or restart if reload not available)
+        if "$PM2_BIN" reload ecosystem.config.js >> "$LOG_FILE" 2>&1; then
+            log "✅ Services reloaded with zero downtime"
+        else
+            log "⚠️  Reload failed, trying restart..."
+            # If reload fails, try restart
+            "$PM2_BIN" restart ecosystem.config.js >> "$LOG_FILE" 2>&1 || {
+                log "⚠️  Restart failed, trying individual restarts..."
+                # Last resort: restart each service individually
+                "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-control restart failed"
+                "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-poller restart failed"
+            }
+            log "✅ Services restarted"
+        fi
     else
-        # Fallback: restart fpp-control and start fpp-poller
+        # Fallback: restart services individually
         log "No ecosystem.config.js, restarting services individually..."
         
         "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1 || {
             log "⚠️  Could not restart fpp-control"
         }
         
-        "$PM2_BIN" start fpp-poller >> "$LOG_FILE" 2>&1 || {
-            log "⚠️  Could not start fpp-poller"
+        "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1 || {
+            log "⚠️  Could not restart fpp-poller"
         }
         
         log "✅ Services restarted"
