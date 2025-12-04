@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.9.0 - Disable set -e for PM2 commands
+# Version: 4.0.0 - Ignore SIGTERM/SIGINT to survive PM2 reload
 
 set -e
 
@@ -54,7 +54,10 @@ cleanup() {
     fi
 }
 
+# Set up traps
 trap cleanup EXIT
+# Ignore SIGTERM and SIGINT during update to prevent PM2 from killing us
+trap '' TERM INT
 
 # Ensure logs directory exists
 mkdir -p "$PROJECT_DIR/logs"
