@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.1.0 - Fixed premature completion issue
+# Version: 3.2.0 - Fixed PM2 "stop all" stopping itself
 
 set -e
 
@@ -137,13 +137,28 @@ fi
 if [ -n "$PM2_BIN" ]; then
     log "Found PM2 at: $PM2_BIN"
     
-    # Stop all PM2 processes
-    "$PM2_BIN" stop all >> "$LOG_FILE" 2>&1 || {
-        log "⚠️  PM2 stop had issues (may not be running)"
-    }
+    # Stop only app processes (NOT update-daemon itself)
+    # List all processes except update-daemon
+    APPS_TO_STOP=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name != "update-daemon") | .name' 2>/dev/null || echo "")
+    
+    if [ -z "$APPS_TO_STOP" ]; then
+        # Fallback: stop specific known apps
+        log "Stopping fpp-control and fpp-poller..."
+        "$PM2_BIN" stop fpp-control fpp-poller >> "$LOG_FILE" 2>&1 || {
+            log "⚠️  Could not stop apps (may not be running)"
+        }
+    else
+        # Stop each app individually (excluding update-daemon)
+        for app in $APPS_TO_STOP; do
+            log "Stopping $app..."
+            "$PM2_BIN" stop "$app" >> "$LOG_FILE" 2>&1 || {
+                log "⚠️  Could not stop $app (may not be running)"
+            }
+        done
+    fi
     
     sleep 2
-    log "✅ Services stopped"
+    log "✅ Application services stopped (update-daemon still running)"
 else
     log "⚠️  PM2 not found, skipping service stop"
 fi
@@ -211,32 +226,52 @@ log "🔄 Phase 7: Restarting services..."
 write_status "RESTARTING"
 
 if [ -n "$PM2_BIN" ]; then
-    # Stop all services first to ensure clean restart
-    log "Stopping all PM2 services..."
-    "$PM2_BIN" stop all >> "$LOG_FILE" 2>&1 || {
-        log "⚠️  PM2 stop had issues (services may not be running)"
-    }
-    
-    sleep 2
-    
-    # Start from ecosystem config to ensure both apps start
+    # Restart application services from ecosystem config
     if [ -f "ecosystem.config.js" ]; then
-        log "Starting services from ecosystem.config.js..."
-        "$PM2_BIN" start ecosystem.config.js >> "$LOG_FILE" 2>&1 || {
-            log "❌ Could not start services from ecosystem.config.js"
+        log "Restarting application services..."
+        
+        # Delete old processes (except update-daemon)
+        APPS_TO_DELETE=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name != "update-daemon") | .name' 2>/dev/null || echo "")
+        
+        if [ -n "$APPS_TO_DELETE" ]; then
+            for app in $APPS_TO_DELETE; do
+                log "Removing old process: $app"
+                "$PM2_BIN" delete "$app" >> "$LOG_FILE" 2>&1 || true
+            done
+        else
+            # Fallback: try deleting known apps
+            "$PM2_BIN" delete fpp-control fpp-poller >> "$LOG_FILE" 2>&1 || true
+        fi
+        
+        sleep 2
+        
+        # Start only fpp-control and fpp-poller from ecosystem config
+        log "Starting fpp-control and fpp-poller from ecosystem.config.js..."
+        "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1 || {
+            log "❌ Could not start fpp-control"
             write_status "FAILED"
             exit 1
         }
-        log "✅ Services started from ecosystem.config.js"
+        
+        "$PM2_BIN" start ecosystem.config.js --only fpp-poller >> "$LOG_FILE" 2>&1 || {
+            log "⚠️  Could not start fpp-poller (non-critical)"
+        }
+        
+        log "✅ Application services started from ecosystem.config.js"
     else
-        # Fallback: try restart all
-        log "No ecosystem.config.js, trying restart all..."
-        "$PM2_BIN" restart all >> "$LOG_FILE" 2>&1 || {
-            log "❌ Could not restart services"
+        # Fallback: try restart specific apps
+        log "No ecosystem.config.js, trying to restart fpp-control..."
+        "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1 || {
+            log "❌ Could not restart fpp-control"
             write_status "FAILED"
             exit 1
         }
-        log "✅ Services restarted"
+        
+        "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1 || {
+            log "⚠️  Could not restart fpp-poller (non-critical)"
+        }
+        
+        log "✅ Application services restarted"
     fi
     
     sleep 3
@@ -247,19 +282,24 @@ if [ -n "$PM2_BIN" ]; then
     # Show current status
     "$PM2_BIN" status >> "$LOG_FILE" 2>&1
     
-    # Verify both services started (expect 2: fpp-control + fpp-poller)
-    ONLINE_COUNT=$("$PM2_BIN" list | grep -c "online" || echo "0")
-    EXPECTED_COUNT=2
+    # Verify application services started (expect at least fpp-control)
+    FPP_CONTROL_STATUS=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-control") | .pm2_env.status' 2>/dev/null || echo "unknown")
+    FPP_POLLER_STATUS=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-poller") | .pm2_env.status' 2>/dev/null || echo "unknown")
     
-    if [ "$ONLINE_COUNT" -ge "$EXPECTED_COUNT" ]; then
-        log "✅ All services running ($ONLINE_COUNT/$EXPECTED_COUNT online)"
+    if [ "$FPP_CONTROL_STATUS" = "online" ]; then
+        log "✅ fpp-control is running"
     else
-        log "⚠️  Only $ONLINE_COUNT/$EXPECTED_COUNT services online"
-        log "⚠️  Some services may not have started correctly"
+        log "⚠️  fpp-control status: $FPP_CONTROL_STATUS"
+    fi
+    
+    if [ "$FPP_POLLER_STATUS" = "online" ]; then
+        log "✅ fpp-poller is running"
+    else
+        log "⚠️  fpp-poller status: $FPP_POLLER_STATUS"
     fi
 else
     log "⚠️  PM2 not found, cannot restart services"
-    log "ℹ️  Please manually restart: pm2 restart all"
+    log "ℹ️  Please manually restart: pm2 start ecosystem.config.js"
 fi
 
 # Phase 8: Verify health
