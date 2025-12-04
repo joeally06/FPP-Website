@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.8.0 - Make PM2 reload exit codes non-fatal
+# Version: 3.9.0 - Disable set -e for PM2 commands
 
 set -e
 
@@ -234,15 +234,23 @@ if [ -n "$PM2_BIN" ]; then
         log "Restarting services with new code..."
         
         # Try PM2 reload for zero-downtime restart
+        # Temporarily disable exit-on-error for reload command
+        set +e
         "$PM2_BIN" reload ecosystem.config.js >> "$LOG_FILE" 2>&1
         RELOAD_EXIT=$?
+        set -e
         
         if [ $RELOAD_EXIT -eq 0 ]; then
             log "✅ Services reloaded with zero downtime"
         else
             log "⚠️  Reload returned exit code $RELOAD_EXIT, trying restart..."
             # If reload fails, try restart
-            if "$PM2_BIN" restart ecosystem.config.js >> "$LOG_FILE" 2>&1; then
+            set +e
+            "$PM2_BIN" restart ecosystem.config.js >> "$LOG_FILE" 2>&1
+            RESTART_EXIT=$?
+            set -e
+            
+            if [ $RESTART_EXIT -eq 0 ]; then
                 log "✅ Services restarted"
             else
                 log "⚠️  Restart failed, trying individual restarts..."
