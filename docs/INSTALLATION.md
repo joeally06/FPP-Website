@@ -2,7 +2,7 @@
 
 This guide walks you through **every step** of installing and configuring FPP Control Center on **Linux or macOS** systems.
 
-> **Note:** FPP Control Center requires Linux or macOS. It is designed for Raspberry Pi, Ubuntu, Debian, or Mac environments where FPP runs.
+> **Note:** FPP Control Center is designed for Linux (Raspberry Pi, Ubuntu, Debian, CentOS, Fedora) and macOS environments where FPP runs.
 
 **Estimated Time:**
 - **Local Network Setup:** 15-20 minutes
@@ -1200,18 +1200,12 @@ npm run db:stats  # View statistics
 <details>
 <summary><strong>Setup wizard won't run</strong></summary>
 
-**Linux/Mac:**
 ``bash
 chmod +x setup.sh
 ./setup.sh
 
 # If still fails:
 bash setup.sh
-``
-
-**Windows:**
-``powershell
-powershell -ExecutionPolicy Bypass -File setup.ps1
 ``
 </details>
 

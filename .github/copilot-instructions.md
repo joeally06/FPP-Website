@@ -19,7 +19,7 @@
 - [x] Ensure Documentation is Complete
 
 - [x] Create Interactive Setup Wizard
-	Completed: Created setup.sh (Linux/Mac) and setup.ps1 (Windows) with full installation automation.
+	Completed: Created setup.sh (Linux/Mac) with full installation automation.
 
 - [x] Update Documentation for Public Release
 	Completed: Comprehensive README.md (features overview) and INSTALLATION.md (complete setup guide). Removed QUICKSTART.md to avoid redundancy.
@@ -37,7 +37,7 @@
 	Completed: Added Spotify credential collection in setup.sh, updated .env.local template, added comprehensive Spotify setup guide to INSTALLATION.md.
 
 - [x] Implement Automatic Dependency Updates
-	Completed: Added npm update and npm audit fix to both setup.sh and setup.ps1 to automatically resolve deprecation warnings and security vulnerabilities during installation.
+	Completed: Added npm update and npm audit fix to setup.sh to automatically resolve deprecation warnings and security vulnerabilities during installation.
 
 - [x] Fix Critical Setup Script Issues
 	Completed: Enhanced setup.sh with:
@@ -53,11 +53,11 @@
 ## 🎯 Project Status: PRODUCTION READY
 
 The FPP Control Center is now fully documented and includes:
-- ✅ Interactive setup wizard (./setup.sh or setup.ps1)
+- ✅ Interactive setup wizard (./setup.sh)
 - ✅ Complete installation guides (QUICKSTART.md, INSTALLATION.md)
 - ✅ Security implementation (SECURITY.md)
 - ✅ Production deployment scripts (deploy-production.sh)
-- ✅ Cross-platform support (Linux, Mac, Windows)
+- ✅ Cross-platform support (Linux, Mac)
 - ✅ Cloudflare Tunnel with headless server support
 - ✅ Comprehensive Cloudflare documentation (CLOUDFLARE-TUNNEL.md)
 
@@ -66,7 +66,7 @@ The FPP Control Center is now fully documented and includes:
 ## 🚀 Quick Start for New Contributors
 
 1. Clone: `git clone https://github.com/joeally06/FPP-Control-Center.git`
-2. Run: `./setup.sh` (Linux/Mac) or `setup.ps1` (Windows)
+2. Run: `./setup.sh` (Linux/Mac)
 3. Follow the interactive wizard prompts
 4. Access: `http://localhost:3000`
 

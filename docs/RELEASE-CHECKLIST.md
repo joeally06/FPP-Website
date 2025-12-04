@@ -126,7 +126,6 @@ This checklist ensures all steps are completed before tagging and releasing a ne
 - [ ] Linux (Ubuntu/Debian) tested
 - [ ] Linux (RHEL/CentOS) tested
 - [ ] macOS tested (if applicable)
-- [ ] macOS tested (if applicable)
 
 ---
 
