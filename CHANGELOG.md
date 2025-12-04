@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-04
+
+### Lazy Location Permission Flow 📍
+
+#### 🎉 Added
+
+- **Lazy Location Checking**
+  - Location permission is now requested only when users try to vote or request songs
+  - No upfront location prompts - users can browse freely without interruption
+  - Pending actions (vote/request) automatically execute after granting permission
+
+#### 🔧 Changed
+
+- **Removed Intrusive Location UI**
+  - Removed large "Location Access Denied" warning banner from page top
+  - Location status badge now only shows distance when location is available
+  - Badge hidden entirely when geo-tracking is disabled in admin settings
+
+- **Improved User Experience**
+  - Streamlined inline location error messages (compact single-line format)
+  - Friendlier toast notifications for location states
+  - "Maybe Later" option in modal lets users skip without feeling blocked
+
+- **Cleaner Badge Behavior**
+  - Badge only displays when restrictions are enabled AND location is available
+  - Shows distance in miles (green when in range, yellow when out of range)
+  - No more "Enable Location", "Blocked", or "Checking" badge states
+
+#### 🐛 Fixed
+
+- Location errors now clear when opening the permission modal
+- Pending vote/request actions properly execute after permission granted
+
+---
+
 ## [Unreleased]
 
 ### Planned Features

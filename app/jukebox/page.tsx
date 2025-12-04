@@ -151,22 +151,24 @@ export default function JukeboxPage() {
     setToast(prev => ({ ...prev, isVisible: false }));
   }, []);
 
-  // Compute location badge status - returns null if restrictions disabled
+  // Compute location badge status - returns null if restrictions disabled or no location yet
   const getLocationBadgeStatus = useCallback((): LocationStatus | null => {
     // Don't show badge if restrictions are disabled or still loading
     if (locationRestrictionsEnabled === false) return null;
     if (locationRestrictionsEnabled === null) return null; // Still loading
     
-    if (checkingLocation) return 'checking';
-    if (locationPermissionStatus === 'denied') return 'denied';
-    if (userLocation && showLocation) {
-      if (distanceFromShow !== null && distanceFromShow > showLocation.maxDistance) {
+    // Only show badge when we have location and can display the distance
+    // Don't show "Enable", "Blocked", or "Checking" states - keep it minimal
+    if (userLocation && showLocation && distanceFromShow !== null) {
+      if (distanceFromShow > showLocation.maxDistance) {
         return 'out-of-range';
       }
       return 'granted';
     }
-    return 'unknown';
-  }, [checkingLocation, locationPermissionStatus, userLocation, showLocation, distanceFromShow, locationRestrictionsEnabled]);
+    
+    // Return null for all other states - badge won't show
+    return null;
+  }, [userLocation, showLocation, distanceFromShow, locationRestrictionsEnabled]);
 
   // Restore cached location from localStorage on mount
   useEffect(() => {
@@ -221,7 +223,7 @@ export default function JukeboxPage() {
     sessionStorage.setItem('user-location-timestamp', Date.now().toString());
     sessionStorage.setItem('location-permission-requested', 'granted');
     
-    showToast('📍 Location enabled! You can now request songs.', 'success');
+    showToast('✅ Location enabled! Your action will continue...', 'success');
     
     // Execute pending action if any
     if (pendingAction) {
@@ -240,7 +242,8 @@ export default function JukeboxPage() {
     sessionStorage.setItem('location-permission-requested', 'denied');
     setPendingAction(null);
     
-    showToast('🚫 Location access blocked. Enable it to request songs.', 'error');
+    // Informative toast - let user know they can try again when voting
+    showToast('📍 Location not enabled. You\'ll be prompted again when voting.', 'info');
   };
 
   const handleLocationSkipped = () => {
@@ -248,6 +251,9 @@ export default function JukeboxPage() {
     setShowLocationModal(false);
     sessionStorage.setItem('location-permission-requested', 'skipped');
     setPendingAction(null);
+    
+    // Subtle toast - user can still browse, just can't interact
+    showToast('📍 You can browse songs. Enable location when ready to vote!', 'info');
   };
 
   const resetLocationPermission = () => {
@@ -275,6 +281,9 @@ export default function JukeboxPage() {
     if (userLocation) {
       return true;
     }
+    
+    // Clear any previous location errors when showing the modal
+    setLocationError(null);
     
     // Permission was denied? Show modal to let user try again
     if (locationPermissionStatus === 'denied') {
@@ -898,27 +907,6 @@ export default function JukeboxPage() {
       />
 
       <div className="max-w-6xl mx-auto">
-        {/* Location Permission Denied Warning Banner - Only show when restrictions are enabled */}
-        {locationRestrictionsEnabled && locationPermissionStatus === 'denied' && (
-          <div className="mb-6 bg-red-900/90 backdrop-blur-sm border-2 border-red-600 rounded-lg p-4 shadow-xl">
-            <div className="flex items-start gap-3">
-              <span className="text-3xl">🚫</span>
-              <div className="flex-1">
-                <h3 className="text-white font-bold text-lg mb-2">Location Access Denied</h3>
-                <p className="text-white/90 text-sm mb-3">
-                  You won't be able to request songs or vote without location permission. This helps ensure only visitors at the light show can interact with the jukebox.
-                </p>
-                <button
-                  onClick={resetLocationPermission}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition shadow-md text-sm"
-                >
-                  🔄 Enable Location Access
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Header with Admin Login */}
         <div className="mb-6">
           {/* Title - Full width on mobile */}
@@ -1211,22 +1199,22 @@ export default function JukeboxPage() {
             </div>
 
             <form onSubmit={handleRequest} className="space-y-4">
-              {/* Location Permission Warning - shown when user needs to enable location */}
+              {/* Location Error - shown only after a failed action */}
               {locationError && (
-                <div className="p-4 bg-yellow-500/20 border border-yellow-500/40 rounded-lg backdrop-blur-sm">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">📍</span>
-                    <div className="flex-1">
-                      <p className="text-yellow-200 font-medium mb-2">Location Required</p>
-                      <p className="text-yellow-100 text-sm mb-3">{locationError}</p>
-                      <button
-                        type="button"
-                        onClick={() => setShowLocationModal(true)}
-                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
-                      >
-                        📍 Enable Location
-                      </button>
-                    </div>
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📍</span>
+                    <p className="text-yellow-200 text-sm flex-1">{locationError}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationError(null);
+                        setShowLocationModal(true);
+                      }}
+                      className="bg-yellow-600/80 hover:bg-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap"
+                    >
+                      Enable
+                    </button>
                   </div>
                 </div>
               )}
