@@ -304,8 +304,9 @@ if [ -n "$PM2_BIN" ]; then
     set -e
     
     # Verify services are running - this is the real test
-    FPP_CONTROL_STATUS=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-control") | .pm2_env.status' 2>/dev/null || echo "unknown")
-    FPP_POLLER_STATUS=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-poller") | .pm2_env.status' 2>/dev/null || echo "unknown")
+    # Use timeout to prevent hanging on jlist if processes are in bad state
+    FPP_CONTROL_STATUS=$(timeout 5 "$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-control") | .pm2_env.status' 2>/dev/null || echo "unknown")
+    FPP_POLLER_STATUS=$(timeout 5 "$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-poller") | .pm2_env.status' 2>/dev/null || echo "unknown")
     
     if [ "$FPP_CONTROL_STATUS" = "online" ]; then
         log "✅ fpp-control is running"
