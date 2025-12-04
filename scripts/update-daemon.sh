@@ -332,7 +332,8 @@ sleep 5
 
 # Check if services are running
 if [ -n "$PM2_BIN" ]; then
-    RUNNING=$("$PM2_BIN" list | grep -c "online" || echo "0")
+    # Use timeout to prevent hanging if PM2 is in bad state
+    RUNNING=$(timeout 5 "$PM2_BIN" list 2>/dev/null | grep -c "online" || echo "0")
     EXPECTED=2
     if [ "$RUNNING" -ge "$EXPECTED" ]; then
         log "✅ All services running ($RUNNING/$EXPECTED online)"
