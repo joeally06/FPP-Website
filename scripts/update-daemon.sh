@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.4.0 - Skip stopping fpp-control to prevent cascade kill
+# Version: 3.5.0 - Install devDependencies for TypeScript builds
 
 set -e
 
@@ -177,7 +177,8 @@ fi
 log "📦 Phase 5: Installing dependencies..."
 write_status "INSTALLING"
 
-if npm install >> "$LOG_FILE" 2>&1; then
+# Install all dependencies including devDependencies (needed for TypeScript build)
+if npm install --include=dev >> "$LOG_FILE" 2>&1; then
     log "✅ Dependencies installed"
 else
     log "❌ npm install failed"
@@ -185,7 +186,7 @@ else
     # Attempt rollback
     log "🔄 Attempting rollback..."
     git reset --hard "$LOCAL_COMMIT" >> "$LOG_FILE" 2>&1
-    npm install >> "$LOG_FILE" 2>&1
+    npm install --include=dev >> "$LOG_FILE" 2>&1
     
     write_status "FAILED"
     exit 1
@@ -203,7 +204,7 @@ else
     # Attempt rollback
     log "🔄 Attempting rollback..."
     git reset --hard "$LOCAL_COMMIT" >> "$LOG_FILE" 2>&1
-    npm install >> "$LOG_FILE" 2>&1
+    npm install --include=dev >> "$LOG_FILE" 2>&1
     npm run build >> "$LOG_FILE" 2>&1
     
     write_status "FAILED"
