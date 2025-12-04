@@ -258,8 +258,24 @@ if [ -n "$PM2_BIN" ]; then
             else
                 log "⚠️  Restart failed, trying individual restarts..."
                 # Last resort: restart each service individually
-                "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-control restart failed"
-                "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-poller restart failed"
+                # If restart fails, try delete + start
+                set +e
+                "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1
+                if [ $? -ne 0 ]; then
+                    log "⚠️  fpp-control restart failed, trying delete + start..."
+                    "$PM2_BIN" delete fpp-control >> "$LOG_FILE" 2>&1 || true
+                    sleep 2
+                    "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-control start failed"
+                fi
+                
+                "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1
+                if [ $? -ne 0 ]; then
+                    log "⚠️  fpp-poller restart failed, trying delete + start..."
+                    "$PM2_BIN" delete fpp-poller >> "$LOG_FILE" 2>&1 || true
+                    sleep 2
+                    "$PM2_BIN" start ecosystem.config.js --only fpp-poller >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-poller start failed"
+                fi
+                set -e
             fi
         fi
     else
@@ -282,8 +298,10 @@ if [ -n "$PM2_BIN" ]; then
     # Save PM2 config
     "$PM2_BIN" save >> "$LOG_FILE" 2>&1 || log "⚠️  Could not save PM2 config"
     
-    # Show current status
-    "$PM2_BIN" status >> "$LOG_FILE" 2>&1
+    # Show current status (ignore errors - PM2 status can crash on stopping processes)
+    set +e
+    "$PM2_BIN" status >> "$LOG_FILE" 2>&1 || log "⚠️  PM2 status command failed (process may be restarting)"
+    set -e
     
     # Verify services are running - this is the real test
     FPP_CONTROL_STATUS=$("$PM2_BIN" jlist 2>/dev/null | jq -r '.[] | select(.name=="fpp-control") | .pm2_env.status' 2>/dev/null || echo "unknown")
