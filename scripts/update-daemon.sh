@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.3.0 - Graceful stop with non-fatal errors
+# Version: 3.4.0 - Skip stopping fpp-control to prevent cascade kill
 
 set -e
 
@@ -137,7 +137,8 @@ fi
 if [ -n "$PM2_BIN" ]; then
     log "Found PM2 at: $PM2_BIN"
     
-    # Try to stop fpp-poller gracefully (non-critical)
+    # Only stop fpp-poller (safe to stop)
+    # DO NOT stop fpp-control - it will be restarted cleanly at the end
     log "Stopping fpp-poller..."
     if "$PM2_BIN" stop fpp-poller >> "$LOG_FILE" 2>&1; then
         log "✅ fpp-poller stopped"
@@ -145,16 +146,8 @@ if [ -n "$PM2_BIN" ]; then
         log "⚠️  fpp-poller not running or already stopped"
     fi
     
-    # Try to stop fpp-control gracefully (non-critical - may be serving this request)
-    log "Stopping fpp-control..."
-    if "$PM2_BIN" stop fpp-control >> "$LOG_FILE" 2>&1; then
-        log "✅ fpp-control stopped"
-    else
-        log "⚠️  fpp-control stop initiated (may complete during restart)"
-    fi
-    
     sleep 2
-    log "✅ Services stop initiated"
+    log "✅ Auxiliary services stopped (fpp-control will restart with new code)"
 else
     log "⚠️  PM2 not found, skipping service stop"
 fi
