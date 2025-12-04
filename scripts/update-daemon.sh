@@ -238,8 +238,9 @@ if [ -n "$PM2_BIN" ]; then
         
         # Try PM2 reload for zero-downtime restart
         # Temporarily disable exit-on-error for reload command
+        # Use timeouts to prevent hanging on PM2 commands
         set +e
-        "$PM2_BIN" reload ecosystem.config.js >> "$LOG_FILE" 2>&1
+        timeout 30 "$PM2_BIN" reload ecosystem.config.js >> "$LOG_FILE" 2>&1
         RELOAD_EXIT=$?
         set -e
         
@@ -249,7 +250,7 @@ if [ -n "$PM2_BIN" ]; then
             log "⚠️  Reload returned exit code $RELOAD_EXIT, trying restart..."
             # If reload fails, try restart
             set +e
-            "$PM2_BIN" restart ecosystem.config.js >> "$LOG_FILE" 2>&1
+            timeout 30 "$PM2_BIN" restart ecosystem.config.js >> "$LOG_FILE" 2>&1
             RESTART_EXIT=$?
             set -e
             
@@ -259,21 +260,22 @@ if [ -n "$PM2_BIN" ]; then
                 log "⚠️  Restart failed, trying individual restarts..."
                 # Last resort: restart each service individually
                 # If restart fails, try delete + start
+                # Use timeouts to prevent hanging
                 set +e
-                "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1
+                timeout 10 "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1
                 if [ $? -ne 0 ]; then
                     log "⚠️  fpp-control restart failed, trying delete + start..."
-                    "$PM2_BIN" delete fpp-control >> "$LOG_FILE" 2>&1 || true
+                    timeout 10 "$PM2_BIN" delete fpp-control >> "$LOG_FILE" 2>&1 || true
                     sleep 2
-                    "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-control start failed"
+                    timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-control start failed"
                 fi
                 
-                "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1
+                timeout 10 "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1
                 if [ $? -ne 0 ]; then
                     log "⚠️  fpp-poller restart failed, trying delete + start..."
-                    "$PM2_BIN" delete fpp-poller >> "$LOG_FILE" 2>&1 || true
+                    timeout 10 "$PM2_BIN" delete fpp-poller >> "$LOG_FILE" 2>&1 || true
                     sleep 2
-                    "$PM2_BIN" start ecosystem.config.js --only fpp-poller >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-poller start failed"
+                    timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-poller >> "$LOG_FILE" 2>&1 || log "⚠️  fpp-poller start failed"
                 fi
                 set -e
             fi
@@ -295,12 +297,12 @@ if [ -n "$PM2_BIN" ]; then
     
     sleep 3
     
-    # Save PM2 config
-    "$PM2_BIN" save >> "$LOG_FILE" 2>&1 || log "⚠️  Could not save PM2 config"
+    # Save PM2 config (with timeout)
+    timeout 10 "$PM2_BIN" save >> "$LOG_FILE" 2>&1 || log "⚠️  Could not save PM2 config"
     
     # Show current status (ignore errors - PM2 status can crash on stopping processes)
     set +e
-    "$PM2_BIN" status >> "$LOG_FILE" 2>&1 || log "⚠️  PM2 status command failed (process may be restarting)"
+    timeout 10 "$PM2_BIN" status >> "$LOG_FILE" 2>&1 || log "⚠️  PM2 status command failed (process may be restarting)"
     set -e
     
     # Verify services are running - this is the real test
