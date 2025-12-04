@@ -2,11 +2,24 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 3.6.0 - Use PM2 reload/restart instead of delete
+# Version: 3.7.0 - Auto-detect project root directory
 
 set -e
 
-PROJECT_DIR="${1:-$(pwd)}"
+# Determine project directory
+# If argument provided, use it; otherwise find project root
+if [ -n "$1" ]; then
+    PROJECT_DIR="$1"
+else
+    # Find project root by looking for package.json
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$SCRIPT_DIR/../package.json" ]; then
+        PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+    else
+        PROJECT_DIR="$(pwd)"
+    fi
+fi
+
 LOG_FILE="$PROJECT_DIR/logs/update.log"
 STATUS_FILE="$PROJECT_DIR/logs/update_status"
 LOCK_FILE="$PROJECT_DIR/logs/update.lock"
