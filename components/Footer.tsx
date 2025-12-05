@@ -30,23 +30,23 @@ export default function Footer() {
   }, []);
 
   return (
-    <footer className="mt-auto border-t border-gray-200 dark:border-gray-800 bg-linear-to-r from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <footer className="mt-auto bg-transparent">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-white/80">
           {/* Left side - Version info */}
           <div className="flex items-center gap-2 group">
             {loading ? (
               <span className="animate-pulse">Loading version...</span>
             ) : versionInfo ? (
               <>
-                <span className="font-semibold text-gray-900 dark:text-gray-100 transition-all duration-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                <span className="font-semibold text-white transition-all duration-300 group-hover:text-blue-400">
                   🎄 FPP Control Center
                 </span>
-                <span className="text-blue-600 dark:text-blue-400 font-bold animate-pulse">
+                <span className="text-blue-400 font-bold animate-pulse">
                   v{versionInfo.version}
                 </span>
                 {versionInfo.build && (
-                  <code className="px-2 py-1 bg-linear-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 rounded text-xs font-mono hover:scale-110 transition-transform duration-200">
+                  <code className="px-2 py-1 bg-white/10 rounded text-xs font-mono hover:scale-110 transition-transform duration-200 text-white/70">
                     {versionInfo.build.substring(0, 7)}
                   </code>
                 )}
@@ -60,11 +60,11 @@ export default function Footer() {
           <div className="flex items-center gap-4">
             <Link
               href="/privacy"
-              className="hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-300 hover:scale-110 hover:font-semibold"
+              className="hover:text-blue-400 transition-all duration-300 hover:scale-110 hover:font-semibold text-white/80"
             >
               🔒 Privacy Policy
             </Link>
-            <span className="text-gray-400 dark:text-gray-600 font-mono">
+            <span className="text-white/60 font-mono">
               © {new Date().getFullYear()} 🎅 Happy Holidays! ✨
             </span>
           </div>

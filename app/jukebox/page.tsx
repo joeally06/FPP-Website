@@ -19,6 +19,7 @@ import { YouTubePlayer } from '@/components/YouTubePlayer';
 import EnhancedVotingCard from '@/components/EnhancedVotingCard';
 import JukeboxBanner from '@/components/JukeboxBanner';
 import AudioSyncPlayer from '@/components/AudioSyncPlayer';
+import Footer from '@/components/Footer';
 import { formatDateTime } from '@/lib/time-utils';
 import { getBrowserLocation, getDistanceInMiles, type UserLocation } from '@/lib/location-utils';
 import { Radio, Music } from 'lucide-react';
@@ -1583,6 +1584,9 @@ export default function JukeboxPage() {
           animation: gradient 3s ease infinite;
         }
       `}</style>
+
+      {/* Footer - inside themed wrapper for seamless background */}
+      <Footer />
     </ThemedJukeboxWrapper>
   );
 }
