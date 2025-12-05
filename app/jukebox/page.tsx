@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
@@ -133,7 +133,8 @@ export default function JukeboxPage() {
   
   // Lazy location modal state - only show when user tries to take action
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  // Use a ref for pendingAction to avoid stale closure issues
+  const pendingActionRef = useRef<((location?: UserLocation) => void) | null>(null);
   
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
@@ -225,11 +226,13 @@ export default function JukeboxPage() {
     
     showToast('✅ Location enabled! Your action will continue...', 'success');
     
-    // Execute pending action if any
-    if (pendingAction) {
+    // Execute pending action if any (using ref to avoid stale closure)
+    // IMPORTANT: Pass location directly since React state update is async
+    if (pendingActionRef.current) {
+      const action = pendingActionRef.current;
+      pendingActionRef.current = null;
       setTimeout(() => {
-        pendingAction();
-        setPendingAction(null);
+        action(location);
       }, 500);
     }
   };
@@ -240,7 +243,7 @@ export default function JukeboxPage() {
     setShowLocationModal(false);
     sessionStorage.removeItem('user-location');
     sessionStorage.setItem('location-permission-requested', 'denied');
-    setPendingAction(null);
+    pendingActionRef.current = null;
     
     // Informative toast - let user know they can try again when voting
     showToast('📍 Location not enabled. You\'ll be prompted again when voting.', 'info');
@@ -250,7 +253,7 @@ export default function JukeboxPage() {
     setLocationPermissionStatus('skipped');
     setShowLocationModal(false);
     sessionStorage.setItem('location-permission-requested', 'skipped');
-    setPendingAction(null);
+    pendingActionRef.current = null;
     
     // Subtle toast - user can still browse, just can't interact
     showToast('📍 You can browse songs. Enable location when ready to vote!', 'info');
@@ -270,7 +273,7 @@ export default function JukeboxPage() {
    * Request location permission lazily - shows modal if permission not yet granted
    * Returns true if location is available (or not required), false if modal was shown
    */
-  const ensureLocationPermission = useCallback(async (onSuccess?: () => void): Promise<boolean> => {
+  const ensureLocationPermission = useCallback(async (onSuccess?: (location?: UserLocation) => void): Promise<boolean> => {
     // If location restrictions are disabled, skip the whole flow
     if (locationRestrictionsEnabled === false) {
       console.log('[Location] Restrictions disabled - skipping location check');
@@ -287,14 +290,14 @@ export default function JukeboxPage() {
     
     // Permission was denied? Show modal to let user try again
     if (locationPermissionStatus === 'denied') {
-      setPendingAction(onSuccess ? () => onSuccess : null);
+      pendingActionRef.current = onSuccess || null;
       setShowLocationModal(true);
       return false;
     }
     
     // No previous interaction? Show the explanation modal
     if (locationPermissionStatus === null || locationPermissionStatus === 'skipped') {
-      setPendingAction(onSuccess ? () => onSuccess : null);
+      pendingActionRef.current = onSuccess || null;
       setShowLocationModal(true);
       return false;
     }
@@ -313,7 +316,7 @@ export default function JukeboxPage() {
       setCheckingLocation(false);
       // Permission revoked - show modal
       setLocationPermissionStatus(null);
-      setPendingAction(onSuccess ? () => onSuccess : null);
+      pendingActionRef.current = onSuccess || null;
       setShowLocationModal(true);
       return false;
     }
@@ -548,12 +551,19 @@ export default function JukeboxPage() {
     }
   };
 
-  const handleVote = async (sequenceName: string, voteType: 'up' | 'down') => {
+  const handleVote = async (sequenceName: string, voteType: 'up' | 'down', locationOverride?: UserLocation) => {
     // Ensure location permission first (lazy approach)
-    const hasLocation = await ensureLocationPermission();
+    // The callback receives location directly when called from handleLocationGranted
+    const hasLocation = await ensureLocationPermission((location?: UserLocation) => handleVote(sequenceName, voteType, location));
     if (!hasLocation) {
-      // Modal will be shown, pending action will execute the vote after permission granted
-      setPendingAction(() => () => handleVote(sequenceName, voteType));
+      // Modal will be shown, pending action already set in ensureLocationPermission
+      return;
+    }
+
+    // Use override if provided (from pending action), otherwise use state
+    const locationToUse = locationOverride || userLocation;
+    if (!locationToUse) {
+      showToast('Location required. Please enable location access.', 'error');
       return;
     }
 
@@ -564,7 +574,7 @@ export default function JukeboxPage() {
         body: JSON.stringify({ 
           sequenceName, 
           voteType,
-          userLocation: userLocation!
+          userLocation: locationToUse
         })
       });
 
@@ -670,20 +680,21 @@ export default function JukeboxPage() {
     }
   };
 
-  const handleRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRequest.trim()) return;
-
-    // Ensure location permission first (lazy approach)
-    const hasLocation = await ensureLocationPermission();
-    if (!hasLocation) {
-      // Modal will be shown, user needs to grant permission first
-      return;
-    }
-
+  // Helper function to submit a request (can be called directly or as pending action)
+  // locationOverride is passed when called from handleLocationGranted (before state updates)
+  const submitRequest = async (sequenceName: string, requesterNameValue: string, locationOverride?: UserLocation) => {
     setLoading(true);
     setMessage('');
     setLocationError(null);
+
+    // Use override if provided (from pending action), otherwise use state
+    const locationToUse = locationOverride || userLocation;
+    if (!locationToUse) {
+      setMessage('❌ Location required. Please enable location access.');
+      showToast('Location required. Please enable location access.', 'error');
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch('/api/jukebox/queue', {
@@ -692,9 +703,9 @@ export default function JukeboxPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sequence_name: newRequest.trim(),
-          requester_name: requesterName.trim() || undefined,
-          userLocation: userLocation!
+          sequence_name: sequenceName,
+          requester_name: requesterNameValue || undefined,
+          userLocation: locationToUse
         }),
       });
 
@@ -731,11 +742,38 @@ export default function JukeboxPage() {
     }
   };
 
-  const requestPopularSequence = async (sequenceName: string) => {
-    // Ensure location permission first (lazy approach)
-    const hasLocation = await ensureLocationPermission();
+  const handleRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRequest.trim()) return;
+
+    // Capture values before async call (in case they change)
+    const capturedRequest = newRequest.trim();
+    const capturedName = requesterName.trim();
+
+    // Ensure location permission first, passing the pending action
+    // The callback receives location directly when called from handleLocationGranted
+    const hasLocation = await ensureLocationPermission((location?: UserLocation) => submitRequest(capturedRequest, capturedName, location));
     if (!hasLocation) {
-      // Modal will be shown, user needs to grant permission first
+      // Modal will be shown, pending action already set
+      return;
+    }
+
+    await submitRequest(capturedRequest, capturedName);
+  };
+
+  const requestPopularSequence = async (sequenceName: string, locationOverride?: UserLocation) => {
+    // Ensure location permission first, passing the pending action
+    // The callback receives location directly when called from handleLocationGranted
+    const hasLocation = await ensureLocationPermission((location?: UserLocation) => requestPopularSequence(sequenceName, location));
+    if (!hasLocation) {
+      // Modal will be shown, pending action already set
+      return;
+    }
+
+    // Use override if provided (from pending action), otherwise use state
+    const locationToUse = locationOverride || userLocation;
+    if (!locationToUse) {
+      showToast('Location required. Please enable location access.', 'error');
       return;
     }
 
@@ -751,7 +789,7 @@ export default function JukeboxPage() {
         body: JSON.stringify({
           sequence_name: sequenceName,
           requester_name: requesterName.trim() || undefined,
-          userLocation: userLocation!
+          userLocation: locationToUse
         }),
       });
 
