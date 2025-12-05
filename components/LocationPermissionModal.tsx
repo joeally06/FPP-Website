@@ -224,10 +224,10 @@ export default function LocationPermissionModal({
         className={`
           max-w-lg w-full rounded-2xl shadow-2xl border-2 overflow-hidden max-h-[90vh] overflow-y-auto
           ${theme.id === 'christmas' 
-            ? 'bg-gradient-to-br from-red-900/95 to-green-900/95 border-yellow-400' 
+            ? 'bg-linear-to-br from-red-900/95 to-green-900/95 border-yellow-400' 
             : theme.id === 'halloween'
-            ? 'bg-gradient-to-br from-purple-900/95 to-orange-900/95 border-orange-500'
-            : 'bg-gradient-to-br from-blue-900/95 to-purple-900/95 border-blue-400'
+            ? 'bg-linear-to-br from-purple-900/95 to-orange-900/95 border-orange-500'
+            : 'bg-linear-to-br from-blue-900/95 to-purple-900/95 border-blue-400'
           }
           animate-scale-in
         `}
@@ -395,10 +395,10 @@ export default function LocationPermissionModal({
                   flex-1 py-4 px-6 rounded-xl font-bold text-white text-lg
                   transition-all transform hover:scale-[1.02] active:scale-[0.98]
                   ${theme.id === 'christmas'
-                    ? 'bg-gradient-to-r from-green-600 to-red-600 hover:from-green-500 hover:to-red-500'
+                    ? 'bg-linear-to-r from-green-600 to-red-600 hover:from-green-500 hover:to-red-500'
                     : theme.id === 'halloween'
-                    ? 'bg-gradient-to-r from-orange-600 to-purple-600 hover:from-orange-500 hover:to-purple-500'
-                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500'
+                    ? 'bg-linear-to-r from-orange-600 to-purple-600 hover:from-orange-500 hover:to-purple-500'
+                    : 'bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500'
                   }
                   shadow-lg hover:shadow-xl
                 `}
@@ -434,10 +434,10 @@ export default function LocationPermissionModal({
                   flex-1 py-4 px-6 rounded-xl font-bold text-white text-lg
                   transition-all transform hover:scale-[1.02] active:scale-[0.98]
                   ${theme.id === 'christmas'
-                    ? 'bg-gradient-to-r from-green-600 to-red-600'
+                    ? 'bg-linear-to-r from-green-600 to-red-600'
                     : theme.id === 'halloween'
-                    ? 'bg-gradient-to-r from-orange-600 to-purple-600'
-                    : 'bg-gradient-to-r from-blue-600 to-purple-600'
+                    ? 'bg-linear-to-r from-orange-600 to-purple-600'
+                    : 'bg-linear-to-r from-blue-600 to-purple-600'
                   }
                   shadow-lg
                 `}
