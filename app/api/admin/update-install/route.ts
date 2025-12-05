@@ -83,8 +83,9 @@ export async function POST() {
 
     console.log(`[Update Install] Spawning daemon: ${SCRIPT_PATH}`);
 
-    // Spawn daemon as detached background process
-    const daemon = spawn('bash', [SCRIPT_PATH, process.cwd()], {
+    // Spawn daemon using setsid to create a truly independent process session
+    // This ensures the daemon survives even when fpp-control is killed
+    const daemon = spawn('setsid', ['bash', SCRIPT_PATH, process.cwd()], {
       detached: true,
       stdio: 'ignore',
       cwd: process.cwd(),
