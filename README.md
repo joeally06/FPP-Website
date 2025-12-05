@@ -10,10 +10,6 @@
 ---
 
 ## 🌟 What is FPP Control Center?
-Run the development server:
-```bash
-npm run dev
-```
 
 FPP Control Center is a **complete web-based control panel** for your Falcon Player (FPP) Christmas light display. It provides an interactive visitor experience while giving you full control over your show.
 
@@ -73,48 +69,6 @@ FPP Control Center is a **complete web-based control panel** for your Falcon Pla
 
 ---
 
-## 🚀 Quick Start
-
-### **Option 1: Automated Setup (Recommended)**
-
-The fastest way to get started:
-
-```bash
-git clone https://github.com/joeally06/FPP-Control-Center.git
-cd FPP-Control-Center
-chmod +x setup.sh
-./setup.sh
-```
-
-The interactive wizard walks you through everything in **10-15 minutes**.
-
-## CI and Tests ✅
-
-This project includes a GitHub Actions workflow at `.github/workflows/ci.yml` that runs on push and pull requests for `main`/`master` and performs the following checks:
-
-- Installs dependencies via `npm ci`
-- Lints the code (`npm run lint`)
-- Builds the project (`npm run build`) with dummy env vars for CI
-- Runs the TypeScript test scripts under `scripts/` that validate migrations, jukebox queue behaviour, SQL request counting, and SMTP retry/backoff
- - Runs a CI security validation script, `scripts/check-security.js`, that verifies production-critical environment variables like `NEXTAUTH_SECRET` and `NEXTAUTH_URL` are present or warns in CI.
-
-To run the same validation locally, use:
-
-```bash
-npm ci
-npm run lint
-npm run build
-npm run test:ci
-```
-
-The `test:ci` script runs the project's TypeScript test files sequentially and places test database files in `./tmp/`.
-
-### **Option 2: Manual Setup**
-
-See the complete [INSTALLATION.md](docs/INSTALLATION.md) guide for step-by-step instructions.
-
----
-
 ## 📋 System Requirements
 
 ### **Required:**
@@ -133,6 +87,292 @@ See the complete [INSTALLATION.md](docs/INSTALLATION.md) guide for step-by-step 
 
 ---
 
+## 🔧 BEFORE YOU BEGIN: Gather Your Credentials
+
+> **⚠️ IMPORTANT:** Complete these steps FIRST before running the setup wizard! The wizard will ask for these values and you'll save time by having them ready.
+
+The setup wizard will ask for credentials from several services. **Set up these accounts and gather the following information before you start:**
+
+---
+
+### 📋 Pre-Setup Checklist
+
+| Service | Required? | What You'll Need |
+|---------|-----------|------------------|
+| **Google OAuth** | ✅ Required | Client ID, Client Secret |
+| **Spotify API** | ✅ Required | Client ID, Client Secret |
+| **FPP Server** | ✅ Required | IP Address (e.g., 192.168.1.100) |
+| **Gmail SMTP** | 🟡 Optional | Gmail address, App Password |
+| **Ollama AI** | 🟡 Optional | Just install, no credentials needed |
+| **Cloudflare** | 🟡 Optional | Domain name, Cloudflare account |
+
+---
+
+### 1️⃣ Google OAuth Setup (Required - ~10 minutes)
+
+Google OAuth provides secure admin authentication.
+
+#### Step 1: Create Google Cloud Project
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com/)
+2. Click **Select a project** → **New Project**
+3. **Project name:** `FPP Control Center`
+4. Click **Create** and wait ~30 seconds
+5. Select your new project
+
+#### Step 2: Configure OAuth Consent Screen
+
+1. Navigate: **APIs & Services** → **OAuth consent screen**
+2. Select **External** → Click **Create**
+3. Fill in:
+   - **App name:** `FPP Control Center`
+   - **User support email:** Your email
+   - **Developer contact:** Your email
+4. Click **Save and Continue** through all steps
+5. On **Test users**: Add your admin email(s)
+
+#### Step 3: Create OAuth Credentials
+
+1. Navigate: **Credentials** → **+ Create Credentials** → **OAuth client ID**
+2. **Application type:** Web application
+3. **Name:** `FPP Control`
+4. **Authorized redirect URIs:** Add these based on your setup:
+
+   **For Local Network:**
+   ```
+   http://localhost:3000/api/auth/callback/google
+   http://YOUR_IP:3000/api/auth/callback/google
+   ```
+   
+   **For Public (Cloudflare Tunnel):**
+   ```
+   https://yourdomain.com/api/auth/callback/google
+   ```
+
+5. Click **Create**
+
+#### Step 4: Save Your Credentials
+
+Copy and save these values:
+```
+GOOGLE_CLIENT_ID=414031818307-xxxxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxxxx
+```
+
+---
+
+### 2️⃣ Spotify API Setup (Required - ~5 minutes)
+
+Spotify API fetches song metadata (artist, album art, etc.) for the jukebox.
+
+#### Step 1: Create Developer Account
+
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+2. Log in with your Spotify account (or create a free one)
+
+#### Step 2: Create an App
+
+1. Click **Create App**
+2. Fill in:
+   - **App name:** `FPP Control Center`
+   - **App description:** `Christmas light show jukebox`
+   - **Redirect URI:** `http://localhost:3000` (required but not used)
+   - **APIs:** Select **Web API**
+3. Check the terms boxes
+4. Click **Save**
+
+#### Step 3: Get Your Credentials
+
+1. Click **Settings** (top right of your app)
+2. Copy your credentials:
+
+```
+SPOTIFY_CLIENT_ID=e18f418eb4b94dce909022ffea242dcf
+SPOTIFY_CLIENT_SECRET=f84316021d314effb08f637972994ccd
+```
+
+---
+
+### 3️⃣ Gmail SMTP Setup (Optional - ~5 minutes)
+
+Required for Santa letter email delivery and FPP offline alerts.
+
+#### Step 1: Enable 2-Factor Authentication
+
+1. Go to [myaccount.google.com/security](https://myaccount.google.com/security)
+2. Enable **2-Step Verification** if not already enabled
+
+#### Step 2: Create App Password
+
+1. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. **Select app:** Other (custom name)
+3. **Name:** `FPP Control Center`
+4. Click **Generate**
+5. **Copy the 16-character password** (format: `abcd efgh ijkl mnop`)
+
+> ⚠️ **This password is shown only once!** Save it now.
+
+#### Step 3: Save Your Credentials
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=yourname@gmail.com
+SMTP_PASS=abcdefghijklmnop  (no spaces)
+```
+
+---
+
+### 4️⃣ Ollama AI Setup (Optional - ~10 minutes)
+
+Ollama provides local AI for generating personalized Santa letter responses.
+
+#### Linux Installation
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Download the model
+ollama pull llama3.2
+
+# Start the service
+ollama serve
+```
+
+#### macOS Installation
+
+1. Download from [ollama.ai](https://ollama.ai/)
+2. Install and run Ollama
+3. Open Terminal:
+   ```bash
+   ollama pull llama3.2
+   ```
+
+#### Save Your Configuration
+
+```
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+```
+
+---
+
+### 5️⃣ Cloudflare Tunnel Setup (Optional - For Public Access)
+
+Cloudflare Tunnel provides free HTTPS access to your site from anywhere, without port forwarding.
+
+#### Prerequisites
+
+- A domain name managed by Cloudflare (free to transfer)
+- A free Cloudflare account at [cloudflare.com](https://www.cloudflare.com/)
+
+#### Quick Setup (After Main Installation)
+
+Run this after the main setup wizard completes:
+
+```bash
+./scripts/setup-cloudflare-tunnel.sh
+```
+
+#### ⚠️ CRITICAL: Geolocation Permission Header
+
+**If using Cloudflare Tunnel, you MUST configure this header or voting/song requests won't work!**
+
+The browser needs permission to use geolocation. Cloudflare blocks this by default.
+
+##### Configure in Cloudflare Dashboard:
+
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com)
+2. Select your domain
+3. Navigate to: **Rules** → **Transform Rules** → **Modify Response Header**
+4. Click **+ Create rule**
+5. Configure:
+
+   | Setting | Value |
+   |---------|-------|
+   | **Rule name** | `Allow Geolocation` |
+   | **When incoming requests match** | All incoming requests |
+   | **Then** | Set static |
+   | **Header name** | `Permissions-Policy` |
+   | **Value** | `camera=(), microphone=(), geolocation=(self)` |
+
+6. Click **Deploy**
+
+##### Verify It's Working
+
+```bash
+curl -I https://yourdomain.com | grep -i permissions-policy
+```
+
+Expected output:
+```
+permissions-policy: camera=(), microphone=(), geolocation=(self)
+```
+
+---
+
+### 📝 Your Credentials Summary
+
+Before starting setup, you should have:
+
+```env
+# ===== REQUIRED =====
+
+# Admin Email(s) - comma-separated for multiple admins
+ADMIN_EMAILS=yourname@gmail.com
+
+# FPP Server
+FPP_URL=http://192.168.1.100
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-your-secret
+
+# Spotify API
+SPOTIFY_CLIENT_ID=your-spotify-client-id
+SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
+
+# ===== OPTIONAL =====
+
+# Gmail SMTP (for Santa letters and alerts)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=yourname@gmail.com
+SMTP_PASS=your-16-char-app-password
+
+# Ollama AI (for Santa letters)
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+
+# Public Domain (if using Cloudflare Tunnel)
+NEXTAUTH_URL=https://yourdomain.com
+```
+
+---
+
+## 🚀 Quick Start
+
+Now that you have your credentials ready, installation is easy!
+
+### **Automated Setup (Recommended)**
+
+```bash
+git clone https://github.com/joeally06/FPP-Control-Center.git
+cd FPP-Control-Center
+chmod +x setup.sh
+./setup.sh
+```
+
+The interactive wizard walks you through everything in **10-15 minutes**.
+
+### **Manual Setup**
+
+See the complete [INSTALLATION.md](docs/INSTALLATION.md) guide for step-by-step instructions.
+
+---
+
 ## 🌐 Deployment Options
 
 ### **Local Network Only**
@@ -146,6 +386,29 @@ See the complete [INSTALLATION.md](docs/INSTALLATION.md) guide for step-by-step 
 - Free HTTPS via Cloudflare Tunnel
 - No port forwarding required
 - **Setup time:** 20 minutes (includes tunnel setup)
+
+---
+
+## CI and Tests ✅
+
+This project includes a GitHub Actions workflow at `.github/workflows/ci.yml` that runs on push and pull requests for `main`/`master` and performs the following checks:
+
+- Installs dependencies via `npm ci`
+- Lints the code (`npm run lint`)
+- Builds the project (`npm run build`) with dummy env vars for CI
+- Runs the TypeScript test scripts under `scripts/` that validate migrations, jukebox queue behaviour, SQL request counting, and SMTP retry/backoff
+- Runs a CI security validation script, `scripts/check-security.js`, that verifies production-critical environment variables like `NEXTAUTH_SECRET` and `NEXTAUTH_URL` are present or warns in CI.
+
+To run the same validation locally, use:
+
+```bash
+npm ci
+npm run lint
+npm run build
+npm run test:ci
+```
+
+The `test:ci` script runs the project's TypeScript test files sequentially and places test database files in `./tmp/`.
 
 ---
 
@@ -215,6 +478,7 @@ See the complete [INSTALLATION.md](docs/INSTALLATION.md) guide for step-by-step 
 - **OAuth not working** → Check redirect URIs in Google Console
 - **FPP connection failed** → Verify FPP IP address and network
 - **Email not sending** → Verify SMTP credentials and ports
+- **Geolocation not working** → Configure Cloudflare Permissions-Policy header (see above)
 
 ---
 
