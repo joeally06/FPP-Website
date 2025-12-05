@@ -23,10 +23,13 @@ export default function UpdateChecker() {
   const [logOutput, setLogOutput] = useState<string[]>([]);
   const [showTerminal, setShowTerminal] = useState(false);
   const [autoReloadCountdown, setAutoReloadCountdown] = useState<number | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   
   const eventSourceRef = useRef<EventSource | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-scroll log output
   useEffect(() => {
@@ -43,6 +46,9 @@ export default function UpdateChecker() {
       }
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, []);
@@ -157,8 +163,83 @@ export default function UpdateChecker() {
     });
 
     eventSource.onerror = () => {
-      // If we're not installing, this is expected (no active update)
-      if (!installing) {
+      // If we're installing and lose connection, the server is restarting
+      if (installing) {
+        console.log('[UpdateChecker] SSE connection lost during update - server may be restarting');
+        eventSource.close();
+        eventSourceRef.current = null;
+        setReconnecting(true);
+        
+        // Try to reconnect after a delay
+        const attemptReconnect = (attempt: number) => {
+          if (attempt > 30) { // Give up after 30 attempts (2.5 minutes)
+            setReconnecting(false);
+            setInstalling(false);
+            setStatus({
+              status: 'completed',
+              message: 'Update likely completed - please refresh the page',
+              timestamp: getUtcNow(),
+            });
+            return;
+          }
+          
+          setReconnectAttempt(attempt);
+          
+          // Try to fetch the status endpoint to see if server is back
+          fetch('/api/admin/update-status', { cache: 'no-store' })
+            .then(res => res.json())
+            .then(data => {
+              const serverStatus = (data.status || '').toLowerCase();
+              console.log('[UpdateChecker] Reconnect attempt', attempt, '- server status:', serverStatus);
+              
+              if (serverStatus === 'completed' || serverStatus === 'success') {
+                // Update completed!
+                setReconnecting(false);
+                setInstalling(false);
+                setStatus({
+                  status: 'completed',
+                  message: 'Update completed successfully! 🎉',
+                  timestamp: getUtcNow(),
+                });
+                
+                // Start auto-reload countdown
+                setAutoReloadCountdown(5);
+                countdownIntervalRef.current = setInterval(() => {
+                  setAutoReloadCountdown(prev => {
+                    if (prev === null || prev <= 1) {
+                      if (countdownIntervalRef.current) {
+                        clearInterval(countdownIntervalRef.current);
+                      }
+                      window.location.reload();
+                      return null;
+                    }
+                    return prev - 1;
+                  });
+                }, 1000);
+              } else if (serverStatus === 'failed' || serverStatus === 'error') {
+                // Update failed
+                setReconnecting(false);
+                setInstalling(false);
+                setStatus({
+                  status: 'error',
+                  message: 'Update failed - check logs for details',
+                  timestamp: getUtcNow(),
+                });
+              } else {
+                // Still in progress or unknown, try again
+                reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(attempt + 1), 5000);
+              }
+            })
+            .catch(() => {
+              // Server not responding yet, try again
+              reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(attempt + 1), 5000);
+            });
+        };
+        
+        // Wait 10 seconds before first reconnect attempt (server needs time to restart)
+        reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(1), 10000);
+      } else {
+        // Not installing, just close quietly
         eventSource.close();
         eventSourceRef.current = null;
       }
@@ -357,6 +438,26 @@ export default function UpdateChecker() {
           <AdminText className="text-white mt-2">
             Page will reload in <span className="font-bold text-2xl text-green-400">{autoReloadCountdown}</span> seconds...
           </AdminText>
+        </div>
+      )}
+
+      {/* Reconnecting Banner */}
+      {reconnecting && (
+        <div className="p-6 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 rounded-xl border-2 border-blue-500/50 text-center">
+          <span className="text-4xl animate-spin inline-block">🔄</span>
+          <AdminH3 className="text-blue-300 mt-2">Server Restarting...</AdminH3>
+          <AdminText className="text-white mt-2">
+            Reconnecting to server (attempt {reconnectAttempt}/30)...
+          </AdminText>
+          <AdminTextSmall className="text-white/60 mt-2">
+            The update is completing. This page will refresh automatically when ready.
+          </AdminTextSmall>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-blue-500/50 hover:bg-blue-500/70 text-white rounded-lg transition-all"
+          >
+            Refresh Now
+          </button>
         </div>
       )}
 
