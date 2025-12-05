@@ -27,6 +27,9 @@ export default function UpdateChecker() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 60; // Try for 5 minutes (60 * 5s)
 
   // Auto-scroll log output
   useEffect(() => {
@@ -43,6 +46,9 @@ export default function UpdateChecker() {
       }
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
   }, []);
@@ -66,10 +72,134 @@ export default function UpdateChecker() {
       'error': 'Update failed - check logs ❌',
       'failed': 'Update failed - check logs ❌',
     };
-    return messages[statusStr] || statusStr;
+      return messages[statusStr] || statusStr;
   }, []);
 
-  // Connect to SSE stream for live updates
+  // Polling fallback for when SSE connection breaks during server restart
+  const startPollingFallback = useCallback(() => {
+    if (pollingIntervalRef.current) return; // Already polling
+    
+    console.log('[UpdateChecker] Starting polling fallback for update status...');
+    reconnectAttemptsRef.current = 0;
+    
+    pollingIntervalRef.current = setInterval(async () => {
+      reconnectAttemptsRef.current++;
+      
+      try {
+        const response = await fetch('/api/admin/update-status', {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const statusLower = (data.status || 'idle').toLowerCase();
+          
+          console.log('[UpdateChecker] Poll result:', statusLower);
+          
+          // Update log output if available
+          if (data.logLines && data.logLines.length > 0) {
+            setLogOutput(data.logLines);
+          }
+          
+          // Update status
+          setStatus({
+            status: statusLower as UpdateStatus['status'],
+            message: getStatusMessage(statusLower),
+            timestamp: data.timestamp || getUtcNow(),
+          });
+          
+          // Check if update completed
+          if (['completed', 'success', 'up_to_date'].includes(statusLower)) {
+            console.log('[UpdateChecker] Update completed (via polling)!');
+            
+            // Stop polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            
+            setInstalling(false);
+            setStatus({
+              status: 'completed',
+              message: 'Update completed successfully! 🎉',
+              timestamp: getUtcNow(),
+            });
+            
+            // Start auto-reload countdown
+            setAutoReloadCountdown(5);
+            countdownIntervalRef.current = setInterval(() => {
+              setAutoReloadCountdown(prev => {
+                if (prev === null || prev <= 1) {
+                  if (countdownIntervalRef.current) {
+                    clearInterval(countdownIntervalRef.current);
+                  }
+                  window.location.reload();
+                  return null;
+                }
+                return prev - 1;
+              });
+            }, 1000);
+            
+            return;
+          }
+          
+          // Check for error status
+          if (['error', 'failed'].includes(statusLower)) {
+            console.log('[UpdateChecker] Update failed (via polling)');
+            
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            
+            setInstalling(false);
+            setStatus({
+              status: 'error',
+              message: 'Update failed - check logs for details',
+              timestamp: getUtcNow(),
+            });
+            
+            return;
+          }
+          
+          // Reset reconnect counter on successful poll
+          reconnectAttemptsRef.current = 0;
+        }
+      } catch (error) {
+        // Server might still be restarting - this is expected
+        console.log('[UpdateChecker] Poll failed (attempt', reconnectAttemptsRef.current, '):', 
+          error instanceof Error ? error.message : 'Unknown error');
+        
+        // Update UI to show reconnecting
+        if (reconnectAttemptsRef.current <= maxReconnectAttempts) {
+          setStatus(prev => ({
+            ...prev,
+            status: 'restarting' as UpdateStatus['status'],
+            message: `Server restarting... reconnecting (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`,
+            timestamp: getUtcNow(),
+          } as UpdateStatus));
+        }
+      }
+      
+      // Give up after max attempts
+      if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+        console.log('[UpdateChecker] Giving up polling after max attempts');
+        
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        
+        setInstalling(false);
+        setStatus({
+          status: 'error',
+          message: 'Lost connection to server - please refresh the page manually',
+          timestamp: getUtcNow(),
+        });
+      }
+    }, 5000); // Poll every 5 seconds
+  }, [getStatusMessage]);  // Connect to SSE stream for live updates
   const connectToStream = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -157,13 +287,19 @@ export default function UpdateChecker() {
     });
 
     eventSource.onerror = () => {
-      // If we're not installing, this is expected (no active update)
-      if (!installing) {
+      // If we're installing, start polling fallback when SSE breaks
+      if (installing) {
+        console.log('[UpdateChecker] SSE connection lost during update - starting polling fallback');
+        eventSource.close();
+        eventSourceRef.current = null;
+        startPollingFallback();
+      } else {
+        // Not installing, just close quietly
         eventSource.close();
         eventSourceRef.current = null;
       }
     };
-  }, [installing, getStatusMessage]);
+  }, [installing, getStatusMessage, startPollingFallback]);
 
   // Fetch current update status
   const fetchStatus = async () => {
