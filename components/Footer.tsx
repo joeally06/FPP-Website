@@ -65,7 +65,7 @@ export default function Footer() {
               🔒 Privacy Policy
             </Link>
             <span className="text-gray-400 dark:text-gray-600 font-mono">
-              © {new Date().getFullYear()} 🎅 Happy Holidays! ✨
+              © {new Date().getFullYear()}
             </span>
           </div>
         </div>
