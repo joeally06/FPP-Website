@@ -913,7 +913,7 @@ export default function JukeboxPage() {
           <div className="text-center mb-4">
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 themed-font flex items-center justify-center gap-2 md:gap-3">
               <span className="text-4xl md:text-5xl">{theme.icons.nowPlaying}</span>
-              <span className="break-words">Light Show Jukebox</span>
+              <span className="wrap-break-word">Light Show Jukebox</span>
             </h1>
             <p className="text-white/80 text-sm md:text-base px-4">Request your favorite songs and see what's playing!</p>
             
@@ -999,7 +999,7 @@ export default function JukeboxPage() {
               </div>
               <button
                 onClick={() => setShowSantaModal(true)}
-                className="bg-gradient-to-r from-red-600 to-green-600 text-white px-8 py-4 rounded-full text-lg font-bold hover:shadow-2xl transform hover:scale-105 transition-all duration-200 shadow-lg"
+                className="bg-linear-to-r from-red-600 to-green-600 text-white px-8 py-4 rounded-full text-lg font-bold hover:shadow-2xl transform hover:scale-105 transition-all duration-200 shadow-lg"
               >
                 ✉️ Write to Santa! ✉️
               </button>
@@ -1008,7 +1008,7 @@ export default function JukeboxPage() {
         )}
 
         {/* Currently Playing */}
-        <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mb-6 border">
+        <div className="bg-linear-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mb-6 border">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2 text-white themed-font">
             <span className="text-3xl">{theme.icons.nowPlaying}</span>
             Now Playing
@@ -1132,7 +1132,7 @@ export default function JukeboxPage() {
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Request Form */}
-              <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
+              <div className="bg-linear-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold text-white themed-font flex items-center gap-2">
                 <span className="text-3xl">{theme.icons.queue}</span>
@@ -1264,7 +1264,7 @@ export default function JukeboxPage() {
               <button
                 type="submit"
                 disabled={loading || checkingLocation}
-                className={`w-full bg-gradient-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white py-3 px-4 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg backdrop-blur-sm`}
+                className={`w-full bg-linear-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white py-3 px-4 rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg backdrop-blur-sm`}
               >
                 {checkingLocation ? '📍 Getting Location...' : loading ? 'Adding...' : '✓ Add to Queue'}
               </button>
@@ -1277,7 +1277,7 @@ export default function JukeboxPage() {
           </div>
 
           {/* Popular Sequences */}
-          <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
+          <div className="bg-linear-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
             <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
               <span className="text-3xl">{theme.icons.popular}</span>
               Popular Songs
@@ -1295,7 +1295,7 @@ export default function JukeboxPage() {
                         <button
                           onClick={() => requestPopularSequence(seq.sequence_name)}
                           disabled={loading}
-                          className={`bg-gradient-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md backdrop-blur-sm`}
+                          className={`bg-linear-to-r from-${theme.primaryColor} to-${theme.secondaryColor} text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md backdrop-blur-sm`}
                         >
                           + Request
                         </button>
@@ -1331,7 +1331,7 @@ export default function JukeboxPage() {
         </div>
 
         {/* Queue */}
-        <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mt-6 border">
+        <div className="bg-linear-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mt-6 border">
           <h2 className="text-2xl font-semibold mb-4 text-white themed-font flex items-center gap-2">
             <span className="text-3xl">{theme.icons.queue}</span>
             Queue ({queue.length} items)
@@ -1341,7 +1341,7 @@ export default function JukeboxPage() {
               {queue.map((item, index) => (
                 <div key={item.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all">
                   <div className="flex items-center space-x-4">
-                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md">
+                    <span className="bg-linear-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md">
                       #{index + 1}
                     </span>
                     <div>
@@ -1379,16 +1379,16 @@ export default function JukeboxPage() {
         </div>
 
         {/* All Available Songs with Voting */}
-        <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mt-6 border">
+        <div className="bg-linear-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 mt-6 border">
           {/* Enhanced Header with Animation */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex-1">
               <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                <Radio className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 animate-pulse flex-shrink-0" />
-                <h2 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                <Radio className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 animate-pulse shrink-0" />
+                <h2 className="text-xl sm:text-3xl font-bold bg-linear-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
                   🎵 Music Jukebox
                 </h2>
-                <Music className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 animate-bounce flex-shrink-0" />
+                <Music className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 animate-bounce shrink-0" />
               </div>
               <p className="text-sm sm:text-lg text-gray-300 font-light sm:ml-11">
                 Vote for your favorite songs and help build the perfect playlist! 🎶
@@ -1540,7 +1540,7 @@ export default function JukeboxPage() {
           animation: pulse-subtle 3s ease-in-out infinite;
         }
         
-        h2.bg-gradient-to-r {
+        h2.bg-linear-to-r {
           background-size: 200% 200%;
           animation: gradient 3s ease infinite;
         }

@@ -447,7 +447,7 @@ export default function UpdateChecker() {
 
       {/* Update Available Banner */}
       {hasUpdates && !isUpdating && !installing && (
-        <div className="p-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl border-2 border-yellow-500/50">
+        <div className="p-6 bg-linear-to-r from-yellow-500/20 to-orange-500/20 rounded-xl border-2 border-yellow-500/50">
           <div className="flex items-center gap-4">
             <span className="text-5xl">🚀</span>
             <div className="flex-1">
@@ -461,7 +461,7 @@ export default function UpdateChecker() {
             <button
               onClick={installUpdate}
               disabled={installing}
-              className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xl font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-2xl hover:shadow-green-500/50 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-8 py-4 bg-linear-to-r from-green-500 to-emerald-600 text-white text-xl font-bold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-2xl hover:shadow-green-500/50 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Install Now →
             </button>
@@ -471,7 +471,7 @@ export default function UpdateChecker() {
 
       {/* Auto-reload Countdown */}
       {autoReloadCountdown !== null && (
-        <div className="p-6 bg-gradient-to-r from-green-500/30 to-emerald-500/30 rounded-xl border-2 border-green-500/50 text-center">
+        <div className="p-6 bg-linear-to-r from-green-500/30 to-emerald-500/30 rounded-xl border-2 border-green-500/50 text-center">
           <span className="text-4xl">✅</span>
           <AdminH3 className="text-green-300 mt-2">Update Complete!</AdminH3>
           <AdminText className="text-white mt-2">
@@ -482,7 +482,7 @@ export default function UpdateChecker() {
 
       {/* Reconnecting Banner */}
       {reconnecting && (
-        <div className="p-6 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 rounded-xl border-2 border-blue-500/50 text-center">
+        <div className="p-6 bg-linear-to-r from-blue-500/30 to-cyan-500/30 rounded-xl border-2 border-blue-500/50 text-center">
           <span className="text-4xl animate-spin inline-block">🔄</span>
           <AdminH3 className="text-blue-300 mt-2">Server Restarting...</AdminH3>
           <AdminText className="text-white mt-2">
@@ -530,7 +530,7 @@ export default function UpdateChecker() {
         {isUpdating && (
           <div className="mt-4">
             <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-full rounded-full animate-pulse" style={{ width: '100%' }} />
+              <div className="bg-linear-to-r from-blue-500 to-cyan-500 h-full rounded-full animate-pulse" style={{ width: '100%' }} />
             </div>
             <AdminTextSmall className="mt-2 text-center text-white/80">
               Please wait... Do not close this page.
@@ -621,7 +621,7 @@ export default function UpdateChecker() {
           <button
             onClick={installUpdate}
             disabled={installing}
-            className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            className="flex-1 px-6 py-3 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {installing ? '⏳ Starting...' : '🚀 Install Update'}
           </button>
