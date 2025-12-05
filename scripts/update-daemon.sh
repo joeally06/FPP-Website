@@ -241,7 +241,7 @@ if [ -n "$PM2_BIN" ]; then
     # Restart fpp-poller first (it's less critical)
     log "Restarting fpp-poller..."
     timeout 10 "$PM2_BIN" delete fpp-poller >> "$LOG_FILE" 2>&1 || true
-    sleep 1
+    sleep 2
     timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-poller >> "$LOG_FILE" 2>&1
     if [ $? -eq 0 ]; then
         log "✅ fpp-poller started"
@@ -250,9 +250,20 @@ if [ -n "$PM2_BIN" ]; then
     fi
     
     # Restart fpp-control (main app) - always delete + start
+    # Wait for port 3000 to be released before starting
     log "Restarting fpp-control..."
     timeout 10 "$PM2_BIN" delete fpp-control >> "$LOG_FILE" 2>&1 || true
-    sleep 1
+    
+    # Wait for port 3000 to be free (max 10 seconds)
+    log "Waiting for port 3000 to be released..."
+    for i in {1..10}; do
+        if ! netstat -tuln 2>/dev/null | grep -q ":3000 " && ! ss -tuln 2>/dev/null | grep -q ":3000 "; then
+            log "✅ Port 3000 is free"
+            break
+        fi
+        sleep 1
+    done
+    
     timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1
     if [ $? -eq 0 ]; then
         log "✅ fpp-control started"
