@@ -254,23 +254,33 @@ if [ -n "$PM2_BIN" ]; then
     log "Restarting fpp-control..."
     timeout 10 "$PM2_BIN" delete fpp-control >> "$LOG_FILE" 2>&1 || true
     
-    # Wait for port 3000 to be free (max 15 seconds)
+    # Wait for port 3000 to be free (max 10 seconds)
     # Initial delay to let the process start shutting down
     log "Waiting for port 3000 to be released..."
     sleep 3
     PORT_FREE=false
-    for i in {1..12}; do
+    for i in {1..7}; do
         if ! netstat -tuln 2>/dev/null | grep -q ":3000 " && ! ss -tuln 2>/dev/null | grep -q ":3000 "; then
             PORT_FREE=true
             log "✅ Port 3000 is free (after ${i}s)"
             break
         fi
-        log "   Port 3000 still in use, waiting... (${i}/12)"
+        log "   Port 3000 still in use, waiting... (${i}/7)"
         sleep 1
     done
     
+    # If port still in use, kill the process holding it
     if [ "$PORT_FREE" = false ]; then
-        log "⚠️  Port 3000 still in use after 15s, attempting start anyway..."
+        log "⚠️  Port 3000 still in use, forcefully killing process..."
+        # Find and kill process on port 3000
+        PORT_PID=$(lsof -t -i:3000 2>/dev/null || fuser 3000/tcp 2>/dev/null | awk '{print $1}' || echo "")
+        if [ -n "$PORT_PID" ]; then
+            log "   Killing PID $PORT_PID holding port 3000"
+            kill -9 $PORT_PID 2>/dev/null || true
+            sleep 2
+        else
+            log "   Could not identify process on port 3000"
+        fi
     fi
     
     timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1
