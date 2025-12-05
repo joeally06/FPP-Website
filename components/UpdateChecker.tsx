@@ -30,6 +30,7 @@ export default function UpdateChecker() {
   const logContainerRef = useRef<HTMLDivElement>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const installingRef = useRef<boolean>(false); // Track installing state for callbacks
 
   // Auto-scroll log output
   useEffect(() => {
@@ -124,6 +125,7 @@ export default function UpdateChecker() {
         console.log('[UpdateChecker] Update complete:', data);
         
         setInstalling(false);
+        installingRef.current = false;
         
         if (data.success) {
           setStatus({
@@ -164,7 +166,8 @@ export default function UpdateChecker() {
 
     eventSource.onerror = () => {
       // If we're installing and lose connection, the server is restarting
-      if (installing) {
+      // Use ref instead of state to avoid stale closure issue
+      if (installingRef.current) {
         console.log('[UpdateChecker] SSE connection lost during update - server may be restarting');
         eventSource.close();
         eventSourceRef.current = null;
@@ -175,6 +178,7 @@ export default function UpdateChecker() {
           if (attempt > 30) { // Give up after 30 attempts (2.5 minutes)
             setReconnecting(false);
             setInstalling(false);
+            installingRef.current = false;
             setStatus({
               status: 'completed',
               message: 'Update likely completed - please refresh the page',
@@ -196,6 +200,7 @@ export default function UpdateChecker() {
                 // Update completed!
                 setReconnecting(false);
                 setInstalling(false);
+                installingRef.current = false;
                 setStatus({
                   status: 'completed',
                   message: 'Update completed successfully! 🎉',
@@ -220,6 +225,7 @@ export default function UpdateChecker() {
                 // Update failed
                 setReconnecting(false);
                 setInstalling(false);
+                installingRef.current = false;
                 setStatus({
                   status: 'error',
                   message: 'Update failed - check logs for details',
@@ -326,6 +332,7 @@ export default function UpdateChecker() {
     }
 
     setInstalling(true);
+    installingRef.current = true;
     setShowTerminal(true);
     setLogOutput(['🚀 Starting update...', '']);
 
@@ -353,6 +360,7 @@ export default function UpdateChecker() {
           timestamp: getUtcNow()
         });
         setInstalling(false);
+        installingRef.current = false;
       }
     } catch (error) {
       console.error('[UpdateChecker] Failed to install update:', error);
@@ -362,6 +370,7 @@ export default function UpdateChecker() {
         timestamp: getUtcNow()
       });
       setInstalling(false);
+      installingRef.current = false;
     }
   };
 
