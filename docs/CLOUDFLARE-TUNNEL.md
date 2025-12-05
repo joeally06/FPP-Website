@@ -40,7 +40,8 @@ The wizard will guide you through:
 3. Creating a tunnel
 4. Configuring your domain
 5. Setting up DNS
-6. Installing as a system service
+6. Configuring geolocation permission header (required for voting/requests)
+7. Installing as a system service
 
 ---
 
@@ -207,6 +208,70 @@ Or if running directly:
 npm run build
 npm start
 ```
+
+---
+
+## Geolocation Permission Header (Required)
+
+FPP Control Center uses geolocation to restrict voting and song requests to users near your light show. Cloudflare needs to set a header to allow the browser to access geolocation APIs.
+
+### Why This Is Needed
+
+When traffic goes through Cloudflare, the `Permissions-Policy` header must be explicitly set to allow geolocation. Without this, browsers will deny geolocation requests and users won't be able to vote or request songs.
+
+### Configure Transform Rule
+
+1. **Go to Cloudflare Dashboard**: https://dash.cloudflare.com
+
+2. **Select your domain**
+
+3. **Navigate to**: Rules → Transform Rules → Modify Response Header
+
+4. **Click**: "+ Create rule"
+
+5. **Configure the rule**:
+
+   | Setting | Value |
+   |---------|-------|
+   | **Rule name** | Allow Geolocation |
+   | **When incoming requests match** | All incoming requests |
+   | **Then** | Set static |
+   | **Header name** | `Permissions-Policy` |
+   | **Value** | `camera=(), microphone=(), geolocation=(self)` |
+
+6. **Click Deploy**
+
+### What This Header Does
+
+- `camera=()` - Disables camera access (not needed)
+- `microphone=()` - Disables microphone access (not needed)  
+- `geolocation=(self)` - **Allows** geolocation for your domain only
+
+### Verify It's Working
+
+After deploying the rule, you can verify it's working:
+
+```bash
+curl -I https://yourdomain.com | grep -i permissions-policy
+```
+
+You should see:
+```
+permissions-policy: camera=(), microphone=(), geolocation=(self)
+```
+
+### Troubleshooting Geolocation
+
+**"Geolocation permission denied" errors:**
+- Verify the Transform Rule is deployed and active in Cloudflare
+- Check the header name is exactly `Permissions-Policy` (capital P)
+- Clear browser cache and try again
+- Make sure you're accessing via HTTPS (geolocation requires HTTPS)
+
+**Rule not appearing:**
+- Make sure you're in the correct domain in Cloudflare Dashboard
+- The rule may take a few minutes to propagate
+- Try accessing the site in an incognito/private window
 
 ---
 

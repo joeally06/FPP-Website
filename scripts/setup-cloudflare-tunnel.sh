@@ -342,8 +342,79 @@ else
     print_warning ".env.local not found - you'll need to set NEXTAUTH_URL=https://$DOMAIN manually"
 fi
 
+# Configure Geolocation Permissions Policy
+print_header "Step 6: Configure Geolocation Permission (Required)"
+
+echo ""
+echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║                                                                   ║${NC}"
+echo -e "${YELLOW}║  🌍 IMPORTANT: Geolocation Permission Header Required            ║${NC}"
+echo -e "${YELLOW}║                                                                   ║${NC}"
+echo -e "${YELLOW}║  FPP Control Center uses geolocation to restrict voting/requests ║${NC}"
+echo -e "${YELLOW}║  to users near your light show. You MUST configure this rule.    ║${NC}"
+echo -e "${YELLOW}║                                                                   ║${NC}"
+echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${CYAN}Follow these steps in the Cloudflare Dashboard:${NC}"
+echo ""
+echo "  1. Go to: https://dash.cloudflare.com"
+echo ""
+echo "  2. Select your domain ($(echo $DOMAIN | rev | cut -d. -f1-2 | rev))"
+echo ""
+echo "  3. Navigate to: Rules → Transform Rules → Modify Response Header"
+echo ""
+echo "  4. Click: '+ Create rule'"
+echo ""
+echo "  5. Configure the rule:"
+echo ""
+echo -e "     ${GREEN}Rule name:${NC}        Allow Geolocation"
+echo ""
+echo -e "     ${GREEN}When incoming requests match:${NC}"
+echo "                        Select 'All incoming requests'"
+echo ""
+echo -e "     ${GREEN}Then → Set static:${NC}"
+echo -e "       Header name:   ${CYAN}Permissions-Policy${NC}"
+echo -e "       Value:         ${CYAN}camera=(), microphone=(), geolocation=(self)${NC}"
+echo ""
+echo "  6. Click 'Deploy' to save the rule"
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+# Wait for user to complete the step
+while true; do
+    echo -e "${CYAN}Have you configured the geolocation header rule in Cloudflare?${NC}"
+    read -p "(y = yes, done / s = skip for now / ? = show steps again) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_success "Geolocation permission header configured"
+        break
+    elif [[ $REPLY =~ ^[Ss]$ ]]; then
+        print_warning "Skipped - Remember to configure this later!"
+        echo ""
+        echo -e "${RED}⚠️  Without this rule, geolocation-based features will NOT work!${NC}"
+        echo "   Users will be unable to vote or request songs."
+        echo ""
+        sleep 2
+        break
+    elif [[ $REPLY == "?" ]]; then
+        echo ""
+        echo -e "${CYAN}Quick Reference:${NC}"
+        echo "  Dashboard:     https://dash.cloudflare.com"
+        echo "  Navigate to:   Rules → Transform Rules → Modify Response Header"
+        echo "  Rule name:     Allow Geolocation"
+        echo "  Match:         All incoming requests"
+        echo "  Action:        Set static header"
+        echo "  Header name:   Permissions-Policy"
+        echo "  Value:         camera=(), microphone=(), geolocation=(self)"
+        echo ""
+    else
+        print_warning "Please answer 'y' (yes), 's' (skip), or '?' (help)"
+    fi
+done
+
 # Install as service
-print_header "Step 6: Installing Tunnel Service"
+print_header "Step 7: Installing Tunnel Service"
 
 print_step "Installing cloudflared as a system service..."
 
@@ -406,7 +477,13 @@ echo "  2. Select your OAuth 2.0 Client ID"
 echo "  3. Add the redirect URI above to 'Authorized redirect URIs'"
 echo "  4. Save changes"
 echo ""
-echo -e "${CYAN}� Useful Commands:${NC}"
+echo -e "${YELLOW}🌍 Geolocation Header:${NC}"
+echo ""
+echo "  Make sure you've configured the Permissions-Policy header in Cloudflare!"
+echo "  Rules → Transform Rules → Modify Response Header"
+echo "  Header: Permissions-Policy = camera=(), microphone=(), geolocation=(self)"
+echo ""
+echo -e "${CYAN}📋 Useful Commands:${NC}"
 echo ""
 echo "  • Check status:    sudo systemctl status cloudflared"
 echo "  • View logs:       sudo journalctl -u cloudflared -f"
