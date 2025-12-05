@@ -196,14 +196,17 @@ export default function UpdateChecker() {
               const serverStatus = (data.status || '').toLowerCase();
               console.log('[UpdateChecker] Reconnect attempt', attempt, '- server status:', serverStatus);
               
-              if (serverStatus === 'completed' || serverStatus === 'success') {
+              // Check for all completion states (completed, success, up_to_date)
+              if (serverStatus === 'completed' || serverStatus === 'success' || serverStatus === 'up_to_date') {
                 // Update completed!
                 setReconnecting(false);
                 setInstalling(false);
                 installingRef.current = false;
                 setStatus({
-                  status: 'completed',
-                  message: 'Update completed successfully! 🎉',
+                  status: serverStatus === 'up_to_date' ? 'up_to_date' : 'completed',
+                  message: serverStatus === 'up_to_date' 
+                    ? 'Already up to date - no changes needed! ✅' 
+                    : 'Update completed successfully! 🎉',
                   timestamp: getUtcNow(),
                 });
                 
@@ -231,6 +234,33 @@ export default function UpdateChecker() {
                   message: 'Update failed - check logs for details',
                   timestamp: getUtcNow(),
                 });
+              } else if (serverStatus === 'idle') {
+                // Server came back but status is idle - update likely completed
+                // This can happen if status file was cleared or server restarted cleanly
+                console.log('[UpdateChecker] Server returned idle status - assuming update completed');
+                setReconnecting(false);
+                setInstalling(false);
+                installingRef.current = false;
+                setStatus({
+                  status: 'completed',
+                  message: 'Update completed - server restarted successfully! 🎉',
+                  timestamp: getUtcNow(),
+                });
+                
+                // Start auto-reload countdown
+                setAutoReloadCountdown(5);
+                countdownIntervalRef.current = setInterval(() => {
+                  setAutoReloadCountdown(prev => {
+                    if (prev === null || prev <= 1) {
+                      if (countdownIntervalRef.current) {
+                        clearInterval(countdownIntervalRef.current);
+                      }
+                      window.location.reload();
+                      return null;
+                    }
+                    return prev - 1;
+                  });
+                }, 1000);
               } else {
                 // Still in progress or unknown, try again
                 reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(attempt + 1), 5000);
