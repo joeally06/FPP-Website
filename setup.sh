@@ -105,6 +105,17 @@ retry_or_skip() {
     fi
 }
 
+# Mask a secret string (show first 4 and last 4 chars)
+mask_secret() {
+    local secret="$1"
+    local len=${#secret}
+    if [ $len -le 8 ]; then
+        echo "********"
+    else
+        echo "${secret:0:4}****${secret: -4}"
+    fi
+}
+
 # ═══════════════════════════════════════════════════════════
 # FPP Detection Functions
 # ═══════════════════════════════════════════════════════════
@@ -361,12 +372,12 @@ echo -e "${CYAN}╔════════════════════�
 echo -e "${CYAN}║  Choose Setup Mode                                        ║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo "  1) ${GREEN}Quick Setup${NC} (Recommended for most users)"
+echo -e "  1) ${GREEN}Quick Setup${NC} (Recommended for most users)"
 echo "     - Auto-detect FPP server"
 echo "     - Minimal prompts"
 echo "     - ~5 minutes"
 echo ""
-echo "  2) ${BLUE}Full Setup${NC} (Advanced users)"
+echo -e "  2) ${BLUE}Full Setup${NC} (Advanced users)"
 echo "     - Configure all options"
 echo "     - Ollama AI, SMTP, etc."
 echo "     - ~10-15 minutes"
@@ -546,7 +557,8 @@ fi
 show_progress 4 "Database Setup"
 
 print_step "Initializing database..."
-npm run setup
+# Run only init-database.js directly (setup-wizard.js is for standalone use)
+node scripts/init-database.js
 print_success "Database initialized"
 
 # ═══════════════════════════════════════════════════════════
@@ -839,6 +851,7 @@ fi
 
 # Timezone
 echo ""
+print_header "Timezone Configuration"
 echo "Common US timezones:"
 echo "  - America/New_York (Eastern)"
 echo "  - America/Chicago (Central)"
@@ -852,6 +865,7 @@ if [ "$REUSE_CONFIG" = true ] && [ -n "$EXISTING_TIMEZONE" ]; then
 fi
 read -p "Enter your timezone [$DEFAULT_TZ]: " TIMEZONE
 TIMEZONE=${TIMEZONE:-$DEFAULT_TZ}
+print_success "Timezone: $TIMEZONE"
 
 # Access URL Configuration
 echo ""
@@ -931,13 +945,211 @@ if [ "$SETUP_MODE" == "2" ]; then
         fi
         
         read -p "SMTP Email: " SMTP_USER
-        read -s -p "SMTP Password: " SMTP_PASS
-        echo ""
-        SMTP_PASS="${SMTP_PASS// /}"
+        
+        # SMTP Password with confirmation
+        while true; do
+            read -s -p "SMTP Password: " SMTP_PASS
+            echo ""
+            SMTP_PASS="${SMTP_PASS// /}"
+            
+            echo ""
+            echo -e "Password entered: ${YELLOW}$(mask_secret "$SMTP_PASS")${NC}"
+            if confirm "Is this correct?"; then
+                break
+            else
+                echo ""
+                print_info "Let's try again..."
+            fi
+        done
         
         print_success "SMTP configured: $SMTP_HOST:$SMTP_PORT"
     fi
 fi
+
+# ═══════════════════════════════════════════════════════════
+# Configuration Summary & Confirmation
+# ═══════════════════════════════════════════════════════════
+echo ""
+print_header "📋 Configuration Summary"
+echo ""
+echo -e "${CYAN}Please review your configuration before saving:${NC}"
+echo ""
+echo -e "  ${BOLD}Access URL:${NC}         $NEXTAUTH_URL"
+echo -e "  ${BOLD}Admin Email(s):${NC}     $ADMIN_EMAIL"
+echo -e "  ${BOLD}FPP Server:${NC}         $FPP_URL"
+echo -e "  ${BOLD}Timezone:${NC}           $TIMEZONE"
+echo ""
+echo -e "  ${BOLD}Google OAuth:${NC}"
+if [ "$SKIP_OAUTH" = true ]; then
+    echo -e "    Client ID:        ${YELLOW}Not configured${NC}"
+else
+    echo -e "    Client ID:        $(mask_secret "$GOOGLE_CLIENT_ID")"
+    echo -e "    Client Secret:    $(mask_secret "$GOOGLE_CLIENT_SECRET")"
+fi
+echo ""
+echo -e "  ${BOLD}Spotify API:${NC}"
+if [ "$SKIP_SPOTIFY" = true ]; then
+    echo -e "    Client ID:        ${YELLOW}Not configured${NC}"
+else
+    echo -e "    Client ID:        $(mask_secret "$SPOTIFY_CLIENT_ID")"
+    echo -e "    Client Secret:    $(mask_secret "$SPOTIFY_CLIENT_SECRET")"
+fi
+echo ""
+echo -e "  ${BOLD}Email (SMTP):${NC}"
+if [ "$SMTP_USER" = "your-email@gmail.com" ] || [ -z "$SMTP_USER" ]; then
+    echo -e "    Status:           ${YELLOW}Not configured${NC}"
+else
+    echo -e "    Host:             $SMTP_HOST:$SMTP_PORT"
+    echo -e "    User:             $SMTP_USER"
+    echo -e "    Password:         $(mask_secret "$SMTP_PASS")"
+fi
+echo ""
+echo -e "  ${BOLD}Ollama AI:${NC}          $OLLAMA_URL"
+echo ""
+
+# Confirmation with edit options
+while true; do
+    echo -e "${CYAN}What would you like to do?${NC}"
+    echo ""
+    echo "  1) Save configuration and continue"
+    echo "  2) Edit a setting"
+    echo "  3) Cancel setup"
+    echo ""
+    read -p "Choose (1-3) [1]: " SAVE_CHOICE
+    SAVE_CHOICE=${SAVE_CHOICE:-1}
+    
+    if [[ "$SAVE_CHOICE" == "1" ]]; then
+        break
+    elif [[ "$SAVE_CHOICE" == "3" ]]; then
+        print_warning "Setup cancelled. No changes were made."
+        exit 0
+    elif [[ "$SAVE_CHOICE" == "2" ]]; then
+        echo ""
+        echo -e "${CYAN}Which setting would you like to edit?${NC}"
+        echo ""
+        echo "  1) Admin Email(s)"
+        echo "  2) FPP Server URL"
+        echo "  3) Timezone"
+        echo "  4) Google OAuth credentials"
+        echo "  5) Spotify API credentials"
+        echo "  6) SMTP Email settings"
+        echo "  7) Ollama URL"
+        echo "  8) Access URL (NEXTAUTH_URL)"
+        echo "  9) Go back"
+        echo ""
+        read -p "Choose (1-9): " EDIT_CHOICE
+        
+        case $EDIT_CHOICE in
+            1)
+                echo ""
+                read -p "Admin email(s) [$ADMIN_EMAIL]: " NEW_ADMIN
+                ADMIN_EMAIL=${NEW_ADMIN:-$ADMIN_EMAIL}
+                print_success "Updated: $ADMIN_EMAIL"
+                ;;
+            2)
+                echo ""
+                read -p "FPP Server IP:Port [${FPP_URL#http://}]: " NEW_FPP
+                if [ -n "$NEW_FPP" ]; then
+                    FPP_URL="http://$NEW_FPP"
+                fi
+                print_success "Updated: $FPP_URL"
+                ;;
+            3)
+                echo ""
+                echo "Common timezones: America/New_York, America/Chicago, America/Denver, America/Los_Angeles"
+                read -p "Timezone [$TIMEZONE]: " NEW_TZ
+                TIMEZONE=${NEW_TZ:-$TIMEZONE}
+                print_success "Updated: $TIMEZONE"
+                ;;
+            4)
+                echo ""
+                read -p "Google Client ID: " GOOGLE_CLIENT_ID
+                read -p "Google Client Secret: " GOOGLE_CLIENT_SECRET
+                SKIP_OAUTH=false
+                print_success "Google OAuth updated"
+                ;;
+            5)
+                echo ""
+                read -p "Spotify Client ID: " SPOTIFY_CLIENT_ID
+                read -p "Spotify Client Secret: " SPOTIFY_CLIENT_SECRET
+                SKIP_SPOTIFY=false
+                print_success "Spotify API updated"
+                ;;
+            6)
+                echo ""
+                read -p "SMTP Host [$SMTP_HOST]: " NEW_SMTP_HOST
+                SMTP_HOST=${NEW_SMTP_HOST:-$SMTP_HOST}
+                read -p "SMTP Port [$SMTP_PORT]: " NEW_SMTP_PORT
+                SMTP_PORT=${NEW_SMTP_PORT:-$SMTP_PORT}
+                read -p "SMTP Email [$SMTP_USER]: " NEW_SMTP_USER
+                SMTP_USER=${NEW_SMTP_USER:-$SMTP_USER}
+                read -s -p "SMTP Password: " NEW_SMTP_PASS
+                echo ""
+                if [ -n "$NEW_SMTP_PASS" ]; then
+                    SMTP_PASS="$NEW_SMTP_PASS"
+                fi
+                print_success "SMTP settings updated"
+                ;;
+            7)
+                echo ""
+                read -p "Ollama URL [$OLLAMA_URL]: " NEW_OLLAMA
+                OLLAMA_URL=${NEW_OLLAMA:-$OLLAMA_URL}
+                NEXT_PUBLIC_OLLAMA_URL="$OLLAMA_URL"
+                print_success "Updated: $OLLAMA_URL"
+                ;;
+            8)
+                echo ""
+                read -p "Access URL [$NEXTAUTH_URL]: " NEW_AUTH_URL
+                NEXTAUTH_URL=${NEW_AUTH_URL:-$NEXTAUTH_URL}
+                print_success "Updated: $NEXTAUTH_URL"
+                ;;
+            9)
+                ;;
+            *)
+                print_warning "Invalid choice"
+                ;;
+        esac
+        
+        # Re-display the summary
+        echo ""
+        print_header "📋 Updated Configuration"
+        echo ""
+        echo -e "  ${BOLD}Access URL:${NC}         $NEXTAUTH_URL"
+        echo -e "  ${BOLD}Admin Email(s):${NC}     $ADMIN_EMAIL"
+        echo -e "  ${BOLD}FPP Server:${NC}         $FPP_URL"
+        echo -e "  ${BOLD}Timezone:${NC}           $TIMEZONE"
+        echo ""
+        echo -e "  ${BOLD}Google OAuth:${NC}"
+        if [ "$SKIP_OAUTH" = true ]; then
+            echo -e "    Client ID:        ${YELLOW}Not configured${NC}"
+        else
+            echo -e "    Client ID:        $(mask_secret "$GOOGLE_CLIENT_ID")"
+            echo -e "    Client Secret:    $(mask_secret "$GOOGLE_CLIENT_SECRET")"
+        fi
+        echo ""
+        echo -e "  ${BOLD}Spotify API:${NC}"
+        if [ "$SKIP_SPOTIFY" = true ]; then
+            echo -e "    Client ID:        ${YELLOW}Not configured${NC}"
+        else
+            echo -e "    Client ID:        $(mask_secret "$SPOTIFY_CLIENT_ID")"
+            echo -e "    Client Secret:    $(mask_secret "$SPOTIFY_CLIENT_SECRET")"
+        fi
+        echo ""
+        echo -e "  ${BOLD}Email (SMTP):${NC}"
+        if [ "$SMTP_USER" = "your-email@gmail.com" ] || [ -z "$SMTP_USER" ]; then
+            echo -e "    Status:           ${YELLOW}Not configured${NC}"
+        else
+            echo -e "    Host:             $SMTP_HOST:$SMTP_PORT"
+            echo -e "    User:             $SMTP_USER"
+            echo -e "    Password:         $(mask_secret "$SMTP_PASS")"
+        fi
+        echo ""
+        echo -e "  ${BOLD}Ollama AI:${NC}          $OLLAMA_URL"
+        echo ""
+    else
+        print_warning "Please choose 1, 2, or 3"
+    fi
+done
 
 # ═══════════════════════════════════════════════════════════
 # Create .env.local
