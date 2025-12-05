@@ -13,7 +13,7 @@ export default function ThemedJukeboxWrapper({ children }: ThemedJukeboxWrapperP
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-xl text-white">Loading jukebox...</p>
@@ -23,7 +23,7 @@ export default function ThemedJukeboxWrapper({ children }: ThemedJukeboxWrapperP
   }
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} p-4 relative overflow-hidden`}>
+    <div className={`min-h-screen bg-linear-to-br ${theme.gradient} p-4 relative overflow-hidden`}>
       {/* Particle Effects */}
       {theme.particles && theme.particles !== 'none' && (
         <ParticleEffects type={theme.particles} />

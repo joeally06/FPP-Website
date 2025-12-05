@@ -136,7 +136,7 @@ export default function AdminAnalytics() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-xl text-white">Loading analytics...</p>
@@ -195,7 +195,7 @@ export default function AdminAnalytics() {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        <div className="backdrop-blur-md bg-gradient-to-br from-blue-500/80 to-blue-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
+        <div className="backdrop-blur-md bg-linear-to-br from-blue-500/80 to-blue-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
               <span className="text-2xl">🎵</span>
@@ -207,7 +207,7 @@ export default function AdminAnalytics() {
           </div>
         </div>
 
-        <div className="backdrop-blur-md bg-gradient-to-br from-green-500/80 to-emerald-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
+        <div className="backdrop-blur-md bg-linear-to-br from-green-500/80 to-emerald-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
               <span className="text-2xl">✅</span>
@@ -219,7 +219,7 @@ export default function AdminAnalytics() {
           </div>
         </div>
 
-        <div className="backdrop-blur-md bg-gradient-to-br from-purple-500/80 to-purple-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
+        <div className="backdrop-blur-md bg-linear-to-br from-purple-500/80 to-purple-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
               <span className="text-2xl">⏱️</span>
@@ -233,7 +233,7 @@ export default function AdminAnalytics() {
           </div>
         </div>
 
-        <div className="backdrop-blur-md bg-gradient-to-br from-orange-500/80 to-amber-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
+        <div className="backdrop-blur-md bg-linear-to-br from-orange-500/80 to-amber-600/80 rounded-xl p-6 shadow-2xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
               <span className="text-2xl">🗳️</span>
@@ -300,7 +300,7 @@ export default function AdminAnalytics() {
                     <span className="text-sm w-12 text-white/80 font-semibold">{hourData.hour}:00</span>
                     <div className="flex-1 bg-white/10 rounded-full h-6 relative border border-white/20">
                       <div
-                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-6 rounded-full transition-all"
+                        className="bg-linear-to-r from-blue-500 to-cyan-500 h-6 rounded-full transition-all"
                         style={{ width: `${percentage}%` }}
                       ></div>
                       <span className="absolute right-2 top-0.5 text-xs font-semibold text-white">{hourData.request_count}</span>
@@ -326,7 +326,7 @@ export default function AdminAnalytics() {
                     <span className="text-sm w-24 text-white/80 font-semibold">{DAY_NAMES[dayData.day]}</span>
                     <div className="flex-1 bg-white/10 rounded-full h-7 relative border border-white/20">
                       <div
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 h-7 rounded-full transition-all"
+                        className="bg-linear-to-r from-green-500 to-emerald-500 h-7 rounded-full transition-all"
                         style={{ width: `${percentage}%` }}
                       ></div>
                       <span className="absolute right-2 top-1 text-sm font-semibold text-white">{dayData.request_count}</span>

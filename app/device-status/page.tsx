@@ -278,7 +278,7 @@ export default function DeviceStatusPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900">
         <AdminNavigation />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
@@ -290,7 +290,7 @@ export default function DeviceStatusPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900">
       <AdminNavigation />
       
       <div className="container mx-auto px-4 py-8">
@@ -303,7 +303,7 @@ export default function DeviceStatusPage() {
             <div className="flex gap-3">
               <button
                 onClick={openAddModal}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg font-semibold transition-all hover:from-blue-600 hover:to-cyan-700 flex items-center gap-2"
+                className="px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg font-semibold transition-all hover:from-blue-600 hover:to-cyan-700 flex items-center gap-2"
               >
                 ➕ Add Device
               </button>
@@ -382,10 +382,10 @@ export default function DeviceStatusPage() {
                 {/* Device Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0 pr-3">
-                    <AdminH3 className="mb-1 break-words">
+                    <AdminH3 className="mb-1 wrap-break-word">
                       {device.name}
                     </AdminH3>
-                    <AdminTextSmall className="break-words">{device.description}</AdminTextSmall>
+                    <AdminTextSmall className="wrap-break-word">{device.description}</AdminTextSmall>
                   </div>
                   <div className="flex items-start gap-2">
                     <div className="text-2xl sm:text-3xl flex-shrink-0">
@@ -472,7 +472,7 @@ export default function DeviceStatusPage() {
             <p className="text-xl mb-4">No devices configured yet.</p>
             <button
               onClick={openAddModal}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg font-semibold transition-all hover:from-blue-600 hover:to-cyan-700"
+              className="px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg font-semibold transition-all hover:from-blue-600 hover:to-cyan-700"
             >
               ➕ Add Your First Device
             </button>
@@ -482,7 +482,7 @@ export default function DeviceStatusPage() {
         {/* Add Device Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-2xl p-4 sm:p-8 max-w-md w-full border-2 border-white/20 max-h-[90vh] overflow-y-auto">
+            <div className="bg-linear-to-br from-purple-900 to-blue-900 rounded-2xl p-4 sm:p-8 max-w-md w-full border-2 border-white/20 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-6">Add New Device</h2>
               
               <div className="space-y-4">
@@ -577,7 +577,7 @@ export default function DeviceStatusPage() {
                 </button>
                 <button
                   onClick={handleAddDevice}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white rounded-lg transition-all"
+                  className="flex-1 px-4 py-2 bg-linear-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white rounded-lg transition-all"
                 >
                   Add Device
                 </button>
@@ -589,7 +589,7 @@ export default function DeviceStatusPage() {
         {/* Edit Device Modal */}
         {showEditModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-2xl p-8 max-w-md w-full border-2 border-white/20">
+            <div className="bg-linear-to-br from-purple-900 to-blue-900 rounded-2xl p-8 max-w-md w-full border-2 border-white/20">
               <h2 className="text-2xl font-bold text-white mb-6">Edit Device</h2>
               
               <div className="space-y-4">
@@ -680,7 +680,7 @@ export default function DeviceStatusPage() {
                 </button>
                 <button
                   onClick={handleUpdateDevice}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white rounded-lg transition-all"
+                  className="flex-1 px-4 py-2 bg-linear-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white rounded-lg transition-all"
                 >
                   Save Changes
                 </button>
@@ -692,7 +692,7 @@ export default function DeviceStatusPage() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && selectedDevice && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-red-900 to-purple-900 rounded-2xl p-8 max-w-md w-full border-2 border-red-500/50">
+            <div className="bg-linear-to-br from-red-900 to-purple-900 rounded-2xl p-8 max-w-md w-full border-2 border-red-500/50">
               <h2 className="text-2xl font-bold text-white mb-4">Delete Device?</h2>
               <p className="text-white/80 mb-6">
                 Are you sure you want to delete <strong>{selectedDevice.name}</strong>?
@@ -725,7 +725,7 @@ export default function DeviceStatusPage() {
                 </button>
                 <button
                   onClick={handleDeleteDevice}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all"
+                  className="flex-1 px-4 py-2 bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all"
                 >
                   Delete
                 </button>

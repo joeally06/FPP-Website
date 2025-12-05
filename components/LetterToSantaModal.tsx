@@ -169,7 +169,7 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-red-50 via-white to-green-50 rounded-2xl shadow-2xl border-4 border-red-600">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-linear-to-br from-red-50 via-white to-green-50 rounded-2xl shadow-2xl border-4 border-red-600">
         {/* Snowflakes decoration */}
         <div className="absolute top-4 left-4 text-4xl animate-pulse">❄️</div>
         <div className="absolute top-4 right-4 text-4xl animate-pulse" style={{ animationDelay: '0.5s' }}>❄️</div>
@@ -184,7 +184,7 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
         </button>
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-600 to-green-600 text-white p-8 text-center border-b-4 border-yellow-400">
+        <div className="bg-linear-to-r from-red-600 to-green-600 text-white p-8 text-center border-b-4 border-yellow-400">
           <h2 className="text-4xl font-bold mb-2" style={{ fontFamily: 'cursive' }}>
             🎅 Write to Santa! 🎄
           </h2>
@@ -305,7 +305,7 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
             <button
               type="submit"
               disabled={isSubmitting || letterCount >= dailyLimit}
-              className="px-8 py-4 bg-gradient-to-r from-red-600 to-green-600 text-white text-xl font-bold rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="px-8 py-4 bg-linear-to-r from-red-600 to-green-600 text-white text-xl font-bold rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
@@ -357,7 +357,7 @@ export default function LetterToSantaModal({ isOpen, onClose }: LetterToSantaMod
         </form>
 
         {/* Decorative footer */}
-        <div className="bg-gradient-to-r from-red-600 to-green-600 p-4 text-center text-white text-sm">
+        <div className="bg-linear-to-r from-red-600 to-green-600 p-4 text-center text-white text-sm">
           ✨ Magical delivery powered by Santa's elves at the North Pole! ✨
         </div>
       </div>

@@ -49,7 +49,7 @@ export default function Toast({
           transition={{ type: 'spring', duration: 0.5 }}
           className="fixed top-4 right-4 z-50"
         >
-          <div className={`backdrop-blur-md bg-gradient-to-r ${colors[type]} border rounded-xl shadow-2xl px-6 py-4 min-w-[300px] max-w-md`}>
+          <div className={`backdrop-blur-md bg-linear-to-r ${colors[type]} border rounded-xl shadow-2xl px-6 py-4 min-w-[300px] max-w-md`}>
             <div className="flex items-center gap-3">
               <span className="text-2xl">{icons[type]}</span>
               <p className="text-white font-semibold flex-1">{message}</p>

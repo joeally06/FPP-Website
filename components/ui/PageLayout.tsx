@@ -18,7 +18,7 @@ export default function PageLayout({
   children 
 }: PageLayoutProps) {
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${gradients.background}`}>
+    <div className={`min-h-screen bg-linear-to-br ${gradients.background}`}>
       <div className="container mx-auto px-6 py-8">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">

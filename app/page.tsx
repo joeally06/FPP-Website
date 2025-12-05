@@ -153,7 +153,7 @@ export default function Home() {
   // Show loading while checking authentication
   if (sessionStatus === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-xl text-white">Loading...</p>
@@ -332,7 +332,7 @@ export default function Home() {
     >
       {/* Compact Status Bar */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className={`backdrop-blur-md bg-gradient-to-br ${status && isOnline ? getStatusColor(status.status_name) : 'from-gray-500 to-slate-600'} rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105`}>
+        <div className={`backdrop-blur-md bg-linear-to-br ${status && isOnline ? getStatusColor(status.status_name) : 'from-gray-500 to-slate-600'} rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/70 text-xs font-medium mb-1">Status</p>
@@ -344,7 +344,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="backdrop-blur-md bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105">
+        <div className="backdrop-blur-md bg-linear-to-br from-orange-500 to-amber-600 rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/70 text-xs font-medium mb-1">Mode</p>
@@ -356,7 +356,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="backdrop-blur-md bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105">
+        <div className="backdrop-blur-md bg-linear-to-br from-purple-500 to-violet-600 rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/70 text-xs font-medium mb-1">Playlist</p>
@@ -373,7 +373,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="backdrop-blur-md bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105">
+        <div className="backdrop-blur-md bg-linear-to-br from-pink-500 to-rose-600 rounded-xl p-4 shadow-xl border border-white/20 transform transition-all hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/70 text-xs font-medium mb-1">Volume</p>
@@ -388,13 +388,13 @@ export default function Home() {
 
       {/* Now Playing - Only show when actively playing */}
       {status?.current_sequence && status?.status_name === 'playing' && (
-        <div className="backdrop-blur-md bg-gradient-to-br from-green-500/20 to-emerald-600/20 rounded-xl p-6 shadow-2xl border border-green-400/30 mb-6 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-green-400/10 via-emerald-500/10 to-green-400/10 animate-pulse"></div>
+        <div className="backdrop-blur-md bg-linear-to-br from-green-500/20 to-emerald-600/20 rounded-xl p-6 shadow-2xl border border-green-400/30 mb-6 relative overflow-hidden">
+          <div className="absolute inset-0 bg-linear-to-r from-green-400/10 via-emerald-500/10 to-green-400/10 animate-pulse"></div>
           
           <div className="relative flex items-center gap-4">
             <div className="relative">
               <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-20"></div>
-              <div className="relative w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+              <div className="relative w-12 h-12 bg-linear-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
                 <span className="text-2xl">▶️</span>
               </div>
             </div>
@@ -414,7 +414,7 @@ export default function Home() {
               {[1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
-                  className="w-1 bg-gradient-to-t from-green-400 to-emerald-500 rounded-full animate-equalizer"
+                  className="w-1 bg-linear-to-t from-green-400 to-emerald-500 rounded-full animate-equalizer"
                   style={{
                     animationDelay: `${i * 0.1}s`,
                     animationDuration: `${0.5 + (i % 3) * 0.2}s`
@@ -672,7 +672,7 @@ export default function Home() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <button
             onClick={() => router.push('/media')}
-            className="backdrop-blur-sm bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3 border-2 border-purple-300/50"
+            className="backdrop-blur-sm bg-linear-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-3 border-2 border-purple-300/50"
           >
             <span className="text-2xl">📚</span>
             <span>Media Library</span>

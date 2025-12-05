@@ -274,7 +274,7 @@ export default function ModelsPage() {
                 <button
                   onClick={importModels}
                   disabled={!selectedFile || importing}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-linear-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {importing ? 'Importing...' : 'Import'}
                 </button>
@@ -444,7 +444,7 @@ export default function ModelsPage() {
                       e.stopPropagation();
                       setEditingModel(model);
                     }}
-                    className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                    className="flex-1 px-3 py-2 bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                   >
                     <Edit className="w-4 h-4" />
                     Edit
@@ -454,7 +454,7 @@ export default function ModelsPage() {
                       e.stopPropagation();
                       deleteModel(model.id, model.model_name);
                     }}
-                    className="flex-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                    className="flex-1 px-3 py-2 bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete

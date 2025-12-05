@@ -143,7 +143,7 @@ export default function ThemeSettings() {
   // Show loading while checking authentication
   if (sessionStatus === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-xl text-white">Loading...</p>
@@ -165,7 +165,7 @@ export default function ThemeSettings() {
       {previewTheme && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewTheme(null)}>
           <div className="max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
-            <div className={`bg-gradient-to-br ${previewTheme.gradient} rounded-2xl p-8 shadow-2xl relative overflow-hidden`}>
+            <div className={`bg-linear-to-br ${previewTheme.gradient} rounded-2xl p-8 shadow-2xl relative overflow-hidden`}>
               {previewTheme.particles && previewTheme.particles !== 'none' && (
                 <ParticleEffects type={previewTheme.particles} />
               )}
@@ -196,7 +196,7 @@ export default function ThemeSettings() {
                         <p className="text-xl font-bold text-white">Sample Song Title</p>
                       </div>
                     </div>
-                    <button className={`w-full bg-gradient-to-r from-${previewTheme.primaryColor} to-${previewTheme.secondaryColor} text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-all shadow-lg`}>
+                    <button className={`w-full bg-linear-to-r from-${previewTheme.primaryColor} to-${previewTheme.secondaryColor} text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-all shadow-lg`}>
                       Vote {previewTheme.icons.vote}
                     </button>
                   </div>
@@ -262,7 +262,7 @@ export default function ThemeSettings() {
                 onClick={() => setPreviewTheme(theme)}
               >
                 {/* Theme Preview */}
-                <div className={`bg-gradient-to-br ${theme.gradient} h-32 relative overflow-hidden`}>
+                <div className={`bg-linear-to-br ${theme.gradient} h-32 relative overflow-hidden`}>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-6xl opacity-50">{theme.icons.nowPlaying}</span>
                   </div>

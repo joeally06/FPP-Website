@@ -46,18 +46,34 @@ body {
   }
   
   /* White text only on dark gradient backgrounds */
-  .bg-gradient-to-br p,
-  .bg-gradient-to-br span,
-  .bg-gradient-to-br div,
-  .bg-gradient-to-br h1,
-  .bg-gradient-to-br h2,
-  .bg-gradient-to-br h3,
-  .bg-gradient-to-br h4,
-  .bg-gradient-to-br label,
-  .bg-gradient-to-br td,
-  .bg-gradient-to-br th,
-  .bg-gradient-to-br li,
-  .bg-gradient-to-br a {
+  .bg-linear-to-br p,
+  .bg-linear-to-br span,
+  .bg-linear-to-br div,
+  .bg-linear-to-br h1,
+  .bg-linear-to-br h2,
+  .bg-linear-to-br h3,
+  .bg-linear-to-br h4,
+  .bg-linear-to-br label,
+  .bg-linear-to-br td,
+  .bg-linear-to-br th,
+  .bg-linear-to-br li,
+  .bg-linear-to-br a {
+    @apply text-white;
+  }
+  
+  /* Also support bg-linear-to-r gradients */
+  .bg-linear-to-r p,
+  .bg-linear-to-r span,
+  .bg-linear-to-r div,
+  .bg-linear-to-r h1,
+  .bg-linear-to-r h2,
+  .bg-linear-to-r h3,
+  .bg-linear-to-r h4,
+  .bg-linear-to-r label,
+  .bg-linear-to-r td,
+  .bg-linear-to-r th,
+  .bg-linear-to-r li,
+  .bg-linear-to-r a {
     @apply text-white;
   }
   

@@ -18,7 +18,7 @@ export default function StatCard({
   subtitle 
 }: StatCardProps) {
   return (
-    <div className={`bg-gradient-to-br ${gradient} rounded-xl shadow-lg border border-white/20 p-6 backdrop-blur-sm ${animations.scaleHover}`}>
+    <div className={`bg-linear-to-br ${gradient} rounded-xl shadow-lg border border-white/20 p-6 backdrop-blur-sm ${animations.scaleHover}`}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-white/80 text-sm font-medium mb-1">{label}</p>

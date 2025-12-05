@@ -24,7 +24,7 @@ export default function PrivacyPage() {
   const consent = getCurrentConsent();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900">
       <AdminNavigation />
       
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -228,7 +228,7 @@ export default function PrivacyPage() {
           </div>
 
           {/* Cookie Settings */}
-          <div id="cookie-settings" className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-md rounded-lg p-6 border border-blue-500/30">
+          <div id="cookie-settings" className="bg-linear-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-md rounded-lg p-6 border border-blue-500/30">
             <AdminH2 className="mb-4">🍪 Your Cookie Settings</AdminH2>
             
             {consent ? (
@@ -260,7 +260,7 @@ export default function PrivacyPage() {
 
                 <button
                   onClick={handleResetCookies}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
+                  className="w-full px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
                 >
                   ⚙️ Change Cookie Preferences
                 </button>
@@ -270,7 +270,7 @@ export default function PrivacyPage() {
                 <AdminText className="mb-4">No cookie preferences saved yet.</AdminText>
                 <button
                   onClick={handleResetCookies}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
+                  className="px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
                 >
                   Set Cookie Preferences
                 </button>
@@ -336,7 +336,7 @@ export default function PrivacyPage() {
           </div>
 
           {/* Contact */}
-          <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-md rounded-lg p-6 border border-green-500/30">
+          <div className="bg-linear-to-r from-green-500/20 to-blue-500/20 backdrop-blur-md rounded-lg p-6 border border-green-500/30">
             <AdminH2 className="mb-4">📧 Contact Us</AdminH2>
             <AdminText className="mb-4">
               If you have questions about this Privacy Policy or wish to exercise your data rights, please contact:

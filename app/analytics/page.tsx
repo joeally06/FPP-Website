@@ -316,7 +316,7 @@ export default function AnalyticsPage() {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="relative overflow-hidden rounded-xl p-6 bg-gradient-to-br from-blue-500/80 to-blue-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
+          <div className="relative overflow-hidden rounded-xl p-6 bg-linear-to-br from-blue-500/80 to-blue-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <AdminTextSmall className="text-white/90 mb-2">Total Views</AdminTextSmall>
@@ -327,7 +327,7 @@ export default function AnalyticsPage() {
             <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
           </div>
 
-          <div className="relative overflow-hidden rounded-xl p-6 bg-gradient-to-br from-green-500/80 to-emerald-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
+          <div className="relative overflow-hidden rounded-xl p-6 bg-linear-to-br from-green-500/80 to-emerald-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <AdminTextSmall className="text-white/90 mb-2">Today&apos;s Views</AdminTextSmall>
@@ -338,7 +338,7 @@ export default function AnalyticsPage() {
             <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
           </div>
 
-          <div className="relative overflow-hidden rounded-xl p-6 bg-gradient-to-br from-purple-500/80 to-purple-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
+          <div className="relative overflow-hidden rounded-xl p-6 bg-linear-to-br from-purple-500/80 to-purple-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <AdminTextSmall className="text-white/90 mb-2">Peak Hour</AdminTextSmall>
@@ -349,7 +349,7 @@ export default function AnalyticsPage() {
             <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
           </div>
 
-          <div className="relative overflow-hidden rounded-xl p-6 bg-gradient-to-br from-orange-500/80 to-amber-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
+          <div className="relative overflow-hidden rounded-xl p-6 bg-linear-to-br from-orange-500/80 to-amber-600/80 backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 transition-transform duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <AdminTextSmall className="text-white/90 mb-2">Avg Rating</AdminTextSmall>
@@ -757,21 +757,21 @@ export default function AnalyticsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => exportData('csv')}
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold flex items-center gap-2"
+                className="px-6 py-3 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold flex items-center gap-2"
               >
                 <Download className="w-5 h-5" />
                 CSV
               </button>
               <button
                 onClick={() => exportData('json')}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold flex items-center gap-2"
+                className="px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold flex items-center gap-2"
               >
                 <Download className="w-5 h-5" />
                 JSON
               </button>
               <button
                 onClick={() => exportData('pdf')}
-                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all font-semibold flex items-center gap-2"
+                className="px-6 py-3 bg-linear-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all font-semibold flex items-center gap-2"
               >
                 <Download className="w-5 h-5" />
                 PDF Report

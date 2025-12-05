@@ -153,8 +153,8 @@ export default function JukeboxBanner({
         )}
         {showNamePrompt && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-red-600 to-green-600 p-1 rounded-2xl shadow-2xl max-w-md w-full">
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-6">
+            <div className="bg-linear-to-br from-red-600 to-green-600 p-1 rounded-2xl shadow-2xl max-w-md w-full">
+              <div className="bg-linear-to-br from-slate-900 to-slate-800 rounded-xl p-6">
                 <h3 className="text-2xl font-bold text-white mb-4 text-center">🎄 Great Job! 🎄</h3>
                 <p className="text-white/80 mb-4 text-center">You scored <span className="text-yellow-300 font-bold text-2xl">{lastScore}</span> points!</p>
                 <p className="text-white/60 mb-4 text-center">Enter your name to save your score:</p>
@@ -220,8 +220,8 @@ export default function JukeboxBanner({
         )}
         {showNamePrompt && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-red-600 to-green-600 p-1 rounded-2xl shadow-2xl max-w-md w-full">
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-6">
+            <div className="bg-linear-to-br from-red-600 to-green-600 p-1 rounded-2xl shadow-2xl max-w-md w-full">
+              <div className="bg-linear-to-br from-slate-900 to-slate-800 rounded-xl p-6">
                 <h3 className="text-2xl font-bold text-white mb-4 text-center">🎄 Great Job! 🎄</h3>
                 <p className="text-white/80 mb-4 text-center">You scored <span className="text-yellow-300 font-bold text-2xl">{lastScore}</span> points!</p>
                 <p className="text-white/60 mb-4 text-center">Enter your name to save your score:</p>
@@ -287,8 +287,8 @@ export default function JukeboxBanner({
         )}
         {showNamePrompt && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-red-600 to-green-600 p-1 rounded-2xl shadow-2xl max-w-md w-full">
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-6">
+            <div className="bg-linear-to-br from-red-600 to-green-600 p-1 rounded-2xl shadow-2xl max-w-md w-full">
+              <div className="bg-linear-to-br from-slate-900 to-slate-800 rounded-xl p-6">
                 <h3 className="text-2xl font-bold text-white mb-4 text-center">🎄 Great Job! 🎄</h3>
                 <p className="text-white/80 mb-4 text-center">You scored <span className="text-yellow-300 font-bold text-2xl">{lastScore}</span> points!</p>
                 <p className="text-white/60 mb-4 text-center">Enter your name to save your score:</p>

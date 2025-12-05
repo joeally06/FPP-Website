@@ -199,7 +199,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-blue-900 via-blue-700 to-blue-600 z-50 overflow-hidden">
+    <div className="fixed inset-0 bg-linear-to-b from-blue-900 via-blue-700 to-blue-600 z-50 overflow-hidden">
       {/* Snow background effect (memoized positions) */}
       <div className="absolute inset-0 opacity-30" aria-hidden>
         {snowflakes.map((f, i) => (
@@ -219,7 +219,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
       </div>
 
       {/* Header - Score & Lives */}
-      <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/40 to-transparent p-4 z-10">
+      <div className="absolute top-0 left-0 right-0 bg-linear-to-b from-black/40 to-transparent p-4 z-10">
         <div className="flex justify-between items-center max-w-4xl mx-auto">
           <div className="text-white">
             <div className="text-3xl font-bold"><span aria-live="polite">🎄 {score}</span></div>
@@ -282,7 +282,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
         {/* Start Screen */}
         {!gameStarted && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-30">
-            <div className="text-center text-white p-8 bg-gradient-to-br from-red-600/80 to-green-600/80 rounded-2xl shadow-2xl border-4 border-white/30 max-w-md">
+            <div className="text-center text-white p-8 bg-linear-to-br from-red-600/80 to-green-600/80 rounded-2xl shadow-2xl border-4 border-white/30 max-w-md">
               <h1 className="text-5xl font-bold mb-4 animate-bounce">🎄 Catch the Ornaments! 🎄</h1>
               <p className="text-xl mb-6">Help the snowman catch falling ornaments!</p>
               <div className="text-left mb-6 bg-white/10 p-4 rounded-lg">
@@ -309,7 +309,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
         {/* Pause Screen */}
         {isPaused && gameStarted && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-30">
-            <div className="text-center text-white p-8 bg-gradient-to-br from-blue-600/80 to-purple-600/80 rounded-2xl shadow-2xl border-4 border-white/30">
+            <div className="text-center text-white p-8 bg-linear-to-br from-blue-600/80 to-purple-600/80 rounded-2xl shadow-2xl border-4 border-white/30">
               <h2 className="text-4xl font-bold mb-4">⏸️ Paused</h2>
               <p className="text-xl mb-2">Score: {score}</p>
               <p className="text-lg mb-6">Lives: {[...Array(lives)].map(() => '❤️').join(' ')}</p>
@@ -332,7 +332,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
         {/* Game Over Screen */}
         {!gameActive && gameStarted && lives <= 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30">
-            <div className="text-center text-white p-8 bg-gradient-to-br from-red-600/90 to-orange-600/90 rounded-2xl shadow-2xl border-4 border-white/30 max-w-md">
+            <div className="text-center text-white p-8 bg-linear-to-br from-red-600/90 to-orange-600/90 rounded-2xl shadow-2xl border-4 border-white/30 max-w-md">
               <h2 className="text-5xl font-bold mb-4">🎄 Game Over! 🎄</h2>
               <div className="text-6xl font-bold mb-2 text-yellow-300">{score}</div>
               <p className="text-xl mb-6">Final Score</p>
@@ -357,7 +357,7 @@ export default function ChristmasGame({ onGameOver, onClose }: ChristmasGameProp
       </div>
 
       {/* Controls (bottom) */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-4 z-10">
+      <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/40 to-transparent p-4 z-10">
         <div className="flex justify-between items-center max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
             <button

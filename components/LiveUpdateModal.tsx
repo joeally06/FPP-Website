@@ -161,7 +161,7 @@ export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-4xl bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-4xl bg-linear-to-br from-gray-900 via-purple-900 to-gray-900 rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10 bg-black/30">
           <div className="flex items-center gap-3">
@@ -190,7 +190,7 @@ export default function LiveUpdateModal({ isOpen, onClose }: LiveUpdateModalProp
             {output.map((line, index) => (
               <div
                 key={index}
-                className={`whitespace-pre-wrap break-words ${
+                className={`whitespace-pre-wrap wrap-break-word ${
                   line.includes('✅') || line.includes('SUCCESS') ? 'text-green-400' :
                   line.includes('❌') || line.includes('ERROR') || line.includes('FAILED') ? 'text-red-400' :
                   line.includes('⚠️') || line.includes('WARNING') ? 'text-yellow-400' :

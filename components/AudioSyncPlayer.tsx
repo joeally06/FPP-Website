@@ -292,7 +292,7 @@ export default function AudioSyncPlayer({ className = '' }: AudioSyncPlayerProps
   };
 
   return (
-    <div className="bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
+    <div className="bg-linear-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 backdrop-blur-md rounded-xl shadow-2xl p-6 border">
       <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2 text-white">
         <Radio className={`w-6 h-6 ${isConnected ? 'text-green-400 animate-pulse' : 'text-gray-400'}`} />
         Live Audio Sync

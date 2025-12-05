@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>('themes');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen bg-linear-to-br from-purple-900 via-blue-900 to-indigo-900">
       <AdminNavigation />
       
       <div className="container mx-auto px-4 py-8">
@@ -195,7 +195,7 @@ function ThemeSettings() {
 
       <Link
         href="/theme-settings"
-        className="inline-block px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all font-semibold"
+        className="inline-block px-6 py-3 bg-linear-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all font-semibold"
       >
         Manage Themes →
       </Link>
@@ -334,7 +334,7 @@ function SantaLetterSettings() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            className="px-6 py-3 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {saving ? '⏳ Saving...' : '💾 Save Santa Settings'}
           </button>
@@ -353,7 +353,7 @@ function SantaLetterSettings() {
         <div className="pt-4 border-t border-white/10">
           <Link
             href="/santa-letters"
-            className="inline-block px-6 py-3 bg-gradient-to-r from-red-500 to-green-600 text-white rounded-lg hover:from-red-600 hover:to-green-700 transition-all font-semibold"
+            className="inline-block px-6 py-3 bg-linear-to-r from-red-500 to-green-600 text-white rounded-lg hover:from-red-600 hover:to-green-700 transition-all font-semibold"
           >
             View Santa Letters →
           </Link>
@@ -551,7 +551,7 @@ function MonitoringSettings() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            className="px-6 py-3 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {saving ? '⏳ Saving...' : '💾 Save Monitoring Settings'}
           </button>
@@ -583,7 +583,7 @@ function MonitoringSettings() {
         <div className="pt-4 border-t border-white/10">
           <Link
             href="/device-status"
-            className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
+            className="inline-block px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
           >
             View Device Monitor →
           </Link>
@@ -807,7 +807,7 @@ function DatabaseSettings() {
         <button
           onClick={fetchStats}
           disabled={loading}
-          className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-6 py-3 bg-linear-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           🔄 Refresh Statistics
         </button>
@@ -1061,7 +1061,7 @@ function YouTubeVideoSettings() {
               <button
                 onClick={editingVideo ? handleEditVideo : handleAddVideo}
                 disabled={saving}
-                className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? '⏳ Saving...' : (editingVideo ? '💾 Update Video' : '➕ Add Video')}
               </button>
@@ -1084,7 +1084,7 @@ function YouTubeVideoSettings() {
           {!showAddForm && (
             <button
               onClick={() => setShowAddForm(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
+              className="px-4 py-2 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold"
             >
               ➕ Add Video
             </button>
@@ -1538,7 +1538,7 @@ function JukeboxSettings() {
           <button
             onClick={handleRefreshCache}
             disabled={refreshingCache}
-            className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            className="w-full px-6 py-3 bg-linear-to-r from-blue-500 to-cyan-600 text-white rounded-lg hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {refreshingCache ? '🔄 Refreshing...' : '🔄 Refresh Song Cache from FPP'}
           </button>

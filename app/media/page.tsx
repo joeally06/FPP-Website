@@ -1047,7 +1047,7 @@ export default function MediaCenter() {
                         className="bg-white/5 rounded-lg border border-white/10 overflow-hidden hover:bg-white/10 transition-all group"
                       >
                         {/* Album Art */}
-                        <div className="relative aspect-square bg-gradient-to-br from-purple-900/50 to-blue-900/50">
+                        <div className="relative aspect-square bg-linear-to-br from-purple-900/50 to-blue-900/50">
                           {sequence.albumArt ? (
                             <img
                               src={sequence.albumArt}
@@ -1404,7 +1404,7 @@ export default function MediaCenter() {
                     <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                       <FileAudio className="w-8 h-8 text-blue-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-white font-medium break-words" title={file.name}>{file.name}</p>
+                        <p className="text-white font-medium wrap-break-word" title={file.name}>{file.name}</p>
                         <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-white/50">
                           <span>{formatFileSize(file.size)}</span>
                           <span className="whitespace-nowrap">{new Date(file.lastModified).toLocaleDateString()}</span>
@@ -1434,7 +1434,7 @@ export default function MediaCenter() {
       {/* Edit Metadata Modal */}
       {editingSequence && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-xl shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             
             {/* Header */}
             <div className="p-6 border-b border-white/10">

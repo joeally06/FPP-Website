@@ -77,11 +77,11 @@ export default function CookieConsent() {
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]" />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-9998" />
 
       {/* Banner */}
-      <div className="fixed bottom-0 left-0 right-0 z-[9999] p-4 md:p-6">
-        <div className="max-w-6xl mx-auto bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-indigo-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-9999 p-4 md:p-6">
+        <div className="max-w-6xl mx-auto bg-linear-to-br from-purple-900/95 via-blue-900/95 to-indigo-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden">
           
           {!showDetails ? (
             // Simple Banner
@@ -109,7 +109,7 @@ export default function CookieConsent() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={handleAcceptAll}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold shadow-lg"
+                  className="flex-1 px-6 py-3 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold shadow-lg"
                 >
                   ✓ Accept All Cookies
                 </button>
@@ -177,7 +177,7 @@ export default function CookieConsent() {
                         defaultChecked
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                      <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                     </label>
                   </div>
                   <p className="text-white/70 text-sm">
@@ -203,7 +203,7 @@ export default function CookieConsent() {
                         defaultChecked
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                      <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                     </label>
                   </div>
                   <p className="text-white/70 text-sm">
@@ -237,7 +237,7 @@ export default function CookieConsent() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold shadow-lg"
+                  className="flex-1 px-6 py-3 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-semibold shadow-lg"
                 >
                   💾 Save Preferences
                 </button>
