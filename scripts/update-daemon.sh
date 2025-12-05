@@ -232,44 +232,32 @@ log "🔄 Phase 7: Restarting all services..."
 write_status "RESTARTING"
 
 if [ -n "$PM2_BIN" ]; then
-    # IMPORTANT: Don't use 'pm2 reload/restart ecosystem.config.js' as it causes
-    # process ID issues and crashes. Instead, restart services individually by name.
-    log "Restarting services individually (safer than ecosystem reload)..."
+    # IMPORTANT: PM2 restart commands are unreliable and cause process ID corruption.
+    # Instead, always delete + start fresh for consistent behavior.
+    log "Restarting services (delete + start for reliability)..."
     
     set +e
     
     # Restart fpp-poller first (it's less critical)
     log "Restarting fpp-poller..."
-    timeout 15 "$PM2_BIN" restart fpp-poller >> "$LOG_FILE" 2>&1
+    timeout 10 "$PM2_BIN" delete fpp-poller >> "$LOG_FILE" 2>&1 || true
+    sleep 1
+    timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-poller >> "$LOG_FILE" 2>&1
     if [ $? -eq 0 ]; then
-        log "✅ fpp-poller restarted"
+        log "✅ fpp-poller started"
     else
-        log "⚠️  fpp-poller restart failed, trying delete + start..."
-        timeout 10 "$PM2_BIN" delete fpp-poller >> "$LOG_FILE" 2>&1 || true
-        sleep 2
-        timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-poller >> "$LOG_FILE" 2>&1
-        if [ $? -eq 0 ]; then
-            log "✅ fpp-poller started fresh"
-        else
-            log "⚠️  fpp-poller start failed"
-        fi
+        log "⚠️  fpp-poller start failed"
     fi
     
-    # Restart fpp-control (main app)
+    # Restart fpp-control (main app) - always delete + start
     log "Restarting fpp-control..."
-    timeout 15 "$PM2_BIN" restart fpp-control >> "$LOG_FILE" 2>&1
+    timeout 10 "$PM2_BIN" delete fpp-control >> "$LOG_FILE" 2>&1 || true
+    sleep 1
+    timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1
     if [ $? -eq 0 ]; then
-        log "✅ fpp-control restarted"
+        log "✅ fpp-control started"
     else
-        log "⚠️  fpp-control restart failed, trying delete + start..."
-        timeout 10 "$PM2_BIN" delete fpp-control >> "$LOG_FILE" 2>&1 || true
-        sleep 2
-        timeout 30 "$PM2_BIN" start ecosystem.config.js --only fpp-control >> "$LOG_FILE" 2>&1
-        if [ $? -eq 0 ]; then
-            log "✅ fpp-control started fresh"
-        else
-            log "⚠️  fpp-control start failed"
-        fi
+        log "⚠️  fpp-control start failed"
     fi
     
     set -e
