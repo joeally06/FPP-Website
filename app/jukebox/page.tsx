@@ -216,45 +216,55 @@ export default function JukeboxPage() {
   useEffect(() => {
     console.log('[Location] Mount effect - locationRestrictionsEnabled:', locationRestrictionsEnabled, 'userLocation:', userLocation ? 'exists' : 'null');
     
-    // Only check if restrictions are enabled and we don't have location yet
-    if (locationRestrictionsEnabled === true && !userLocation) {
-      console.log('[Location] Starting browser permission check...');
-      // Check browser's permission state using Permissions API
-      if (navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((permissionStatus) => {
-          console.log('[Location] Browser permission state:', permissionStatus.state);
-          
-          if (permissionStatus.state === 'granted') {
-            // Browser already has permission - fetch location silently
-            console.log('[Location] Permission already granted by browser - fetching location...');
-            getBrowserLocation()
-              .then((location) => {
-                setUserLocation(location);
-                setLocationPermissionStatus('granted');
-                
-                // Store for persistence
-                localStorage.setItem('fpp-user-location', JSON.stringify(location));
-                localStorage.setItem('fpp-location-timestamp', Date.now().toString());
-                localStorage.setItem('fpp-location-permission-status', 'granted');
-                
-                console.log('[Location] Location fetched successfully on mount');
-              })
-              .catch((error) => {
-                console.log('[Location] Failed to fetch location on mount:', error.message);
-              });
-          } else if (permissionStatus.state === 'denied') {
-            setLocationPermissionStatus('denied');
-            console.log('[Location] Browser permission previously denied');
-          } else {
-            // 'prompt' state - do nothing, wait for user action
-            console.log('[Location] Browser permission not yet requested - will prompt on user action');
-          }
-        }).catch((error) => {
-          console.log('[Location] Permissions API not supported or failed:', error);
-        });
-      } else {
-        console.log('[Location] Permissions API not available in this browser');
-      }
+    // ONLY check if restrictions are explicitly ENABLED (true)
+    // Don't check if null (loading) or false (disabled)
+    if (locationRestrictionsEnabled !== true) {
+      console.log('[Location] Skipping auto-check - restrictions not enabled');
+      return;
+    }
+    
+    // Don't check if we already have location
+    if (userLocation) {
+      console.log('[Location] Already have location - skipping auto-check');
+      return;
+    }
+    
+    console.log('[Location] Starting browser permission check...');
+    // Check browser's permission state using Permissions API
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((permissionStatus) => {
+        console.log('[Location] Browser permission state:', permissionStatus.state);
+        
+        if (permissionStatus.state === 'granted') {
+          // Browser already has permission - fetch location silently
+          console.log('[Location] Permission already granted by browser - fetching location...');
+          getBrowserLocation()
+            .then((location) => {
+              setUserLocation(location);
+              setLocationPermissionStatus('granted');
+              
+              // Store for persistence
+              localStorage.setItem('fpp-user-location', JSON.stringify(location));
+              localStorage.setItem('fpp-location-timestamp', Date.now().toString());
+              localStorage.setItem('fpp-location-permission-status', 'granted');
+              
+              console.log('[Location] Location fetched successfully on mount');
+            })
+            .catch((error) => {
+              console.log('[Location] Failed to fetch location on mount:', error.message);
+            });
+        } else if (permissionStatus.state === 'denied') {
+          setLocationPermissionStatus('denied');
+          console.log('[Location] Browser permission previously denied');
+        } else {
+          // 'prompt' state - do nothing, wait for user action
+          console.log('[Location] Browser permission not yet requested - will prompt on user action');
+        }
+      }).catch((error) => {
+        console.log('[Location] Permissions API not supported or failed:', error);
+      });
+    } else {
+      console.log('[Location] Permissions API not available in this browser');
     }
   }, [locationRestrictionsEnabled, userLocation]);
 
