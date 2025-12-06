@@ -24,17 +24,26 @@ export async function GET() {
         show_location_name as location_name
       FROM location_restrictions
       WHERE id = 1
-    `).get();
+    `).get() as any;
     
     db.close();
     
-    return NextResponse.json(settings || {
+    // Ensure enabled is a boolean (SQLite returns 0/1)
+    const result = settings ? {
+      enabled: Boolean(settings.enabled),
+      max_distance_miles: settings.max_distance_miles,
+      show_latitude: settings.show_latitude,
+      show_longitude: settings.show_longitude,
+      location_name: settings.location_name
+    } : {
       enabled: false,
       max_distance_miles: 1,
       show_latitude: null,
       show_longitude: null,
       location_name: null
-    });
+    };
+    
+    return NextResponse.json(result);
   } catch (error) {
     console.error('[Location API] GET error:', error);
     return NextResponse.json(
