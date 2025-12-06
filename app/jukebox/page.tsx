@@ -212,6 +212,52 @@ export default function JukeboxPage() {
     }
   }, []);
 
+  // Check browser's actual geolocation permission on mount (when restrictions enabled)
+  useEffect(() => {
+    console.log('[Location] Mount effect - locationRestrictionsEnabled:', locationRestrictionsEnabled, 'userLocation:', userLocation ? 'exists' : 'null');
+    
+    // Only check if restrictions are enabled and we don't have location yet
+    if (locationRestrictionsEnabled === true && !userLocation) {
+      console.log('[Location] Starting browser permission check...');
+      // Check browser's permission state using Permissions API
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((permissionStatus) => {
+          console.log('[Location] Browser permission state:', permissionStatus.state);
+          
+          if (permissionStatus.state === 'granted') {
+            // Browser already has permission - fetch location silently
+            console.log('[Location] Permission already granted by browser - fetching location...');
+            getBrowserLocation()
+              .then((location) => {
+                setUserLocation(location);
+                setLocationPermissionStatus('granted');
+                
+                // Store for persistence
+                localStorage.setItem('fpp-user-location', JSON.stringify(location));
+                localStorage.setItem('fpp-location-timestamp', Date.now().toString());
+                localStorage.setItem('fpp-location-permission-status', 'granted');
+                
+                console.log('[Location] Location fetched successfully on mount');
+              })
+              .catch((error) => {
+                console.log('[Location] Failed to fetch location on mount:', error.message);
+              });
+          } else if (permissionStatus.state === 'denied') {
+            setLocationPermissionStatus('denied');
+            console.log('[Location] Browser permission previously denied');
+          } else {
+            // 'prompt' state - do nothing, wait for user action
+            console.log('[Location] Browser permission not yet requested - will prompt on user action');
+          }
+        }).catch((error) => {
+          console.log('[Location] Permissions API not supported or failed:', error);
+        });
+      } else {
+        console.log('[Location] Permissions API not available in this browser');
+      }
+    }
+  }, [locationRestrictionsEnabled, userLocation]);
+
   // Location modal callbacks
   const handleLocationGranted = (location: UserLocation) => {
     setUserLocation(location);
@@ -281,8 +327,18 @@ export default function JukeboxPage() {
       return true;
     }
     
+    // If still loading restriction settings, wait - don't ask for location yet
+    if (locationRestrictionsEnabled === null) {
+      console.log('[Location] Still loading restriction settings... waiting');
+      showToast('⏳ Loading settings...', 'info');
+      return false;
+    }
+    
+    console.log('[Location] Restrictions enabled - checking location availability');
+    
     // Already have location? Great!
     if (userLocation) {
+      console.log('[Location] Already have location');
       return true;
     }
     
@@ -291,6 +347,7 @@ export default function JukeboxPage() {
     
     // Permission was denied? Show modal to let user try again
     if (locationPermissionStatus === 'denied') {
+      console.log('[Location] Permission denied - showing modal');
       pendingActionRef.current = onSuccess || null;
       setShowLocationModal(true);
       return false;
@@ -298,27 +355,41 @@ export default function JukeboxPage() {
     
     // No previous interaction? Show the explanation modal
     if (locationPermissionStatus === null || locationPermissionStatus === 'skipped') {
+      console.log('[Location] No permission yet - showing modal');
       pendingActionRef.current = onSuccess || null;
       setShowLocationModal(true);
       return false;
     }
     
     // Permission was granted but no location (expired?) - try to get it silently
+    console.log('[Location] Permission granted but location missing - fetching silently...');
     setCheckingLocation(true);
     try {
       const location = await getBrowserLocation();
       setUserLocation(location);
       setLocationPermissionStatus('granted');
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('fpp-user-location', JSON.stringify(location));
+      localStorage.setItem('fpp-location-timestamp', Date.now().toString());
+      
+      // Also sessionStorage for backwards compatibility
       sessionStorage.setItem('user-location', JSON.stringify(location));
       sessionStorage.setItem('user-location-timestamp', Date.now().toString());
+      
       setCheckingLocation(false);
+      console.log('[Location] Location fetched successfully');
       return true;
     } catch (error: any) {
       setCheckingLocation(false);
-      // Permission revoked - show modal
-      setLocationPermissionStatus(null);
+      console.log('[Location] Silent location fetch failed:', error.message);
+      
+      // Don't clear permission status - keep it as 'granted'
+      // Just inform user and let them try again (browser may need user gesture)
+      showToast('📍 Click again to confirm location', 'info');
+      
+      // Store pending action so second click works
       pendingActionRef.current = onSuccess || null;
-      setShowLocationModal(true);
       return false;
     }
   }, [userLocation, locationPermissionStatus, locationRestrictionsEnabled]);
@@ -562,11 +633,8 @@ export default function JukeboxPage() {
     }
 
     // Use override if provided (from pending action), otherwise use state
+    // Only required if restrictions are enabled
     const locationToUse = locationOverride || userLocation;
-    if (!locationToUse) {
-      showToast('Location required. Please enable location access.', 'error');
-      return;
-    }
 
     try {
       const response = await fetch('/api/votes', {
@@ -689,13 +757,8 @@ export default function JukeboxPage() {
     setLocationError(null);
 
     // Use override if provided (from pending action), otherwise use state
+    // Will be undefined if restrictions are disabled (which is fine)
     const locationToUse = locationOverride || userLocation;
-    if (!locationToUse) {
-      setMessage('❌ Location required. Please enable location access.');
-      showToast('Location required. Please enable location access.', 'error');
-      setLoading(false);
-      return;
-    }
 
     try {
       const response = await fetch('/api/jukebox/queue', {
@@ -772,11 +835,8 @@ export default function JukeboxPage() {
     }
 
     // Use override if provided (from pending action), otherwise use state
+    // Will be undefined if restrictions are disabled (which is fine)
     const locationToUse = locationOverride || userLocation;
-    if (!locationToUse) {
-      showToast('Location required. Please enable location access.', 'error');
-      return;
-    }
 
     setLoading(true);
     setLocationError(null);
