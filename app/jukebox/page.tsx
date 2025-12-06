@@ -241,7 +241,7 @@ export default function JukeboxPage() {
           getBrowserLocation()
             .then((location) => {
               setUserLocation(location);
-              setLocationPermissionStatus('granted');
+              setLocationPermissionStatus('granted'); // Only set after successful fetch
               
               // Store for persistence
               localStorage.setItem('fpp-user-location', JSON.stringify(location));
@@ -252,6 +252,7 @@ export default function JukeboxPage() {
             })
             .catch((error) => {
               console.log('[Location] Failed to fetch location on mount:', error.message);
+              // Don't set permission status - leave it null so modal will show on user action
             });
         } else if (permissionStatus.state === 'denied') {
           setLocationPermissionStatus('denied');
@@ -394,12 +395,9 @@ export default function JukeboxPage() {
       setCheckingLocation(false);
       console.log('[Location] Silent location fetch failed:', error.message);
       
-      // Don't clear permission status - keep it as 'granted'
-      // Just inform user and let them try again (browser may need user gesture)
-      showToast('📍 Click again to confirm location', 'info');
-      
-      // Store pending action so second click works
+      // Browser needs user gesture - show modal to explain and let user try
       pendingActionRef.current = onSuccess || null;
+      setShowLocationModal(true);
       return false;
     }
   }, [userLocation, locationPermissionStatus, locationRestrictionsEnabled]);
@@ -612,7 +610,7 @@ export default function JukeboxPage() {
       if (response.ok) {
         const data = await response.json();
         // Track if restrictions are enabled
-        const isEnabled = data.enabled && data.show_latitude && data.show_longitude;
+        const isEnabled = Boolean(data.enabled && data.show_latitude && data.show_longitude);
         setLocationRestrictionsEnabled(isEnabled);
         
         if (isEnabled) {
@@ -1299,26 +1297,6 @@ export default function JukeboxPage() {
             </div>
 
             <form onSubmit={handleRequest} className="space-y-4">
-              {/* Location Error - shown only after a failed action */}
-              {locationError && (
-                <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">📍</span>
-                    <p className="text-yellow-200 text-sm flex-1">{locationError}</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocationError(null);
-                        setShowLocationModal(true);
-                      }}
-                      className="bg-yellow-600/80 hover:bg-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap"
-                    >
-                      Enable
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Checking Location Status */}
               {checkingLocation && (
                 <div className="p-4 bg-blue-500/20 border border-blue-500/40 rounded-lg backdrop-blur-sm">

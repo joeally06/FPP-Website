@@ -133,9 +133,10 @@ export async function proxy(request: NextRequest) {
   );
   
   // Permissions Policy (formerly Feature-Policy)
+  // Allow geolocation for this domain only (required for voting/song requests)
   response.headers.set(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()'
+    'camera=(), microphone=(), geolocation=(self)'
   );
 
   // Strict-Transport-Security (HSTS) - only when running on HTTPS in production
