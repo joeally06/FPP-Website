@@ -217,21 +217,42 @@ function createSantaEmailHTML(childName: string, santaReply: string): string {
 }
 
 /**
+ * Sanitize email header values to prevent injection attacks
+ * SECURITY: Removes newlines, angle brackets, and URL encoding characters
+ * 
+ * @param input - Raw header value
+ * @returns Sanitized header value safe for email headers
+ */
+function sanitizeEmailHeader(input: string): string {
+  return input
+    .replace(/[\r\n]/g, '') // Remove newlines (header injection)
+    .replace(/[<>]/g, '')    // Remove angle brackets (email injection)
+    .replace(/%/g, '')        // Remove URL encoding chars
+    .replace(/\\/g, '')       // Remove backslashes
+    .trim()
+    .substring(0, 200);       // Limit length
+}
+
+/**
  * Send Santa's reply email to parent
- * ✅ SECURITY: Validates email address before sending
+ * ✅ SECURITY: Validates and sanitizes all email inputs
  */
 export async function sendSantaReply(params: SantaEmailParams): Promise<boolean> {
   try {
     console.log('📧 Email service: Starting to send email to', params.parentEmail);
     
-    // ✅ SECURITY: Validate email address again before sending
-    if (!validator.isEmail(params.parentEmail)) {
+    // SECURITY: Sanitize all email header inputs
+    const sanitizedEmail = sanitizeEmailHeader(params.parentEmail);
+    const sanitizedChildName = sanitizeEmailHeader(params.childName);
+    
+    // ✅ SECURITY: Validate email address after sanitization
+    if (!validator.isEmail(sanitizedEmail)) {
       console.error('❌ Invalid email address:', params.parentEmail);
       throw new Error('Invalid email address');
     }
     
-    // ✅ SECURITY: Block email header injection
-    if (/[\r\n]/.test(params.parentEmail)) {
+    // ✅ SECURITY: Additional validation - no suspicious patterns
+    if (/[<>{}[\]\\]/.test(sanitizedEmail)) {
       console.error('❌ Email contains invalid characters');
       throw new Error('Email contains invalid characters');
     }
@@ -250,10 +271,10 @@ export async function sendSantaReply(params: SantaEmailParams): Promise<boolean>
 
     const mailOptions = {
       from: `"Santa Claus 🎅" <${config.auth.user}>`,
-      to: params.parentEmail,
-      subject: `🎄 A Special Letter from Santa for ${params.childName}! 🎅`,
+      to: sanitizedEmail, // Use sanitized email
+      subject: `🎄 A Special Letter from Santa for ${sanitizedChildName}! 🎅`, // Use sanitized name
       text: params.santaReply, // Plain text fallback
-      html: createSantaEmailHTML(params.childName, params.santaReply),
+      html: createSantaEmailHTML(sanitizedChildName, params.santaReply), // Use sanitized name
     };
 
     try {
