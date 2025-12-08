@@ -91,7 +91,9 @@ export async function syncFppData(): Promise<SyncResult> {
     console.log('[FPP Sync] Sample sequence:', sequences[0]);
 
     // Open database
-    console.log('[FPP Sync] Opening database:', dbPath);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[FPP Sync] Opening database:', dbPath);
+    }
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
 
