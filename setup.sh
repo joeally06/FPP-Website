@@ -1199,7 +1199,13 @@ SMTP_PASS=PLACEHOLDER_SMTP_PASS
 
 # Timezone Configuration
 NEXT_PUBLIC_TIMEZONE=PLACEHOLDER_TIMEZONE
+
+# Internal API Key (for background jobs)
+INTERNAL_API_KEY=PLACEHOLDER_INTERNAL_API_KEY
 ENV_FILE
+
+# Generate secure internal API key
+INTERNAL_API_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 
 # Replace placeholders
 sed -i.bak "s|PLACEHOLDER_NEXTAUTH_URL|$NEXTAUTH_URL|g" .env.local
@@ -1218,6 +1224,7 @@ sed -i.bak "s|PLACEHOLDER_SMTP_SECURE|$SMTP_SECURE|g" .env.local
 sed -i.bak "s|PLACEHOLDER_SMTP_USER|$SMTP_USER|g" .env.local
 sed -i.bak "s|PLACEHOLDER_SMTP_PASS|$SMTP_PASS|g" .env.local
 sed -i.bak "s|PLACEHOLDER_TIMEZONE|$TIMEZONE|g" .env.local
+sed -i.bak "s|PLACEHOLDER_INTERNAL_API_KEY|$INTERNAL_API_KEY|g" .env.local
 rm -f .env.local.bak
 
 print_success "Configuration file created"

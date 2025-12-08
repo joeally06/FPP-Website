@@ -40,9 +40,49 @@ fi
 echo "✅ Application built successfully"
 echo ""
 
+# Step 2.5: Verify .env.local security configuration
+echo "🔐 Step 2.5: Verifying security configuration..."
+
+if [ ! -f ".env.local" ]; then
+    echo "❌ Error: .env.local file not found"
+    echo "Please copy .env.local.example to .env.local and configure it"
+    exit 1
+fi
+
+# Check if INTERNAL_API_KEY exists and is set
+if ! grep -q "^INTERNAL_API_KEY=" .env.local; then
+    echo "⚠️  INTERNAL_API_KEY not found in .env.local"
+    echo "🔑 Generating secure internal API key..."
+    
+    INTERNAL_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+    echo "" >> .env.local
+    echo "# Internal API Key (for background jobs)" >> .env.local
+    echo "INTERNAL_API_KEY=$INTERNAL_KEY" >> .env.local
+    
+    echo "✅ INTERNAL_API_KEY generated and added to .env.local"
+elif grep -q "^INTERNAL_API_KEY=$" .env.local || grep -q "^INTERNAL_API_KEY=default-internal-key$" .env.local; then
+    echo "⚠️  INTERNAL_API_KEY is empty or using default value"
+    echo "🔑 Generating secure internal API key..."
+    
+    INTERNAL_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+    
+    # Replace empty or default key with generated key
+    if grep -q "^INTERNAL_API_KEY=$" .env.local; then
+        sed -i "s|^INTERNAL_API_KEY=$|INTERNAL_API_KEY=$INTERNAL_KEY|" .env.local
+    else
+        sed -i "s|^INTERNAL_API_KEY=default-internal-key$|INTERNAL_API_KEY=$INTERNAL_KEY|" .env.local
+    fi
+    
+    echo "✅ INTERNAL_API_KEY updated in .env.local"
+else
+    echo "✅ INTERNAL_API_KEY is configured"
+fi
+
+echo ""
+
 # Step 3: Check if PM2 is installed
 if ! command -v pm2 &> /dev/null; then
-    echo "📦 Step 3: Installing PM2 globally..."
+    echo "📦 Step 4: Installing PM2 globally..."
     npm install -g pm2
     
     if [ $? -ne 0 ]; then
@@ -59,7 +99,7 @@ fi
 echo ""
 
 # Step 4: Cloudflare Tunnel setup (optional)
-echo "☁️  Step 4: Cloudflare Tunnel setup"
+echo "☁️  Step 5: Cloudflare Tunnel setup (optional)"
 read -p "Do you want to set up Cloudflare Tunnel now? (y/n) " -n 1 -r
 echo ""
 
@@ -78,7 +118,7 @@ fi
 echo ""
 
 # Step 5: Start application with PM2
-echo "🚀 Step 5: Starting application with PM2..."
+echo "🚀 Step 6: Starting application with PM2..."
 
 # Stop existing instance if running
 pm2 stop fpp-control 2>/dev/null || true
@@ -96,7 +136,7 @@ echo "✅ Application started"
 echo ""
 
 # Step 6: Save PM2 configuration
-echo "💾 Step 6: Saving PM2 configuration..."
+echo "💾 Step 7: Saving PM2 configuration..."
 pm2 save
 
 # Setup PM2 startup (requires sudo on most systems)
