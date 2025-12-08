@@ -2,7 +2,7 @@
 
 # Update Daemon - Inspired by FPP's upgrade system
 # Runs completely independent of PM2/Node.js processes
-# Version: 4.0.0 - Ignore SIGTERM/SIGINT to survive PM2 reload
+# Version: 4.1.0 - Added security: path validation and command injection prevention
 
 set -e
 
@@ -18,6 +18,33 @@ else
     else
         PROJECT_DIR="$(pwd)"
     fi
+fi
+
+# SECURITY: Validate PROJECT_DIR to prevent command injection
+# 1. Must be an absolute path
+if [[ ! "$PROJECT_DIR" = /* ]]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ SECURITY: PROJECT_DIR must be absolute path, got: $PROJECT_DIR" >&2
+    exit 1
+fi
+
+# 2. Canonicalize path (resolve symlinks, remove .., etc.)
+if command -v realpath >/dev/null 2>&1; then
+    PROJECT_DIR=$(realpath "$PROJECT_DIR" 2>/dev/null) || {
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ SECURITY: Invalid project path: $PROJECT_DIR" >&2
+        exit 1
+    }
+fi
+
+# 3. Must contain package.json (validate it's a Node.js project)
+if [ ! -f "$PROJECT_DIR/package.json" ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ SECURITY: Invalid project directory (no package.json found)" >&2
+    exit 1
+fi
+
+# 4. Validate path doesn't contain dangerous characters
+if [[ "$PROJECT_DIR" =~ [';''`''$''|''&''<''>'] ]]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ SECURITY: PROJECT_DIR contains invalid characters" >&2
+    exit 1
 fi
 
 LOG_FILE="$PROJECT_DIR/logs/update.log"
