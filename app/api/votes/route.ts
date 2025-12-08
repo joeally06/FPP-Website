@@ -8,8 +8,79 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { sequenceName, voteType, userLocation } = body;
 
-    if (!sequenceName || !['up', 'down'].includes(voteType)) {
-      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    // SECURITY: Comprehensive input validation
+    
+    // 1. Validate sequenceName
+    if (!sequenceName || typeof sequenceName !== 'string') {
+      return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
+    }
+    
+    // Length validation (1-200 characters)
+    if (sequenceName.length < 1 || sequenceName.length > 200) {
+      return NextResponse.json({ 
+        error: 'Sequence name must be between 1 and 200 characters' 
+      }, { status: 400 });
+    }
+    
+    // Format validation (alphanumeric, spaces, hyphens, underscores, dots, apostrophes)
+    if (!/^[a-zA-Z0-9_\-. ']+$/.test(sequenceName)) {
+      return NextResponse.json({ 
+        error: 'Sequence name contains invalid characters (only alphanumeric, spaces, hyphens, underscores, dots, and apostrophes allowed)' 
+      }, { status: 400 });
+    }
+    
+    // 2. Validate voteType (enum validation)
+    if (!voteType || !['up', 'down'].includes(voteType)) {
+      return NextResponse.json({ 
+        error: 'Invalid vote type (must be "up" or "down")' 
+      }, { status: 400 });
+    }
+    
+    // 3. Validate userLocation if provided
+    if (userLocation) {
+      if (typeof userLocation !== 'object') {
+        return NextResponse.json({ error: 'Invalid location format' }, { status: 400 });
+      }
+      
+      // Validate latitude (-90 to 90)
+      if (userLocation.lat !== undefined && userLocation.lat !== null) {
+        if (typeof userLocation.lat !== 'number' || 
+            userLocation.lat < -90 || userLocation.lat > 90) {
+          return NextResponse.json({ 
+            error: 'Invalid latitude (must be between -90 and 90)' 
+          }, { status: 400 });
+        }
+      }
+      
+      // Validate longitude (-180 to 180)
+      if (userLocation.lng !== undefined && userLocation.lng !== null) {
+        if (typeof userLocation.lng !== 'number' || 
+            userLocation.lng < -180 || userLocation.lng > 180) {
+          return NextResponse.json({ 
+            error: 'Invalid longitude (must be between -180 and 180)' 
+          }, { status: 400 });
+        }
+      }
+      
+      // Validate accuracy if provided (positive number, max 100000 meters)
+      if (userLocation.accuracy !== undefined && userLocation.accuracy !== null) {
+        if (typeof userLocation.accuracy !== 'number' || 
+            userLocation.accuracy < 0 || userLocation.accuracy > 100000) {
+          return NextResponse.json({ 
+            error: 'Invalid location accuracy' 
+          }, { status: 400 });
+        }
+      }
+      
+      // Validate source if provided (string, max 50 chars)
+      if (userLocation.source !== undefined && userLocation.source !== null) {
+        if (typeof userLocation.source !== 'string' || 
+            userLocation.source.length > 50) {
+          return NextResponse.json({ 
+            error: 'Invalid location source' 
+          }, { status: 400 });
+        }
+      }
     }
 
     // Get user IP
@@ -113,6 +184,16 @@ export async function GET(request: NextRequest) {
     const userIp = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
 
     if (sequenceName) {
+      // SECURITY: Validate sequence name parameter
+      if (typeof sequenceName !== 'string' || 
+          sequenceName.length < 1 || 
+          sequenceName.length > 200 ||
+          !/^[a-zA-Z0-9_\-. ']+$/.test(sequenceName)) {
+        return NextResponse.json({ 
+          error: 'Invalid sequence name' 
+        }, { status: 400 });
+      }
+      
       // Get user's vote for specific sequence
       const userVote = getUserVote.get(sequenceName, userIp) as { vote_type: string } | undefined;
       return NextResponse.json({ userVote: userVote?.vote_type || null });
