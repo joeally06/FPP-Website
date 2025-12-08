@@ -27,8 +27,43 @@ export async function POST(request: NextRequest) {
     // Get current rate limit from settings
     const rateLimit = getSongRequestRateLimit();
 
+    // SECURITY: Validate sequence_name input
     if (!sequence_name) {
       return NextResponse.json({ error: 'Sequence name is required' }, { status: 400 });
+    }
+
+    if (typeof sequence_name !== 'string') {
+      return NextResponse.json({ error: 'Invalid sequence name type' }, { status: 400 });
+    }
+
+    if (sequence_name.length < 1 || sequence_name.length > 200) {
+      return NextResponse.json({ error: 'Sequence name must be 1-200 characters' }, { status: 400 });
+    }
+
+    // Allow alphanumeric, spaces, hyphens, underscores, dots, apostrophes
+    // This prevents SQL injection and path traversal attacks
+    if (!/^[a-zA-Z0-9_\-. ']+$/.test(sequence_name)) {
+      return NextResponse.json({ 
+        error: 'Invalid characters in sequence name' 
+      }, { status: 400 });
+    }
+
+    // SECURITY: Validate requester_name input
+    if (requester_name !== undefined && requester_name !== null) {
+      if (typeof requester_name !== 'string') {
+        return NextResponse.json({ error: 'Invalid requester name type' }, { status: 400 });
+      }
+
+      if (requester_name.length > 100) {
+        return NextResponse.json({ error: 'Requester name must be under 100 characters' }, { status: 400 });
+      }
+
+      // Allow alphanumeric, spaces, and common name characters
+      if (requester_name.length > 0 && !/^[a-zA-Z0-9_\-. ']+$/.test(requester_name)) {
+        return NextResponse.json({ 
+          error: 'Invalid characters in requester name' 
+        }, { status: 400 });
+      }
     }
 
     // Check location restrictions if user provided GPS location
