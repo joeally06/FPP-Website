@@ -18,10 +18,21 @@ export const dynamic = 'force-dynamic';
  * Process the Santa letter queue
  * 
  * This endpoint is called by the background queue processor (lib/santa-queue-processor.ts)
- * No authentication required - this is an internal background job
+ * Requires internal API key for security
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Security: Verify internal API key
+    const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
+    const providedKey = request.headers.get('x-internal-api-key');
+    
+    if (!providedKey || providedKey !== internalKey) {
+      console.error('[Queue Processor] Unauthorized access attempt - invalid API key');
+      return NextResponse.json(
+        { error: 'Unauthorized - invalid API key' },
+        { status: 401 }
+      );
+    }
     console.log('[Queue Processor] Starting queue processing...');
 
     // Get the next queued letter

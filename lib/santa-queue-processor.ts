@@ -17,9 +17,14 @@ async function processQueue() {
   try {
     // Call the process-queue API endpoint
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
+    
     const response = await fetch(`${baseUrl}/api/santa/process-queue`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-api-key': internalKey,
+      },
     });
 
     const result = await response.json();
