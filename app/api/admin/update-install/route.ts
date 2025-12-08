@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, statSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, statSync, unlinkSync, realpathSync } from 'fs';
 import path from 'path';
 
 const LOGS_DIR = path.join(process.cwd(), 'logs');
@@ -13,6 +13,42 @@ const SCRIPT_PATH = path.join(process.cwd(), 'scripts', 'update-daemon.sh');
 
 // Maximum age of a lock file before considering it stale (30 minutes)
 const STALE_LOCK_AGE_MS = 30 * 60 * 1000;
+
+/**
+ * Validate and sanitize project directory path for security
+ * Prevents command injection and path traversal attacks
+ */
+function getSecureProjectPath(): string {
+  try {
+    // Get absolute path
+    let projectPath = process.cwd();
+    
+    // Canonicalize path (resolve symlinks, remove .., etc.)
+    projectPath = realpathSync(projectPath);
+    
+    // Validate it's an absolute path
+    if (!path.isAbsolute(projectPath)) {
+      throw new Error('Project path must be absolute');
+    }
+    
+    // Verify package.json exists (validate it's a Node.js project)
+    const packageJsonPath = path.join(projectPath, 'package.json');
+    if (!existsSync(packageJsonPath)) {
+      throw new Error('Invalid project directory: package.json not found');
+    }
+    
+    // Validate path doesn't contain dangerous characters
+    const dangerousChars = /[;`$|&<>]/;
+    if (dangerousChars.test(projectPath)) {
+      throw new Error('Project path contains invalid characters');
+    }
+    
+    return projectPath;
+  } catch (error) {
+    console.error('[Security] Project path validation failed:', error);
+    throw error;
+  }
+}
 
 /**
  * POST /api/admin/update-install
@@ -83,12 +119,19 @@ export async function POST() {
 
     console.log(`[Update Install] Spawning daemon: ${SCRIPT_PATH}`);
 
+    // SECURITY: Validate and canonicalize project path
+    const secureProjectPath = getSecureProjectPath();
+    
     // Spawn daemon using setsid to create a truly independent process session
     // This ensures the daemon survives even when fpp-control is killed
-    const daemon = spawn('setsid', ['bash', SCRIPT_PATH, process.cwd()], {
+    const daemon = spawn('setsid', ['bash', SCRIPT_PATH, secureProjectPath], {
       detached: true,
       stdio: 'ignore',
-      cwd: process.cwd(),
+      cwd: secureProjectPath,
+      env: {
+        ...process.env,
+        PATH: '/usr/local/bin:/usr/bin:/bin', // Restrict PATH for security
+      }
     });
 
     daemon.unref();
