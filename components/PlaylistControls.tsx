@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Play, Square, SkipForward, SkipBack, Repeat, Shuffle, Pause, RotateCcw } from 'lucide-react';
+import { TIMING } from '@/lib/constants';
 
 interface Playlist {
   name: string;
@@ -70,7 +71,7 @@ export default function PlaylistControls({ fppUrl }: PlaylistControlsProps) {
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000); // Refresh every 5 seconds
+    const interval = setInterval(fetchStatus, TIMING.POLL_INTERVAL_FAST); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, []);
 

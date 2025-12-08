@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { TIMING } from '@/lib/constants';
 
 interface Alert {
   type: 'critical' | 'warning' | 'info';
@@ -42,7 +43,7 @@ export default function AlertsPanel() {
   useEffect(() => {
     fetchAlerts();
     // Refresh alerts every 30 seconds
-    const interval = setInterval(fetchAlerts, 30000);
+    const interval = setInterval(fetchAlerts, TIMING.POLL_INTERVAL_SLOW);
     return () => clearInterval(interval);
   }, []);
 

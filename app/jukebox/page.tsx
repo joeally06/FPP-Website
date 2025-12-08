@@ -23,6 +23,7 @@ import Footer from '@/components/Footer';
 import { formatDateTime } from '@/lib/time-utils';
 import { getBrowserLocation, getDistanceInMiles, type UserLocation } from '@/lib/location-utils';
 import { Radio, Music } from 'lucide-react';
+import { TIMING } from '@/lib/constants';
 
 interface QueueItem {
   id: number;
@@ -430,15 +431,15 @@ export default function JukeboxPage() {
     fetchJukeboxSettings(); // Fetch jukebox rate limit and insert mode
     fetchLocationRestrictions(); // Fetch location settings for distance calculation
     
-    const interval = setInterval(fetchData, 5000); // Refresh every 5 seconds
-    const scheduleInterval = setInterval(fetchScheduleStatus, 30000); // Check every 30 seconds
+    const interval = setInterval(fetchData, TIMING.POLL_INTERVAL_FAST);
+    const scheduleInterval = setInterval(fetchScheduleStatus, TIMING.POLL_INTERVAL_SLOW);
     
-    // Refresh request status every 10 seconds to keep it up to date
+    // Refresh request status to keep it up to date
     const requestStatusInterval = setInterval(() => {
       if (jukeboxRateLimit > 0) {
         fetchRequestStatus(jukeboxRateLimit);
       }
-    }, 10000);
+    }, TIMING.POLL_INTERVAL_MEDIUM);
     
     // Background queue processor - check every 10 seconds (runs for everyone)
     const queueProcessorInterval = setInterval(async () => {
@@ -477,11 +478,12 @@ export default function JukeboxPage() {
       }, 10 * 60 * 1000); // 10 minutes
     }
     
+    // ✅ MEMORY LEAK FIX: Clear all intervals on unmount
     return () => {
       clearInterval(interval);
-      clearInterval(scheduleInterval); // Cleanup schedule status check
-      clearInterval(requestStatusInterval); // Cleanup request status check
-      clearInterval(queueProcessorInterval); // Always cleanup queue processor
+      clearInterval(scheduleInterval);
+      clearInterval(requestStatusInterval);
+      clearInterval(queueProcessorInterval);
       if (cacheRefreshInterval) clearInterval(cacheRefreshInterval);
     };
   }, [isAdmin]);

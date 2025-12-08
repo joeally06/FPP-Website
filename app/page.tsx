@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { useFPPConnection } from '@/contexts/FPPConnectionContext';
 import { Play, Square, SkipForward, SkipBack, Repeat, Shuffle, Pause, RotateCcw } from 'lucide-react';
+import { TIMING } from '@/lib/constants';
 
 interface Status {
   status_name: string;
@@ -86,7 +87,7 @@ export default function Home() {
     // Initial fetch
     fetchData();
     // Poll every 5 seconds for status updates
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, TIMING.POLL_INTERVAL_FAST);
     return () => clearInterval(interval);
   }, [isAdmin, isOnline]);
 

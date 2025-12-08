@@ -5,7 +5,10 @@ import { getFppUrl } from '@/lib/fpp-config';
 import { 
   getQueue, 
   updateQueueStatus,
-  updateStartTimeAndDuration
+  updateStartTimeAndDuration,
+  getProcessorState,
+  updateProcessorState,
+  resetProcessorState
 } from '@/lib/database';
 import Database from 'better-sqlite3';
 import path from 'path';
@@ -38,12 +41,23 @@ interface FppStatus {
   seconds_remaining?: number;
 }
 
+interface ProcessorState {
+  id: number;
+  processing_state: 'IDLE' | 'MONITORING_SEQUENCE';
+  sequence_start_time: number | null;
+  current_queue_item_id: number | null;
+  last_updated: string;
+}
+
 // Simplified state machine for queue processing using Insert Playlist Immediate
 type ProcessingState = 'IDLE' | 'MONITORING_SEQUENCE';
 
-let processingState: ProcessingState = 'IDLE';
-let sequenceStartTime: number | null = null;
-let currentQueueItemId: number | null = null;
+// ✅ RACE CONDITION FIX: State is now stored in database instead of module-level variables
+// This prevents concurrent requests from overwriting each other's state
+// Old approach (race condition):
+//   let processingState: ProcessingState = 'IDLE';
+//   let sequenceStartTime: number | null = null;
+//   let currentQueueItemId: number | null = null;
 
 // Helper function to sleep
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -151,12 +165,17 @@ async function insertPlaylistImmediate(sequenceName: string): Promise<boolean> {
   }
 
   console.log(`[Queue] Insert response: ${result.response || 'success'}`);
-  sequenceStartTime = Date.now();
   return true;
 }
 
 // Simplified state machine processing with Insert Playlist Immediate
 async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
+  // ✅ Get state from database instead of module-level variables
+  const state = getProcessorState.get() as ProcessorState;
+  const processingState = state.processing_state;
+  const sequenceStartTime = state.sequence_start_time;
+  const currentQueueItemId = state.current_queue_item_id;
+
   console.log(`[Queue] State: ${processingState}, FPP: ${fppStatus.status_name}, Current: ${fppStatus.current_sequence || 'none'}`);
 
   switch (processingState) {
@@ -170,7 +189,6 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
       }
 
       console.log(`[Queue] Processing queue item: ${pendingItem.sequence_name}`);
-      currentQueueItemId = pendingItem.id;
       
       // Use Insert Playlist Immediate - FPP handles pause/resume automatically
       const inserted = await insertPlaylistImmediate(pendingItem.sequence_name);
@@ -178,8 +196,10 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
       if (inserted) {
         // DON'T mark as 'playing' yet - wait until FPP confirms it's playing
         // Keep as 'pending' and transition to MONITORING_SEQUENCE
-        processingState = 'MONITORING_SEQUENCE';
-        sequenceStartTime = Date.now();
+        const startTime = Date.now();
+        
+        // ✅ Update state in database atomically
+        updateProcessorState.run('MONITORING_SEQUENCE', startTime, pendingItem.id);
         
         // Record start time
         const defaultDurationMs = 5 * 60 * 1000; // 5 minutes default
@@ -189,14 +209,13 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
       } else {
         console.error('[Queue] Failed to insert sequence');
         updateQueueStatus.run('completed', pendingItem.id);
-        currentQueueItemId = null;
       }
       break;
     }
 
     case 'MONITORING_SEQUENCE': {
       if (!currentQueueItemId) {
-        processingState = 'IDLE';
+        resetProcessorState.run();
         return;
       }
 
@@ -207,9 +226,7 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
       db.close();
 
       if (!currentItem) {
-        processingState = 'IDLE';
-        currentQueueItemId = null;
-        sequenceStartTime = null;
+        resetProcessorState.run();
         return;
       }
 
@@ -240,10 +257,8 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
         // Mark as completed - FPP handles resume automatically
         updateQueueStatus.run('completed', currentQueueItemId);
         
-        // Reset state
-        processingState = 'IDLE';
-        currentQueueItemId = null;
-        sequenceStartTime = null;
+        // ✅ Reset state in database
+        resetProcessorState.run();
       } else if (sequenceFinished && !minPlayTime && currentItem.status === 'pending') {
         // Sequence hasn't started yet and hasn't been too long - keep waiting
         const waitTime = sequenceStartTime ? (Date.now() - sequenceStartTime) / 1000 : 0;
@@ -253,17 +268,14 @@ async function processQueueStateMachine(fppStatus: FppStatus): Promise<void> {
         if (waitTime > 30) {
           console.log('[Queue] Timed out waiting for FPP to play sequence');
           updateQueueStatus.run('completed', currentQueueItemId);
-          processingState = 'IDLE';
-          currentQueueItemId = null;
-          sequenceStartTime = null;
+          resetProcessorState.run();
         }
       } else if (sequenceFinished && !minPlayTime && currentItem.status === 'playing') {
         console.log('[Queue] Sequence ended too quickly - treating as finished');
         updateQueueStatus.run('completed', currentQueueItemId);
         
-        processingState = 'IDLE';
-        currentQueueItemId = null;
-        sequenceStartTime = null;
+        // ✅ Reset state in database
+        resetProcessorState.run();
       } else {
         console.log(`[Queue] Monitoring... Current: ${fppStatus.current_sequence}, Status: ${currentItem.status}`);
       }
@@ -310,7 +322,9 @@ export async function POST() {
     // Run state machine
     await processQueueStateMachine(fppStatus);
 
-    return NextResponse.json({ success: true, state: processingState });
+    // ✅ Get final state from database
+    const finalState = getProcessorState.get() as ProcessorState;
+    return NextResponse.json({ success: true, state: finalState.processing_state });
 
   } catch (error: any) {
     if (error.message?.includes('Authentication required')) {

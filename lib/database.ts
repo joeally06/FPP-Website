@@ -80,6 +80,22 @@ db.exec(`
   INSERT OR IGNORE INTO theme_settings (id, active_theme_id) VALUES (1, 'default');
 `);
 
+// Create queue processor state table (for distributed lock and state management)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS queue_processor_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    processing_state TEXT DEFAULT 'IDLE' CHECK (processing_state IN ('IDLE', 'MONITORING_SEQUENCE')),
+    sequence_start_time INTEGER,
+    current_queue_item_id INTEGER,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Insert default processor state if not exists
+db.exec(`
+  INSERT OR IGNORE INTO queue_processor_state (id, processing_state) VALUES (1, 'IDLE');
+`);
+
 // Create Santa letters table
 db.exec(`
   CREATE TABLE IF NOT EXISTS santa_letters (
@@ -97,154 +113,51 @@ db.exec(`
   );
 `);
 
-// Add queue fields to santa_letters table if they don't exist (for existing databases)
-try {
-  db.exec(`ALTER TABLE santa_letters ADD COLUMN queue_status TEXT DEFAULT 'queued' CHECK (queue_status IN ('queued', 'processing', 'completed', 'failed'));`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
+// ✅ Database migrations - Add columns if they don't exist (for existing databases)
+// Refactored from 24 individual try-catch blocks to loop-based approach
+const migrations: Array<{ table: string; column: string; definition: string }> = [
+  // Santa Letters queue processing
+  { table: 'santa_letters', column: 'queue_status', definition: "TEXT DEFAULT 'queued' CHECK (queue_status IN ('queued', 'processing', 'completed', 'failed'))" },
+  { table: 'santa_letters', column: 'processing_started_at', definition: 'DATETIME' },
+  { table: 'santa_letters', column: 'processing_completed_at', definition: 'DATETIME' },
+  { table: 'santa_letters', column: 'retry_count', definition: 'INTEGER DEFAULT 0' },
+  { table: 'santa_letters', column: 'last_error', definition: 'TEXT' },
+  
+  // Theme settings
+  { table: 'theme_settings', column: 'custom_particles', definition: 'TEXT' },
+  
+  // Jukebox queue - Media and playlist tracking
+  { table: 'jukebox_queue', column: 'media_name', definition: 'TEXT' },
+  { table: 'jukebox_queue', column: 'original_playlist', definition: 'TEXT' },
+  { table: 'jukebox_queue', column: 'original_item_index', definition: 'INTEGER' },
+  { table: 'jukebox_queue', column: 'was_resumed', definition: 'BOOLEAN DEFAULT 0' },
+  { table: 'jukebox_queue', column: 'started_at', definition: 'DATETIME' },
+  { table: 'jukebox_queue', column: 'duration_ms', definition: 'INTEGER' },
+  
+  // Jukebox queue - Geolocation for access control
+  { table: 'jukebox_queue', column: 'latitude', definition: 'REAL' },
+  { table: 'jukebox_queue', column: 'longitude', definition: 'REAL' },
+  { table: 'jukebox_queue', column: 'city', definition: 'TEXT' },
+  { table: 'jukebox_queue', column: 'region', definition: 'TEXT' },
+  { table: 'jukebox_queue', column: 'country_code', definition: 'TEXT' },
+  { table: 'jukebox_queue', column: 'distance_from_show', definition: 'REAL' },
+  
+  // Votes - Geolocation for access control
+  { table: 'votes', column: 'latitude', definition: 'REAL' },
+  { table: 'votes', column: 'longitude', definition: 'REAL' },
+  { table: 'votes', column: 'city', definition: 'TEXT' },
+  { table: 'votes', column: 'region', definition: 'TEXT' },
+  { table: 'votes', column: 'country_code', definition: 'TEXT' },
+  { table: 'votes', column: 'distance_from_show', definition: 'REAL' },
+];
 
-try {
-  db.exec(`ALTER TABLE santa_letters ADD COLUMN processing_started_at DATETIME;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE santa_letters ADD COLUMN processing_completed_at DATETIME;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE santa_letters ADD COLUMN retry_count INTEGER DEFAULT 0;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE santa_letters ADD COLUMN last_error TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-// Add custom_particles column if it doesn't exist (for existing databases)
-try {
-  db.exec(`ALTER TABLE theme_settings ADD COLUMN custom_particles TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-// Add media_name column if it doesn't exist (for existing databases)
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN media_name TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-// Add new columns for playlist resumption tracking
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN original_playlist TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN original_item_index INTEGER;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN was_resumed BOOLEAN DEFAULT 0;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN started_at DATETIME;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN duration_ms INTEGER;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-// Add geolocation columns to jukebox_queue for location-based access control
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN latitude REAL;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN longitude REAL;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN city TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN region TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN country_code TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE jukebox_queue ADD COLUMN distance_from_show REAL;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-// Add geolocation columns to votes table for location-based access control
-try {
-  db.exec(`ALTER TABLE votes ADD COLUMN latitude REAL;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE votes ADD COLUMN longitude REAL;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE votes ADD COLUMN city TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE votes ADD COLUMN region TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE votes ADD COLUMN country_code TEXT;`);
-} catch (error) {
-  // Column might already exist, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE votes ADD COLUMN distance_from_show REAL;`);
-} catch (error) {
-  // Column might already exist, ignore error
+// Apply all migrations
+for (const migration of migrations) {
+  try {
+    db.exec(`ALTER TABLE ${migration.table} ADD COLUMN ${migration.column} ${migration.definition};`);
+  } catch (error) {
+    // Column already exists, continue
+  }
 }
 
 // Create location restrictions table for geolocation-based access control
@@ -479,6 +392,9 @@ db.exec(`
   
   CREATE INDEX IF NOT EXISTS idx_votes_user_sequence 
   ON votes(user_ip, sequence_name);
+  
+  CREATE INDEX IF NOT EXISTS idx_votes_ip_created 
+  ON votes(user_ip, created_at DESC);
 `);
 
 // Jukebox queue indexes
@@ -494,6 +410,12 @@ db.exec(`
   
   CREATE INDEX IF NOT EXISTS idx_jukebox_resume 
   ON jukebox_queue(status, was_resumed, original_playlist);
+  
+  CREATE INDEX IF NOT EXISTS idx_jukebox_requester_ip_created 
+  ON jukebox_queue(requester_ip, created_at DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_jukebox_status_created 
+  ON jukebox_queue(status, created_at ASC);
 `);
 
 // Sequence requests indexes
@@ -702,6 +624,29 @@ export const getQueuePosition = db.prepare(`
   AND (priority > (SELECT priority FROM jukebox_queue WHERE id = ?) 
        OR (priority = (SELECT priority FROM jukebox_queue WHERE id = ?) 
            AND created_at < (SELECT created_at FROM jukebox_queue WHERE id = ?)))
+`);
+
+// Queue processor state prepared statements (for distributed locking)
+export const getProcessorState = db.prepare(`
+  SELECT * FROM queue_processor_state WHERE id = 1
+`);
+
+export const updateProcessorState = db.prepare(`
+  UPDATE queue_processor_state 
+  SET processing_state = ?, 
+      sequence_start_time = ?, 
+      current_queue_item_id = ?,
+      last_updated = CURRENT_TIMESTAMP
+  WHERE id = 1
+`);
+
+export const resetProcessorState = db.prepare(`
+  UPDATE queue_processor_state 
+  SET processing_state = 'IDLE', 
+      sequence_start_time = NULL, 
+      current_queue_item_id = NULL,
+      last_updated = CURRENT_TIMESTAMP
+  WHERE id = 1
 `);
 
 // Sequence requests prepared statements

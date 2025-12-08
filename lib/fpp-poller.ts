@@ -26,6 +26,7 @@ import fs from 'fs';
 import { config } from 'dotenv';
 import { getCircuitBreaker, CircuitState } from './circuit-breaker';
 import { getFppHost, getFppPort, FPP_DEFAULTS } from './fpp-config';
+import { POLLER } from './constants';
 
 // Load environment variables from .env.local
 const envPath = path.join(process.cwd(), '.env.local');
@@ -40,9 +41,9 @@ if (fs.existsSync(envPath)) {
 
 const FPP_HOST = process.env.FPP_HOST || getFppHost();
 const FPP_PORT = process.env.FPP_PORT || '80';
-const POLL_INTERVAL = parseInt(process.env.FPP_POLL_INTERVAL || '10000'); // 10 seconds default
-const MIN_POLL_INTERVAL = 5000; // Minimum 5 seconds between polls
-const MAX_POLL_INTERVAL = 60000; // Maximum 60 seconds on repeated failures
+const POLL_INTERVAL = parseInt(process.env.FPP_POLL_INTERVAL || String(POLLER.DEFAULT_INTERVAL));
+const MIN_POLL_INTERVAL = POLLER.MIN_INTERVAL;
+const MAX_POLL_INTERVAL = POLLER.MAX_INTERVAL;
 const RETRY_BACKOFF_MULTIPLIER = 1.5; // Exponential backoff
 const MAX_CONSECUTIVE_FAILURES = 10; // Max failures before longer backoff
 
@@ -260,7 +261,7 @@ async function fetchFPPStatus(): Promise<{ success: boolean; data?: any; error?:
   
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), POLLER.TIMEOUT);
     
     const url = `http://${FPP_HOST}:${FPP_PORT}/api/fppd/status`;
     
@@ -307,7 +308,7 @@ async function fetchFPPStatus(): Promise<{ success: boolean; data?: any; error?:
 async function fetchPlaylistDetails(playlistName: string): Promise<any | null> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), POLLER.TIMEOUT);
     
     const url = `http://${FPP_HOST}:${FPP_PORT}/api/playlist/${encodeURIComponent(playlistName)}`;
     

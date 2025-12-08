@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/AdminNavigation';
 import { formatDateTime } from '@/lib/time-utils';
+import { TIMING } from '@/lib/constants';
 import { 
   AdminH1, 
   AdminH2, 
@@ -239,7 +240,7 @@ export default function DeviceStatusPage() {
     loadSchedule();
     
     // Auto-refresh every 30 seconds
-    const interval = setInterval(loadDeviceStatuses, 30000);
+    const interval = setInterval(loadDeviceStatuses, TIMING.POLL_INTERVAL_SLOW);
     
     return () => clearInterval(interval);
   }, []);
@@ -388,7 +389,7 @@ export default function DeviceStatusPage() {
                     <AdminTextSmall className="wrap-break-word">{device.description}</AdminTextSmall>
                   </div>
                   <div className="flex items-start gap-2">
-                    <div className="text-2xl sm:text-3xl flex-shrink-0">
+                    <div className="text-2xl sm:text-3xl shrink-0">
                       {getStatusIcon(device.id)}
                     </div>
                     {/* Action Buttons */}
@@ -414,11 +415,11 @@ export default function DeviceStatusPage() {
                 {/* Device Info */}
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between gap-2">
-                    <AdminTextSmall className="flex-shrink-0">Type:</AdminTextSmall>
+                    <AdminTextSmall className="shrink-0">Type:</AdminTextSmall>
                     <AdminTextSmall className="font-medium text-white text-right">{formatType(device.type)}</AdminTextSmall>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <AdminTextSmall className="flex-shrink-0">IP Address:</AdminTextSmall>
+                    <AdminTextSmall className="shrink-0">IP Address:</AdminTextSmall>
                     <AdminTextSmall className="font-mono text-white text-right break-all">{device.ip}</AdminTextSmall>
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { TIMING } from '@/lib/constants';
 
 interface FPPConnectionState {
   isOnline: boolean;
@@ -18,8 +19,8 @@ interface FPPConnectionContextType extends FPPConnectionState {
 
 const FPPConnectionContext = createContext<FPPConnectionContextType | null>(null);
 
-// Exponential backoff: 5s, 10s, 30s, 60s, 120s, 300s (max 5 min)
-const RETRY_DELAYS = [5000, 10000, 30000, 60000, 120000, 300000];
+// Exponential backoff from centralized constants
+const RETRY_DELAYS = TIMING.RETRY_DELAYS;
 
 export function FPPConnectionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<FPPConnectionState>({

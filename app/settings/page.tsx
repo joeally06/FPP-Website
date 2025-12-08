@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { TIMING } from '@/lib/constants';
 import AdminNavigation from '@/components/AdminNavigation';
 import UpdateChecker from '@/components/UpdateChecker';
 import BannerSettings from '@/components/admin/BannerSettings';

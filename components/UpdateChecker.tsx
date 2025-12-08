@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { formatDateTime, getUtcNow } from '@/lib/time-utils';
 import { AdminH2, AdminH3, AdminH4, AdminText, AdminTextSmall } from './admin/Typography';
+import { TIMING } from '@/lib/constants';
 
 interface UpdateStatus {
   status: 'idle' | 'starting' | 'downloading' | 'backing_up' | 'stopping' | 'updating' | 'installing' | 'building' | 'restarting' | 'verifying' | 'completed' | 'error' | 'up_to_date';
@@ -40,16 +41,28 @@ export default function UpdateChecker() {
   }, [logOutput]);
 
   // Cleanup on unmount
+  // ✅ MEMORY LEAK FIX: Reset all refs and clear all timers/connections
   useEffect(() => {
     return () => {
+      // Reset installing state flag
+      installingRef.current = false;
+      
+      // Close EventSource connection
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
+      
+      // Clear countdown interval
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
       }
+      
+      // Clear reconnect timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
     };
   }, []);
@@ -263,17 +276,17 @@ export default function UpdateChecker() {
                 }, 1000);
               } else {
                 // Still in progress or unknown, try again
-                reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(attempt + 1), 5000);
+                reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(attempt + 1), TIMING.RECONNECT_DELAY);
               }
             })
             .catch(() => {
               // Server not responding yet, try again
-              reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(attempt + 1), 5000);
+              reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(attempt + 1), TIMING.RECONNECT_DELAY);
             });
         };
         
         // Wait 10 seconds before first reconnect attempt (server needs time to restart)
-        reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(1), 10000);
+        reconnectTimeoutRef.current = setTimeout(() => attemptReconnect(1), TIMING.RECONNECT_DELAY_LONG);
       } else {
         // Not installing, just close quietly
         eventSource.close();

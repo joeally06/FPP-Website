@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { TIMING } from '@/lib/constants';
 
 interface CircuitBreakerStats {
   circuit: {
@@ -108,7 +109,7 @@ export default function CircuitBreakerWidget() {
   useEffect(() => {
     if (session?.user?.role === 'admin') {
       fetchStats();
-      const interval = setInterval(fetchStats, 5000);
+      const interval = setInterval(fetchStats, TIMING.POLL_INTERVAL_FAST);
       return () => clearInterval(interval);
     }
   }, [session]);

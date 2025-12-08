@@ -22,6 +22,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import EventEmitter from 'events';
+import { CIRCUIT_BREAKER } from './constants';
 
 export enum CircuitState {
   CLOSED = 'CLOSED',       // Normal operation - FPP online
@@ -65,7 +66,7 @@ export class FPPCircuitBreaker extends EventEmitter {
     // SECURITY: Validate configuration values
     this.config = {
       failureThreshold: Math.max(1, Math.min(config?.failureThreshold ?? 3, 10)),
-      resetTimeout: Math.max(10000, Math.min(config?.resetTimeout ?? 60000, 300000)), // 10s-5min
+      resetTimeout: Math.max(CIRCUIT_BREAKER.MIN_RESET_TIMEOUT, Math.min(config?.resetTimeout ?? CIRCUIT_BREAKER.DEFAULT_RESET_TIMEOUT, CIRCUIT_BREAKER.MAX_RESET_TIMEOUT)),
       halfOpenMaxAttempts: Math.max(1, Math.min(config?.halfOpenMaxAttempts ?? 1, 5)),
       successThreshold: Math.max(1, Math.min(config?.successThreshold ?? 2, 5))
     };
