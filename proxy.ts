@@ -71,7 +71,11 @@ export async function proxy(request: NextRequest) {
           referer: referer || 'none',
           host: host || 'none',
           allowed: allowedOrigins.join(', '),
-          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+          // Security: Prioritize cf-connecting-ip to prevent IP spoofing
+          ip: request.headers.get('cf-connecting-ip') || 
+              request.headers.get('x-forwarded-for') || 
+              request.headers.get('x-real-ip') || 
+              'unknown'
         });
         
         return NextResponse.json(

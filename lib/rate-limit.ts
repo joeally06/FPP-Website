@@ -51,11 +51,23 @@ export function getSongRequestRateLimit(): number {
 
 /**
  * Extract client IP from request headers
+ * 
+ * Security: When behind Cloudflare, ONLY trust cf-connecting-ip header
+ * to prevent IP spoofing via forged x-forwarded-for headers.
+ * 
+ * For direct connections (development), fallback to standard headers.
  */
 export function getClientIP(request: Request): string {
   const headers = request.headers;
   
-  // Check common proxy headers
+  // Security: If behind Cloudflare, ONLY trust cf-connecting-ip
+  // This prevents IP spoofing via forged x-forwarded-for headers
+  const cfConnectingIp = headers.get('cf-connecting-ip');
+  if (cfConnectingIp) {
+    return cfConnectingIp;
+  }
+
+  // Fallback for non-Cloudflare deployments (development/direct connections)
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded) {
     return forwarded.split(',')[0].trim();
@@ -66,11 +78,6 @@ export function getClientIP(request: Request): string {
     return realIp;
   }
 
-  const cfConnectingIp = headers.get('cf-connecting-ip');
-  if (cfConnectingIp) {
-    return cfConnectingIp;
-  }
-
-  // Fallback to a placeholder (shouldn't happen with Cloudflare)
+  // Fallback to a placeholder
   return 'unknown';
 }

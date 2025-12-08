@@ -13,14 +13,20 @@ export function anonymizeIP(ip: string): string {
 }
 
 export function getClientIP(request: Request): string {
-  // Try to get real IP from headers (handles proxies/load balancers)
+  // Security: When behind Cloudflare, ONLY trust cf-connecting-ip
+  // This prevents IP spoofing via forged x-forwarded-for headers
+  const cfConnectingIP = request.headers.get('cf-connecting-ip');
+  if (cfConnectingIP) {
+    return cfConnectingIP;
+  }
+
+  // Fallback for non-Cloudflare deployments (development/direct connections)
   const forwarded = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
-  
   if (forwarded) {
     return forwarded.split(',')[0].trim();
   }
   
+  const realIP = request.headers.get('x-real-ip');
   if (realIP) {
     return realIP;
   }

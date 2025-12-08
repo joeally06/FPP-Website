@@ -84,8 +84,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user IP
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0] : 'unknown';
+    // Security: Prioritize cf-connecting-ip to prevent IP spoofing
+    const ip = request.headers.get('cf-connecting-ip') ||
+               request.headers.get('x-forwarded-for')?.split(',')[0] ||
+               'unknown';
 
     // Check location restrictions if user provided GPS location
     let distanceFromShow = null;
@@ -181,7 +183,10 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sequenceName = searchParams.get('sequence');
-    const userIp = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    // Security: Prioritize cf-connecting-ip to prevent IP spoofing
+    const userIp = request.headers.get('cf-connecting-ip') ||
+                   request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                   'unknown';
 
     if (sequenceName) {
       // SECURITY: Validate sequence name parameter

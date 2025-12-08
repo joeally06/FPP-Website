@@ -90,15 +90,23 @@ export function checkSantaRateLimit(email: string, ipAddress: string): RateLimit
  * @returns Client IP address string
  */
 export function getClientIP(request: Request): string {
-  // Check various headers for real IP (useful behind proxies/Cloudflare)
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
+  // Security: When behind Cloudflare, ONLY trust cf-connecting-ip
+  // This prevents IP spoofing via forged x-forwarded-for headers
   const cfConnectingIP = request.headers.get('cf-connecting-ip');
+  if (cfConnectingIP) {
+    return cfConnectingIP;
+  }
 
-  // Priority: Cloudflare IP > X-Real-IP > X-Forwarded-For > fallback
-  if (cfConnectingIP) return cfConnectingIP;
-  if (realIP) return realIP;
-  if (forwarded) return forwarded.split(',')[0].trim();
+  // Fallback for non-Cloudflare deployments (development/direct connections)
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+
+  const realIP = request.headers.get('x-real-ip');
+  if (realIP) {
+    return realIP;
+  }
   
   return 'unknown';
 }

@@ -54,7 +54,9 @@ export async function POST(request: NextRequest) {
       || 'Anonymous';
 
     // Get IP address for rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+    // Security: Prioritize cf-connecting-ip to prevent IP spoofing
+    const ip = request.headers.get('cf-connecting-ip') ||
+               request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                request.headers.get('x-real-ip') || 
                'unknown';
 
