@@ -88,7 +88,9 @@ export function validateAndSanitizeSantaLetter(
   }
 
   // 4. Letter Content Validation and Sanitization
-  const sanitizedLetter = DOMPurify.sanitize(letterContent.trim(), {
+  // SECURITY: Normalize Unicode to detect homoglyph attacks (e.g., Cyrillic 'а' vs Latin 'a')
+  const normalizedLetter = letterContent.trim().normalize('NFKC');
+  const sanitizedLetter = DOMPurify.sanitize(normalizedLetter, {
     ALLOWED_TAGS: [],
     ALLOWED_ATTR: [],
   });
@@ -99,9 +101,17 @@ export function validateAndSanitizeSantaLetter(
   if (sanitizedLetter.length > 2000) {
     errors.push('Letter must be less than 2000 characters');
   }
+  
+  // SECURITY: Detect excessive non-Latin characters (potential encoding attacks)
+  const nonLatinChars = (sanitizedLetter.match(/[^\u0000-\u007F\u0080-\u00FF\u0100-\u017F]/g) || []).length;
+  const nonLatinRatio = nonLatinChars / sanitizedLetter.length;
+  if (nonLatinRatio > 0.7 && sanitizedLetter.length > 50) {
+    errors.push('Letter contains excessive non-Latin characters');
+  }
 
   // 5. Detect Prompt Injection Attempts
   const promptInjectionPatterns = [
+    // English patterns
     /ignore\s+(previous|all|earlier|prior)\s+(instructions|prompts|commands)/i,
     /you\s+are\s+now/i,
     /system\s+prompt/i,
@@ -112,6 +122,57 @@ export function validateAndSanitizeSantaLetter(
     /roleplay/i,
     /disregard\s+(previous|all|above)/i,
     /override\s+(your|the)\s+(instructions|settings)/i,
+    /bypass\s+(your|the)\s+(instructions|rules|settings)/i,
+    /skip\s+(previous|all|above)/i,
+    /jailbreak/i,
+    /admin\s+mode/i,
+    /developer\s+mode/i,
+    /god\s+mode/i,
+    /root\s+access/i,
+    /sudo\s+mode/i,
+    
+    // Common instruction markers
+    /\[INST\]/i,
+    /<\|.*?\|>/,
+    /```.*?(ignore|bypass|override)/i,
+    /<system>/i,
+    /<\/system>/i,
+    
+    // Multilingual prompt injection attempts
+    // Spanish
+    /ignora\s+(las\s+)?instrucciones/i,
+    /olvidate\s+de\s+todo/i,
+    // French
+    /ignore\s+les\s+instructions/i,
+    /oublie\s+tout/i,
+    // German
+    /ignoriere\s+(die\s+)?anweisungen/i,
+    /vergiss\s+alles/i,
+    // Portuguese
+    /ignore\s+as\s+instruções/i,
+    /esqueça\s+tudo/i,
+    // Italian
+    /ignora\s+le\s+istruzioni/i,
+    /dimentica\s+tutto/i,
+    // Chinese (Simplified)
+    /忽略.*指令/,
+    /忘记.*指示/,
+    /新.*指令/,
+    // Russian
+    /игнорируй.*инструкции/i,
+    /забудь.*всё/i,
+    // Japanese
+    /指示.*無視/,
+    /忘れ.*すべて/,
+    // Korean
+    /지시.*무시/,
+    /모든.*잊어/,
+    
+    // Emotion manipulation attempts
+    /if\s+you\s+don'?t\s+do\s+this/i,
+    /or\s+else/i,
+    /you\s+must\s+do/i,
+    /i\s+command\s+you/i,
   ];
 
   for (const pattern of promptInjectionPatterns) {
