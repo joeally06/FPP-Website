@@ -207,6 +207,9 @@ function ThemeSettings() {
 function SantaLetterSettings() {
   const [santaEnabled, setSantaEnabled] = useState(true);
   const [dailyLimit, setDailyLimit] = useState(1);
+  const [ollamaModel, setOllamaModel] = useState('deepseek-r1:latest');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -221,6 +224,7 @@ function SantaLetterSettings() {
         if (data.settings) {
           setSantaEnabled(data.settings.santa_letters_enabled === 'true');
           setDailyLimit(parseInt(data.settings.santa_daily_limit || '1', 10));
+          setOllamaModel(data.settings.ollama_model || 'deepseek-r1:latest');
         }
       } catch (error) {
         console.error('Failed to load Santa settings:', error);
@@ -232,6 +236,28 @@ function SantaLetterSettings() {
     
     loadSettings();
   }, []);
+
+  // Fetch available Ollama models
+  const fetchAvailableModels = async () => {
+    try {
+      setLoadingModels(true);
+      const response = await fetch('/api/ollama/models');
+      const data = await response.json();
+      
+      if (data.models && Array.isArray(data.models)) {
+        setAvailableModels(data.models);
+        setMessage(`✅ Found ${data.models.length} installed models`);
+      } else {
+        setMessage('⚠️ Could not fetch models from Ollama server');
+      }
+    } catch (error) {
+      console.error('Failed to fetch Ollama models:', error);
+      setMessage('❌ Failed to connect to Ollama server');
+    } finally {
+      setLoadingModels(false);
+      setTimeout(() => setMessage(''), 5000);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -245,6 +271,7 @@ function SantaLetterSettings() {
           settings: {
             santa_letters_enabled: santaEnabled.toString(),
             santa_daily_limit: dailyLimit.toString(),
+            ollama_model: ollamaModel,
           },
         }),
       });
@@ -328,6 +355,48 @@ function SantaLetterSettings() {
           </div>
           <AdminTextSmall className="mt-1">
             Prevent spam while allowing genuine submissions
+          </AdminTextSmall>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <AdminLabel>Ollama AI Model</AdminLabel>
+            <button
+              onClick={fetchAvailableModels}
+              disabled={loadingModels}
+              className="px-3 py-1 text-sm bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded border border-blue-500/30 transition-all disabled:opacity-50"
+            >
+              {loadingModels ? '⏳ Loading...' : '🔄 Refresh Models'}
+            </button>
+          </div>
+          <select
+            value={ollamaModel}
+            onChange={(e) => setOllamaModel(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
+          >
+            {availableModels.length > 0 ? (
+              availableModels.map((model) => (
+                <option key={model} value={model} className="bg-gray-900 text-white">
+                  {model}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="deepseek-r1:latest" className="bg-gray-900 text-white">DeepSeek R1 (Latest) - Reasoning Model</option>
+                <option value="llama3.2" className="bg-gray-900 text-white">Llama 3.2 - Fast & Efficient</option>
+                <option value="llama3.1" className="bg-gray-900 text-white">Llama 3.1 - Balanced</option>
+                <option value="mistral" className="bg-gray-900 text-white">Mistral - General Purpose</option>
+                <option value="phi3" className="bg-gray-900 text-white">Phi-3 - Lightweight</option>
+                <option value="gemma2" className="bg-gray-900 text-white">Gemma 2 - Google's Model</option>
+                <option value="qwen2.5" className="bg-gray-900 text-white">Qwen 2.5 - Multilingual</option>
+              </>
+            )}
+          </select>
+          <AdminTextSmall className="mt-1">
+            {availableModels.length > 0 
+              ? `Showing ${availableModels.length} installed models from your Ollama server`
+              : 'Click "Refresh Models" to fetch installed models, or select from common models'
+            }
           </AdminTextSmall>
         </div>
 
