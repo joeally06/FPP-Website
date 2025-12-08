@@ -16,6 +16,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
   
+  // SECURITY: Validate slug for path traversal
+  if (slug.some(segment => segment.includes('..') || segment.includes('%2e%2e'))) {
+    console.error('[Security] Path traversal attempt blocked:', slug);
+    return NextResponse.json(
+      { error: 'Invalid path' },
+      { status: 400 }
+    );
+  }
+  
   const url = `${getFppUrl()}/api/${slug.map(encodeURIComponent).join('/')}`;
   try {
     const response = await fetch(url);
@@ -44,6 +53,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json(
       { error: 'Unauthorized - Admin access required' },
       { status: 401 }
+    );
+  }
+  
+  // SECURITY: Validate slug for path traversal
+  if (slug.some(segment => segment.includes('..') || segment.includes('%2e%2e'))) {
+    console.error('[Security] Path traversal attempt blocked:', slug);
+    return NextResponse.json(
+      { error: 'Invalid path' },
+      { status: 400 }
     );
   }
   
