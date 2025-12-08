@@ -25,6 +25,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     console.error('Error fetching models:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch 3D models' }, { status: 500 });
   }
 }

@@ -334,7 +334,7 @@ export async function POST() {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     console.error('[Queue] Unexpected error:', error);
-    return NextResponse.json({ error: 'Queue processing failed', details: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Queue processing failed' }, { status: 500 });
   }
 }
 

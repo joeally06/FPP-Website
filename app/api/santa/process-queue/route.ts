@@ -23,7 +23,17 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     // Security: Verify internal API key
-    const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
+    const internalKey = process.env.INTERNAL_API_KEY;
+    
+    // Prevent usage of default/empty key
+    if (!internalKey || internalKey === 'default-internal-key') {
+      console.error('[Queue Processor] SECURITY: INTERNAL_API_KEY not configured or using default value');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+    
     const providedKey = request.headers.get('x-internal-api-key');
     
     if (!providedKey || providedKey !== internalKey) {
