@@ -391,6 +391,15 @@ export default function JukeboxPage() {
       
       setCheckingLocation(false);
       console.log('[Location] Location fetched successfully');
+      
+      // If there's a pending action callback, call it immediately with the fresh location
+      // This prevents race condition where state hasn't updated yet
+      if (onSuccess) {
+        console.log('[Location] Calling pending action with fresh location');
+        await onSuccess(location);
+        return false; // Return false to prevent double-execution in caller
+      }
+      
       return true;
     } catch (error: any) {
       setCheckingLocation(false);
@@ -638,7 +647,7 @@ export default function JukeboxPage() {
     // The callback receives location directly when called from handleLocationGranted
     const hasLocation = await ensureLocationPermission((location?: UserLocation) => handleVote(sequenceName, voteType, location));
     if (!hasLocation) {
-      // Modal will be shown, pending action already set in ensureLocationPermission
+      // If false is returned, the action was already executed or modal will be shown
       return;
     }
 
@@ -828,7 +837,7 @@ export default function JukeboxPage() {
     // The callback receives location directly when called from handleLocationGranted
     const hasLocation = await ensureLocationPermission((location?: UserLocation) => submitRequest(capturedRequest, capturedName, location));
     if (!hasLocation) {
-      // Modal will be shown, pending action already set
+      // If false is returned, the action was already executed or modal will be shown
       return;
     }
 
@@ -840,7 +849,7 @@ export default function JukeboxPage() {
     // The callback receives location directly when called from handleLocationGranted
     const hasLocation = await ensureLocationPermission((location?: UserLocation) => requestPopularSequence(sequenceName, location));
     if (!hasLocation) {
-      // Modal will be shown, pending action already set
+      // If false is returned, the action was already executed or modal will be shown
       return;
     }
 
