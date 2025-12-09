@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminWithRateLimit } from '@/lib/auth-helpers';
 import Database from 'better-sqlite3';
 import path from 'path';
 
@@ -10,12 +10,12 @@ const dbPath = path.join(process.cwd(), 'votes.db');
  * Bulk refresh Spotify URLs for all Media Library entries missing URLs
  * ADMIN ONLY
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   let db: Database.Database | null = null;
 
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Require admin authentication with rate limiting
+    await requireAdminWithRateLimit(request);
 
     // Check if Spotify credentials exist
     if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {

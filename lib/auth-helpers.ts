@@ -1,12 +1,102 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { NextRequest } from 'next/server';
+import { getClientIP } from './rate-limit';
+
+// Admin rate limiting - in-memory store (resets on server restart)
+// Key: "email:ip", Value: { count, timestamp }
+const adminRateLimitStore = new Map<string, { count: number; timestamp: number }>();
+
+// Rate limit configuration for admin routes
+const ADMIN_RATE_LIMIT = {
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 100 // 100 requests per minute per admin
+};
 
 /**
- * Requires admin authentication for API routes
+ * Requires admin authentication with rate limiting for API routes
+ * 
+ * SECURITY: 
+ * - Re-verifies admin status from ADMIN_EMAILS environment variable
+ * - Does NOT trust the role claim in JWT
+ * - Rate limits admin requests to prevent DoS (100 req/min per admin)
+ * 
+ * @param request - NextRequest object for rate limiting (optional)
+ * @throws Error if user is not authenticated, not an admin, or rate limited
+ * @returns The authenticated session
+ */
+export async function requireAdminWithRateLimit(request?: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    throw new Error('Authentication required');
+  }
+  
+  if (!session.user?.email) {
+    throw new Error('User email not found in session');
+  }
+  
+  // SECURITY: Always verify admin status from environment variable
+  // NEVER trust the role claim from JWT as it could be tampered with
+  const adminEmails = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(email => email.trim().toLowerCase())
+    .filter(email => email.length > 0);
+  
+  const userEmail = session.user.email.toLowerCase();
+  const isAdmin = adminEmails.includes(userEmail);
+  
+  if (!isAdmin) {
+    console.error(`[Security] Unauthorized admin access attempt by: ${session.user.email}`);
+    throw new Error('Admin access required');
+  }
+  
+  // SECURITY: Rate limit admin requests
+  if (request) {
+    const ip = getClientIP(request);
+    const now = Date.now();
+    const key = `${userEmail}:${ip}`;
+    
+    // Clean up old entries (older than window)
+    for (const [entryKey, data] of adminRateLimitStore.entries()) {
+      if (now - data.timestamp > ADMIN_RATE_LIMIT.windowMs) {
+        adminRateLimitStore.delete(entryKey);
+      }
+    }
+    
+    // Get or create rate limit entry
+    const rateLimitData = adminRateLimitStore.get(key) || { count: 0, timestamp: now };
+    
+    // Check if within rate limit window
+    if (now - rateLimitData.timestamp < ADMIN_RATE_LIMIT.windowMs) {
+      if (rateLimitData.count >= ADMIN_RATE_LIMIT.maxRequests) {
+        console.warn(`[Security] Admin rate limit exceeded: ${userEmail} from ${ip}`);
+        throw new Error('Rate limit exceeded. Please slow down your requests.');
+      }
+      // Increment count
+      rateLimitData.count++;
+    } else {
+      // Reset window
+      rateLimitData.count = 1;
+      rateLimitData.timestamp = now;
+    }
+    
+    adminRateLimitStore.set(key, rateLimitData);
+  }
+  
+  // Log successful admin access for audit trail
+  console.log(`[Security] Admin access granted to: ${session.user.email}`);
+  
+  return session;
+}
+
+/**
+ * Requires admin authentication for API routes (legacy - no rate limiting)
  * 
  * SECURITY: Re-verifies admin status from ADMIN_EMAILS environment variable
  * Does NOT trust the role claim in JWT - verifies against server-side source of truth
  * 
+ * @deprecated Use requireAdminWithRateLimit() instead for better security
  * @throws Error if user is not authenticated or not an admin
  * @returns The authenticated session
  */

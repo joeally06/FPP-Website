@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireAdminWithRateLimit } from '@/lib/auth-helpers';
 import {
   getYouTubeVideoById,
   updateYouTubeVideo,
@@ -16,8 +16,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Require admin authentication with rate limiting
+    await requireAdminWithRateLimit(request);
 
     const { id } = await params;
     const videoId = parseInt(id);
@@ -66,8 +66,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Require admin authentication with rate limiting
+    await requireAdminWithRateLimit(request);
 
     const { id } = await params;
     const videoId = parseInt(id);
@@ -147,8 +147,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Require admin authentication with rate limiting
+    await requireAdminWithRateLimit(request);
 
     const { id } = await params;
     const videoId = parseInt(id);

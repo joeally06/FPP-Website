@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireAdminWithRateLimit } from '@/lib/auth-helpers';
 import { getVoteCounts } from '../../../../lib/database';
 
 /**
@@ -9,8 +9,8 @@ import { getVoteCounts } from '../../../../lib/database';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Require admin authentication with rate limiting
+    await requireAdminWithRateLimit(request);
 
     // Get vote data
     const voteCounts = getVoteCounts.all();

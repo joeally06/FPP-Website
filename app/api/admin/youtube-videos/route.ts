@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireAdminWithRateLimit } from '@/lib/auth-helpers';
 import {
   insertYouTubeVideo,
   getAllYouTubeVideos,
@@ -41,13 +41,13 @@ function isValidYouTubeId(id: string): boolean {
 
 /**
  * GET /api/admin/youtube-videos
- * Get all YouTube videos (admin management)
+ * Get all YouTube videos across all themes
  * ADMIN ONLY - Returns all videos regardless of theme
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Require admin authentication with rate limiting
+    await requireAdminWithRateLimit(request);
 
     const videos = getAllYouTubeVideos.all() as Array<{
       id: number;
@@ -87,8 +87,8 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Require admin authentication with rate limiting
+    await requireAdminWithRateLimit(request);
 
     const { title, youtubeUrl, url, description, theme } = await request.json();
 
