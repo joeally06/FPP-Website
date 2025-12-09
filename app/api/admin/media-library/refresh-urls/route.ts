@@ -81,8 +81,14 @@ export async function POST(request: NextRequest) {
       WHERE sequence_name = ?
     `);
 
-    // Process each entry
-    for (const entry of entries) {
+    // Batch processing with concurrency limit
+    const CONCURRENCY_LIMIT = 5;
+    const results: Array<{ entry: typeof entries[0]; url: string | null; error?: string }> = [];
+
+    /**
+     * Process a single entry - search Spotify and return URL
+     */
+    async function processEntry(entry: typeof entries[0]): Promise<{ entry: typeof entry; url: string | null; error?: string }> {
       try {
         let spotifyUrl: string | null = null;
 
@@ -90,41 +96,72 @@ export async function POST(request: NextRequest) {
         if (entry.spotify_track_id) {
           spotifyUrl = `https://open.spotify.com/track/${entry.spotify_track_id}`;
           console.log(`[Refresh] ✓ Constructed URL for ${entry.track_name}`);
-        } else {
-          // Search Spotify for the track
-          const searchQuery = `track:${entry.track_name} artist:${entry.artist_name}`;
-          const searchResponse = await fetch(
-            `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=1`,
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-              signal: AbortSignal.timeout(10000) // 10 second timeout
-            }
-          );
+          return { entry, url: spotifyUrl };
+        }
 
-          if (searchResponse.ok) {
-            const searchData = await searchResponse.json();
+        // Search Spotify for the track
+        const searchQuery = `track:${entry.track_name} artist:${entry.artist_name}`;
+        const searchResponse = await fetch(
+          `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=1`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            signal: AbortSignal.timeout(10000) // 10 second timeout
+          }
+        );
 
-            if (searchData.tracks.items.length > 0) {
-              spotifyUrl = searchData.tracks.items[0].external_urls?.spotify || null;
-              if (spotifyUrl) {
-                console.log(`[Refresh] ✓ Found URL for ${entry.track_name} - ${entry.artist_name}`);
-              }
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+
+          if (searchData.tracks.items.length > 0) {
+            spotifyUrl = searchData.tracks.items[0].external_urls?.spotify || null;
+            if (spotifyUrl) {
+              console.log(`[Refresh] ✓ Found URL for ${entry.track_name} - ${entry.artist_name}`);
             }
           }
-
-          // Rate limit: Wait 100ms between API requests
-          await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
-        // Update database if we found a URL
-        if (spotifyUrl) {
-          updateStmt.run(spotifyUrl, entry.sequence_name);
-          updated++;
-        }
+        return { entry, url: spotifyUrl };
       } catch (error) {
-        console.error(`[Refresh] ✗ Failed to update ${entry.sequence_name}:`, error);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[Refresh] ✗ Failed to process ${entry.sequence_name}:`, errorMsg);
+        return { entry, url: null, error: errorMsg };
+      }
+    }
+
+    /**
+     * Process entries in batches with concurrency limit
+     */
+    async function processBatch(batch: typeof entries): Promise<void> {
+      const promises = batch.map(entry => processEntry(entry));
+      const batchResults = await Promise.all(promises);
+      results.push(...batchResults);
+    }
+
+    // Split entries into batches and process with concurrency limit
+    for (let i = 0; i < entries.length; i += CONCURRENCY_LIMIT) {
+      const batch = entries.slice(i, i + CONCURRENCY_LIMIT);
+      await processBatch(batch);
+      
+      // Progress logging
+      console.log(`[Refresh] Processed ${Math.min(i + CONCURRENCY_LIMIT, entries.length)}/${entries.length} entries`);
+      
+      // Small delay between batches to respect rate limits (5 requests per batch)
+      if (i + CONCURRENCY_LIMIT < entries.length) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+
+    // Update database with all successful results
+    for (const result of results) {
+      if (result.url && !result.error) {
+        try {
+          updateStmt.run(result.url, result.entry.sequence_name);
+          updated++;
+        } catch (error) {
+          console.error(`[Refresh] ✗ Failed to update DB for ${result.entry.sequence_name}:`, error);
+        }
       }
     }
 
