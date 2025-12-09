@@ -416,6 +416,9 @@ db.exec(`
   
   CREATE INDEX IF NOT EXISTS idx_jukebox_status_created 
   ON jukebox_queue(status, created_at ASC);
+  
+  CREATE INDEX IF NOT EXISTS idx_jukebox_duplicate_check 
+  ON jukebox_queue(requester_ip, sequence_name, created_at DESC);
 `);
 
 // Sequence requests indexes
