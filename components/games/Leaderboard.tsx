@@ -136,7 +136,7 @@ export default function Leaderboard({
                   }`}
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="text-2xl font-bold flex-shrink-0 w-12 text-center">
+                    <div className="text-2xl font-bold shrink-0 w-12 text-center">
                       {getRankEmoji(entry.rank)}
                     </div>
                     <div className="flex-1 min-w-0">

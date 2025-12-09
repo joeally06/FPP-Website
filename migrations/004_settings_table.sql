@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Default settings for Santa Letters
 INSERT OR IGNORE INTO settings (key, value, description, category) VALUES
   ('santa_letters_enabled', 'true', 'Enable Santa letter submissions', 'santa'),
-  ('santa_daily_limit', '1', 'Maximum letters per IP address per day', 'santa');
+  ('santa_daily_limit', '1', 'Maximum letters per IP address per day', 'santa'),
+  ('ollama_model', 'deepseek-r1:latest', 'AI model for Santa letter replies', 'santa');
 
 -- Default settings for Device Monitoring
 INSERT OR IGNORE INTO settings (key, value, description, category) VALUES
