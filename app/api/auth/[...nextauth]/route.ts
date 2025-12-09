@@ -102,14 +102,77 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 
+/**
+ * Validates NEXTAUTH_SECRET entropy and strength
+ * @param secret - The secret to validate
+ * @returns Object with validation result
+ */
+function validateSecretEntropy(secret: string): { valid: boolean; reason: string } {
+  if (!secret || secret.length < 32) {
+    return { valid: false, reason: 'Secret must be at least 32 characters' };
+  }
+
+  // Allow pure hex secrets (from openssl rand -hex 32) - they're cryptographically secure
+  const isValidHex = /^[a-f0-9]{64,}$/i.test(secret);
+  if (isValidHex) {
+    return { valid: true, reason: 'Secret is valid (hex-encoded)' };
+  }
+
+  // Allow base64 secrets (from openssl rand -base64 32) - they're cryptographically secure
+  const isValidBase64 = /^[A-Za-z0-9+/]{43,}={0,2}$/.test(secret);
+  if (isValidBase64) {
+    return { valid: true, reason: 'Secret is valid (base64-encoded)' };
+  }
+
+  // For other secrets, check for entropy - require multiple character classes
+  const hasUppercase = /[A-Z]/.test(secret);
+  const hasLowercase = /[a-z]/.test(secret);
+  const hasNumbers = /[0-9]/.test(secret);
+  const hasSpecialChars = /[^A-Za-z0-9]/.test(secret);
+
+  const characterClasses = [hasUppercase, hasLowercase, hasNumbers, hasSpecialChars].filter(Boolean).length;
+
+  if (characterClasses < 3) {
+    return { 
+      valid: false, 
+      reason: 'Secret must contain at least 3 of: uppercase, lowercase, numbers, special characters' 
+    };
+  }
+
+  // Check for obvious weak patterns
+  const weakPatterns = [
+    /^(.)\1+$/, // All same character
+    /^(abc|123|password|secret|admin|test)/i, // Common weak prefixes
+  ];
+
+  for (const pattern of weakPatterns) {
+    if (pattern.test(secret)) {
+      return { valid: false, reason: 'Secret contains weak patterns (e.g., repetitive, dictionary words)' };
+    }
+  }
+
+  return { valid: true, reason: 'Secret is strong' };
+}
+
 // CRITICAL SECURITY: Refuse to start in production without NEXTAUTH_SECRET
 // Missing secret makes JWT tokens predictable and allows authentication bypass
-if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
-  throw new Error(
-    '[SECURITY] CRITICAL: NEXTAUTH_SECRET is REQUIRED in production. ' +
-    'Set a strong random secret (32+ characters) to prevent authentication bypass. ' +
-    'Generate one with: openssl rand -base64 32'
-  );
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.NEXTAUTH_SECRET) {
+    throw new Error(
+      '[SECURITY] CRITICAL: NEXTAUTH_SECRET is REQUIRED in production. ' +
+      'Set a strong random secret (32+ characters) to prevent authentication bypass. ' +
+      'Generate one with: openssl rand -base64 32'
+    );
+  }
+
+  // Validate secret entropy
+  const validation = validateSecretEntropy(process.env.NEXTAUTH_SECRET);
+  if (!validation.valid) {
+    throw new Error(
+      `[SECURITY] CRITICAL: NEXTAUTH_SECRET is too weak: ${validation.reason}. ` +
+      'Generate a strong secret with: openssl rand -base64 32'
+    );
+  }
 }
 
 export { handler as GET, handler as POST };
