@@ -3,6 +3,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import FacebookProvider from 'next-auth/providers/facebook';
 import { JWT } from 'next-auth/jwt';
 import { Session } from 'next-auth';
+import { hashEmail, createSafeUserId } from '@/lib/privacy-utils';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -49,9 +50,9 @@ export const authOptions: NextAuthOptions = {
       const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
       const isAdmin = adminEmails.includes(user.email!);
       
-      // Log all login attempts
+      // GDPR: Log login attempts with hashed email (no PII)
       console.log(`[AUTH] Login attempt:`, {
-        email: user.email,
+        userHash: createSafeUserId(user.email!, account?.provider),
         name: user.name,
         provider: account?.provider,
         isAdmin,
@@ -61,7 +62,7 @@ export const authOptions: NextAuthOptions = {
       // Log admin logins separately for security monitoring
       if (isAdmin) {
         console.log(`[SECURITY] Admin login:`, {
-          email: user.email,
+          userHash: hashEmail(user.email!),
           provider: account?.provider,
           timestamp: new Date().toISOString()
         });
@@ -77,10 +78,10 @@ export const authOptions: NextAuthOptions = {
         const isAdmin = adminEmails.includes(user.email!);
         token.role = isAdmin ? 'admin' : 'user';
         
-        // Warn about unauthorized admin access attempts
+        // GDPR: Log non-admin authentication attempts with hashed email
         if (!isAdmin) {
           console.warn(`[SECURITY] Non-admin user authenticated:`, {
-            email: user.email,
+            userHash: hashEmail(user.email!),
             timestamp: new Date().toISOString()
           });
         }

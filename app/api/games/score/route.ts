@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Database from 'better-sqlite3';
 import path from 'path';
 import { getUtcNow } from '@/lib/time-utils';
+import { getClientIP } from '@/lib/rate-limit';
+import { anonymizeIP } from '@/lib/privacy-utils';
 
 const dbPath = path.join(process.cwd(), 'votes.db');
 
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
 
       if (recentSubmissions && recentSubmissions.count >= SCORE_LIMIT_PER_HOUR) {
         db.close();
-        console.log(`[Game Score] Rate limit exceeded for IP: ${ip}`);
+        console.log(`[Game Score] Rate limit exceeded for IP: ${anonymizeIP(ip)}`);
         return NextResponse.json({ 
           error: 'Too many score submissions. Please try again later.' 
         }, { status: 429 });
@@ -132,7 +134,7 @@ export async function POST(request: NextRequest) {
         // If score increased by >10,000 points in <10 seconds, likely cheating
         if (timeDiff < 10000 && scoreDiff > 10000) {
           db.close();
-          console.log(`[Game Score] Suspicious score increase detected for IP: ${ip} (${scoreDiff} points in ${timeDiff}ms)`);
+          console.log(`[Game Score] Suspicious score increase detected for IP: ${anonymizeIP(ip)} (${scoreDiff} points in ${timeDiff}ms)`);
           return NextResponse.json({ 
             error: 'Suspicious score detected. Play fairly!' 
           }, { status: 400 });

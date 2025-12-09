@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import db from '@/lib/database';
+import { anonymizeIP } from '@/lib/privacy-utils';
 
 /**
  * GET /api/jukebox/users
@@ -92,7 +93,7 @@ export async function DELETE(request: Request) {
       AND created_at >= datetime('now', '-1 hour')
     `).run(userIp);
 
-    console.log(`[Jukebox Users] Cleared ${result.changes} requests for IP: ${userIp}`);
+    console.log(`[Jukebox Users] Cleared ${result.changes} requests for IP: ${anonymizeIP(userIp)}`);
 
     return NextResponse.json({
       success: true,
