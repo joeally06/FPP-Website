@@ -63,6 +63,7 @@ export async function POST() {
         ).toString('base64')}`,
       },
       body: 'grant_type=client_credentials',
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
 
     if (!authResponse.ok) {
@@ -98,6 +99,7 @@ export async function POST() {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
               },
+              signal: AbortSignal.timeout(10000) // 10 second timeout
             }
           );
 

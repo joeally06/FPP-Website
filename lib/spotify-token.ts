@@ -34,7 +34,8 @@ export async function getSpotifyToken(): Promise<string> {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
     },
-    body: 'grant_type=client_credentials'
+    body: 'grant_type=client_credentials',
+    signal: AbortSignal.timeout(10000) // 10 second timeout to prevent hangs
   });
 
   if (!response.ok) {
@@ -83,7 +84,8 @@ export async function searchSpotifyTrack(query: string) {
     {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     }
   );
 
@@ -202,7 +204,8 @@ export async function searchSpotify(query: string, limit: number = 10) {
     {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     }
   );
 

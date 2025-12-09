@@ -149,14 +149,34 @@ export function getDatabaseStats() {
   }
 }
 
+// Whitelist of allowed tables for optimization (SQL injection prevention)
+const ALLOWED_TABLES = [
+  'votes',
+  'jukebox_queue',
+  'santa_letters',
+  'visitors',
+  'sessions',
+  'page_views',
+  'device_status',
+  'spotify_metadata',
+  'settings'
+] as const;
+
 /**
  * Optimize specific table
  * @param tableName Name of the table to optimize
  */
 export function optimizeTable(tableName: string) {
   try {
+    // SECURITY: Validate table name against whitelist to prevent SQL injection
+    if (!ALLOWED_TABLES.includes(tableName as any)) {
+      console.error(`❌ Invalid table name: ${tableName}`);
+      return { success: false, error: new Error('Invalid table name') };
+    }
+
     console.log(`🔧 Optimizing table: ${tableName}...`);
-    db.exec(`ANALYZE ${tableName}`);
+    // Use double quotes to properly escape the identifier
+    db.exec(`ANALYZE "${tableName}"`);
     console.log(`✅ Table ${tableName} optimized`);
     return { success: true };
   } catch (error) {
