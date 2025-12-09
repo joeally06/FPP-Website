@@ -1172,6 +1172,10 @@ cat > .env.local << 'ENV_FILE'
 NEXTAUTH_URL=PLACEHOLDER_NEXTAUTH_URL
 NEXTAUTH_SECRET=PLACEHOLDER_NEXTAUTH_SECRET
 
+# Trusted Domains (comma-separated, for Cloudflare Tunnel or custom domains)
+# Example: yourdomain.com,www.yourdomain.com
+TRUSTED_DOMAINS=PLACEHOLDER_TRUSTED_DOMAINS
+
 # Google OAuth
 GOOGLE_CLIENT_ID=PLACEHOLDER_GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET=PLACEHOLDER_GOOGLE_CLIENT_SECRET
@@ -1207,9 +1211,17 @@ ENV_FILE
 # Generate secure internal API key
 INTERNAL_API_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 
+# Set TRUSTED_DOMAINS based on DOMAIN if using Cloudflare Tunnel
+if [ -n "$DOMAIN" ]; then
+    TRUSTED_DOMAINS="$DOMAIN,www.$DOMAIN"
+else
+    TRUSTED_DOMAINS=""
+fi
+
 # Replace placeholders
 sed -i.bak "s|PLACEHOLDER_NEXTAUTH_URL|$NEXTAUTH_URL|g" .env.local
 sed -i.bak "s|PLACEHOLDER_NEXTAUTH_SECRET|$NEXTAUTH_SECRET|g" .env.local
+sed -i.bak "s|PLACEHOLDER_TRUSTED_DOMAINS|$TRUSTED_DOMAINS|g" .env.local
 sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_ID|$GOOGLE_CLIENT_ID|g" .env.local
 sed -i.bak "s|PLACEHOLDER_GOOGLE_CLIENT_SECRET|$GOOGLE_CLIENT_SECRET|g" .env.local
 sed -i.bak "s|PLACEHOLDER_ADMIN_EMAIL|$ADMIN_EMAIL|g" .env.local

@@ -53,12 +53,15 @@ export async function proxy(request: NextRequest) {
         referer.startsWith(allowed.split(':').slice(0, -1).join(':'))
       );
 
-      // Check if this is a request proxied through Cloudflare Tunnel
-      // Cloudflare sets the correct Host header via httpHostHeader config
-      // even though origin might be localhost
+      // Check if this is a request proxied through Cloudflare Tunnel or other trusted proxy
+      // Use TRUSTED_DOMAINS environment variable (comma-separated) for reusability
+      const trustedDomains = (process.env.TRUSTED_DOMAINS || '')
+        .split(',')
+        .map(d => d.trim())
+        .filter(Boolean);
+      
       const isTrustedProxy = host && (
-        host === 'lewisfamilylightshow.com' || 
-        host === 'www.lewisfamilylightshow.com' ||
+        trustedDomains.includes(host) ||
         (process.env.NEXTAUTH_URL?.includes(host) && process.env.NEXTAUTH_URL?.startsWith('https://'))
       );
 

@@ -17,17 +17,6 @@ interface LeaderboardProps {
   currentScore?: number;
 }
 
-// XSS Protection: Sanitize player names before display
-function sanitizePlayerName(name: string): string {
-  return name
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/&/g, '&amp;')
-    .slice(0, 50); // Enforce max length
-}
-
 export default function Leaderboard({ 
   gameType = 'christmas_ornaments', 
   onClose,
@@ -151,11 +140,10 @@ export default function Leaderboard({
                       {getRankEmoji(entry.rank)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      {/* XSS Protection: Use dangerouslySetInnerHTML with sanitized content */}
-                      <div 
-                        className="text-white font-semibold truncate"
-                        dangerouslySetInnerHTML={{ __html: sanitizePlayerName(entry.playerName) }}
-                      />
+                      {/* XSS Protection: React automatically escapes content - no need for dangerouslySetInnerHTML */}
+                      <div className="text-white font-semibold truncate">
+                        {entry.playerName.slice(0, 50)}
+                      </div>
                       <div className="text-white/50 text-sm">
                         {entry.date}
                       </div>

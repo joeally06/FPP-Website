@@ -101,9 +101,14 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 
-// Warn if the NEXTAUTH_SECRET isn't present in production
+// CRITICAL SECURITY: Refuse to start in production without NEXTAUTH_SECRET
+// Missing secret makes JWT tokens predictable and allows authentication bypass
 if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
-  console.warn('[SECURITY] NEXTAUTH_SECRET is not set in production - please set a strong secret');
+  throw new Error(
+    '[SECURITY] CRITICAL: NEXTAUTH_SECRET is REQUIRED in production. ' +
+    'Set a strong random secret (32+ characters) to prevent authentication bypass. ' +
+    'Generate one with: openssl rand -base64 32'
+  );
 }
 
 export { handler as GET, handler as POST };

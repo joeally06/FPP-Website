@@ -35,12 +35,15 @@ export function getSongRequestRateLimit(): number {
       }
     }
   } catch (error) {
-    console.error('[RATE LIMIT] Error reading jukebox_rate_limit setting:', error);
+    console.error('[RATE LIMIT] CRITICAL: Error reading jukebox_rate_limit setting:', error);
     // Try to reconnect on next call
     if (sharedReadOnlyDb) {
       try {
         sharedReadOnlyDb.close();
-      } catch {}
+      } catch (closeError) {
+        // Log close errors but don't throw - we're already in error recovery
+        console.error('[RATE LIMIT] WARNING: Failed to close database connection during error recovery:', closeError);
+      }
       sharedReadOnlyDb = null;
     }
   }
