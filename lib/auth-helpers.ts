@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextRequest } from 'next/server';
 import { getClientIP } from './rate-limit';
+import { RATE_LIMIT } from './constants';
 
 // Admin rate limiting - in-memory store (resets on server restart)
 // Key: "email:ip", Value: { count, timestamp }
@@ -9,8 +10,8 @@ const adminRateLimitStore = new Map<string, { count: number; timestamp: number }
 
 // Rate limit configuration for admin routes
 const ADMIN_RATE_LIMIT = {
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 100 // 100 requests per minute per admin
+  windowMs: RATE_LIMIT.ADMIN_WINDOW_MS, // 1 minute
+  maxRequests: RATE_LIMIT.ADMIN_MAX_REQUESTS // 100 requests per minute per admin
 };
 
 /**

@@ -4,6 +4,7 @@ import FacebookProvider from 'next-auth/providers/facebook';
 import { JWT } from 'next-auth/jwt';
 import { Session } from 'next-auth';
 import { hashEmail, createSafeUserId } from '@/lib/privacy-utils';
+import { SESSION } from '@/lib/constants';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -18,8 +19,8 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 60, // 30 minutes
-    updateAge: 5 * 60, // Refresh every 5 minutes of activity
+    maxAge: SESSION.MAX_AGE_SECONDS, // 30 minutes
+    updateAge: SESSION.UPDATE_AGE_SECONDS, // Refresh every 5 minutes of activity
   },
   // Cookie configuration - separate settings for production (HTTPS) and development (HTTP)
   cookies: process.env.NODE_ENV === 'production' ? {

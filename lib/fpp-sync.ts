@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { getFppUrl } from './fpp-config';
+import { TIMING } from './constants';
 
 const dbPath = path.join(process.cwd(), 'votes.db');
 
@@ -39,7 +40,7 @@ export async function syncFppData(): Promise<SyncResult> {
     console.log('[FPP Sync] Fetching playlists from', `${fppUrl}/api/playlists`);
     const playlistsRes = await fetch(`${fppUrl}/api/playlists`, {
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(15000) // 15 seconds for FPP to respond
+      signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_VERY_LONG) // 15 seconds for FPP to respond
     });
 
     if (!playlistsRes.ok) {
@@ -56,7 +57,7 @@ export async function syncFppData(): Promise<SyncResult> {
       try {
         const playlistRes = await fetch(`${fppUrl}/api/playlist/${encodeURIComponent(name)}`, {
           headers: { 'Accept': 'application/json' },
-          signal: AbortSignal.timeout(10000)
+          signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_LONG)
         });
         
         if (playlistRes.ok) {
@@ -78,7 +79,7 @@ export async function syncFppData(): Promise<SyncResult> {
     console.log('[FPP Sync] Fetching sequences from', `${fppUrl}/api/sequence`);
     const sequencesRes = await fetch(`${fppUrl}/api/sequence`, {
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(15000) // 15 seconds for FPP to respond
+      signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_VERY_LONG) // 15 seconds for FPP to respond
     });
 
     if (!sequencesRes.ok) {

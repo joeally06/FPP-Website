@@ -5,6 +5,8 @@
  * Used by Media Library and metadata APIs
  */
 
+import { TIMING } from './constants';
+
 interface SpotifyTrackResult {
   spotify_url: string | null;
   spotify_id: string | null;
@@ -30,7 +32,7 @@ async function getSpotifyAccessToken(): Promise<string | null> {
         ).toString('base64')}`,
       },
       body: 'grant_type=client_credentials',
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+      signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_LONG) // 10 second timeout
     });
 
     if (!authResponse.ok) {
@@ -73,7 +75,7 @@ export async function fetchSpotifyTrackInfo(
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-        signal: AbortSignal.timeout(10000) // 10 second timeout
+        signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_LONG) // 10 second timeout
       }
     );
 

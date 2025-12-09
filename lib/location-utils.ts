@@ -3,6 +3,8 @@
  * Uses browser GPS for accurate distance checking
  */
 
+import { TIMING } from './constants';
+
 export interface UserLocation {
   lat: number;
   lng: number;
@@ -153,7 +155,7 @@ export async function getAddressFromCoords(lat: number, lng: number): Promise<st
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
     const response = await fetch(url, {
       headers: { 'User-Agent': 'FPP-Control-Center' },
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(TIMING.LOCATION_TIMEOUT)
     });
     
     if (!response.ok) return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;

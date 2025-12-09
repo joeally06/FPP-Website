@@ -17,6 +17,9 @@ export const TIMING = {
   // Timeouts
   FETCH_TIMEOUT: 5000,             // 5 seconds - HTTP request timeout
   FETCH_TIMEOUT_LONG: 10000,       // 10 seconds - Longer HTTP timeout
+  FETCH_TIMEOUT_VERY_LONG: 15000,  // 15 seconds - Very long timeout (FPP operations)
+  VISITOR_TRACKING_TIMEOUT: 2000,  // 2 seconds - Visitor tracking timeout
+  LOCATION_TIMEOUT: 3000,          // 3 seconds - Location lookup timeout
   CIRCUIT_BREAKER_RESET: 60000,    // 60 seconds - Circuit breaker reset timeout
   
   // UI feedback
@@ -57,6 +60,8 @@ export const RATE_LIMIT = {
   DEFAULT_SONG_REQUESTS: 3,   // Default song requests per hour
   MIN_SONG_REQUESTS: 1,       // Minimum allowed
   MAX_SONG_REQUESTS: 10,      // Maximum allowed
+  ADMIN_WINDOW_MS: 60 * 1000, // 1 minute window for admin rate limiting
+  ADMIN_MAX_REQUESTS: 100,    // Maximum admin requests per minute
 } as const;
 
 // ========================================
@@ -65,6 +70,15 @@ export const RATE_LIMIT = {
 
 export const TOKEN = {
   SPOTIFY_REFRESH_BUFFER: 60000, // Refresh 1 minute early
+} as const;
+
+// ========================================
+// SESSION CONFIGURATION
+// ========================================
+
+export const SESSION = {
+  MAX_AGE_SECONDS: 30 * 60,  // 30 minutes session duration
+  UPDATE_AGE_SECONDS: 5 * 60, // Refresh every 5 minutes of activity
 } as const;
 
 // ========================================

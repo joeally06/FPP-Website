@@ -5,6 +5,8 @@
  * Uses Client Credentials flow for server-to-server authentication.
  */
 
+import { TIMING } from './constants';
+
 let spotifyAccessToken: string | null = null;
 let tokenExpiry: number = 0;
 
@@ -35,7 +37,7 @@ export async function getSpotifyToken(): Promise<string> {
       'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
     },
     body: 'grant_type=client_credentials',
-    signal: AbortSignal.timeout(10000) // 10 second timeout to prevent hangs
+    signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_LONG) // 10 second timeout to prevent hangs
   });
 
   if (!response.ok) {
@@ -85,7 +87,7 @@ export async function searchSpotifyTrack(query: string) {
       headers: {
         'Authorization': `Bearer ${token}`
       },
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+      signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_LONG) // 10 second timeout
     }
   );
 
@@ -205,7 +207,7 @@ export async function searchSpotify(query: string, limit: number = 10) {
       headers: {
         'Authorization': `Bearer ${token}`
       },
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+      signal: AbortSignal.timeout(TIMING.FETCH_TIMEOUT_LONG) // 10 second timeout
     }
   );
 

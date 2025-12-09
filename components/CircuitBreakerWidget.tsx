@@ -101,7 +101,7 @@ export default function CircuitBreakerWidget() {
       setMessage(`❌ Error: ${error.message}`);
     } finally {
       setResetting(false);
-      setTimeout(() => setMessage(''), 5000);
+      setTimeout(() => setMessage(''), TIMING.MESSAGE_DISPLAY_DURATION);
     }
   };
 
