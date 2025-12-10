@@ -40,8 +40,28 @@ fi
 echo "✅ Application built successfully"
 echo ""
 
-# Step 2.5: Verify .env.local security configuration
-echo "🔐 Step 2.5: Verifying security configuration..."
+# Step 2.5: Run database migrations
+echo "🗄️  Step 2.5: Running database migrations..."
+
+if [ -f "scripts/migrate-database.js" ]; then
+    node scripts/migrate-database.js
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ Database migrations failed"
+        echo "Please check the error above and restore from backup if needed"
+        exit 1
+    fi
+    
+    echo "✅ Database migrations completed"
+else
+    echo "⚠️  Migration script not found (scripts/migrate-database.js)"
+    echo "Skipping database migrations"
+fi
+
+echo ""
+
+# Step 3: Verify .env.local security configuration
+echo "🔐 Step 3: Verifying security configuration..."
 
 if [ ! -f ".env.local" ]; then
     echo "❌ Error: .env.local file not found"
@@ -80,7 +100,7 @@ fi
 
 echo ""
 
-# Step 3: Check if PM2 is installed
+# Step 4: Check if PM2 is installed
 if ! command -v pm2 &> /dev/null; then
     echo "📦 Step 4: Installing PM2 globally..."
     npm install -g pm2
@@ -98,7 +118,7 @@ fi
 
 echo ""
 
-# Step 4: Cloudflare Tunnel setup (optional)
+# Step 5: Cloudflare Tunnel setup (optional)
 echo "☁️  Step 5: Cloudflare Tunnel setup (optional)"
 read -p "Do you want to set up Cloudflare Tunnel now? (y/n) " -n 1 -r
 echo ""
@@ -117,7 +137,7 @@ fi
 
 echo ""
 
-# Step 5: Start application with PM2
+# Step 6: Start application with PM2
 echo "🚀 Step 6: Starting application with PM2..."
 
 # Stop existing instance if running
@@ -135,7 +155,7 @@ fi
 echo "✅ Application started"
 echo ""
 
-# Step 6: Save PM2 configuration
+# Step 7: Save PM2 configuration
 echo "💾 Step 7: Saving PM2 configuration..."
 pm2 save
 
