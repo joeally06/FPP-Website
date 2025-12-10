@@ -254,6 +254,22 @@ else
     exit 1
 fi
 
+# Phase 6.5: Run database migrations
+log "🗄️  Phase 6.5: Running database migrations..."
+write_status "MIGRATING"
+
+if [ -f "$PROJECT_DIR/scripts/migrate-database.js" ]; then
+    if node "$PROJECT_DIR/scripts/migrate-database.js" >> "$LOG_FILE" 2>&1; then
+        log "✅ Database migrations completed"
+    else
+        log "❌ Database migrations failed"
+        log "⚠️  Continuing anyway - check logs/update.log for details"
+        # Don't exit - migrations might fail if already applied
+    fi
+else
+    log "ℹ️  No migration script found, skipping"
+fi
+
 # Phase 7: Restart all services
 log "🔄 Phase 7: Restarting all services..."
 write_status "RESTARTING"
