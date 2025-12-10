@@ -83,24 +83,33 @@ export function setSetting(key: string, value: string): void {
 
 /**
  * Update multiple settings at once (transactional)
+ * Only updates the value and updated_at, preserving category and description
  */
 export function updateSettings(settings: Record<string, string>): void {
   try {
     console.log('[Settings] Updating settings:', JSON.stringify(settings, null, 2));
     
+    // Use UPDATE instead of INSERT...ON CONFLICT to preserve category and description
     const stmt = db.prepare(`
-      INSERT INTO settings (key, value, updated_at)
-      VALUES (?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(key) DO UPDATE SET
-        value = excluded.value,
-        updated_at = CURRENT_TIMESTAMP
+      UPDATE settings 
+      SET value = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE key = ?
     `);
 
     const transaction = db.transaction((entries: [string, string][]) => {
       for (const [key, value] of entries) {
         console.log(`[Settings] Writing: ${key} = ${value}`);
-        const result = stmt.run(key, value);
+        const result = stmt.run(value, key);
         console.log(`[Settings] Changes: ${result.changes}`);
+        
+        // If setting doesn't exist, create it with default category 'general'
+        if (result.changes === 0) {
+          console.log(`[Settings] Creating new setting: ${key}`);
+          db.prepare(`
+            INSERT INTO settings (key, value, category, updated_at)
+            VALUES (?, ?, 'general', CURRENT_TIMESTAMP)
+          `).run(key, value);
+        }
       }
     });
 

@@ -4,8 +4,19 @@ import { requireAdmin } from '@/lib/auth-helpers';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Format bytes to human-readable size
+ */
+function formatSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+}
+
+/**
  * GET /api/ollama/models
- * Fetch available models from Ollama server
+ * Fetch available models from Ollama server with metadata
  * ADMIN ONLY
  */
 export async function GET() {
@@ -33,11 +44,21 @@ export async function GET() {
 
     const data = await response.json();
     
-    // Extract model names from response
-    // Ollama /api/tags returns { models: [{ name: "model:tag", ... }, ...] }
-    const models = data.models?.map((model: any) => model.name) || [];
+    // Extract model names and metadata from response
+    // Ollama /api/tags returns { models: [{ name, model, modified_at, size, digest, details }, ...] }
+    const models = data.models?.map((model: any) => ({
+      name: model.name,
+      size: model.size,
+      sizeFormatted: formatSize(model.size || 0),
+      sizeGB: model.size ? (model.size / (1024 * 1024 * 1024)).toFixed(2) : '0',
+      modifiedAt: model.modified_at,
+      digest: model.digest,
+      family: model.details?.family || 'unknown',
+      format: model.details?.format || 'unknown',
+      parameterSize: model.details?.parameter_size || 'unknown',
+    })) || [];
     
-    console.log('[Ollama] Found models:', models);
+    console.log('[Ollama] Found models:', models.length);
 
     return NextResponse.json({
       success: true,

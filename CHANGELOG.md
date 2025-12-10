@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-12-10
+
+### Santa Letters - Ollama Model Management 🎅🤖
+
+#### 🎉 Added
+
+- **Model Installation from UI**
+  - Install Ollama models directly from settings page
+  - New "Install New Model" section with one-click model pulling
+  - Link to ollama.com/library to browse available models
+  - Progress feedback during model downloads
+
+- **Enhanced Model Selection**
+  - Models now display with size information in dropdown
+  - Real-time model metadata (size, family, parameters)
+  - "Refresh Models" button to fetch latest installed models
+
+- **Performance Warnings**
+  - Color-coded warnings based on model size (green/blue/yellow/red)
+  - Special warning for large models like DeepSeek R1 (47GB)
+  - Estimated response times displayed for each model
+  - RAM requirement recommendations
+  - Confirmation modal for models >10GB
+
+- **Model Validation**
+  - Automatic validation that selected model exists before use
+  - Fallback to llama3.2:latest if selected model unavailable
+  - Error handling with graceful degradation
+
+#### 🔧 Changed
+
+- **Default Model**: Changed from deepseek-r1:latest to llama3.2:latest (lighter, faster)
+- **Model Display**: Dropdown now shows model size alongside name
+- **Fallback Options**: Updated hardcoded fallback list with :latest tags
+
+#### 🔒 Security
+
+- **Input Sanitization**: Model names validated with strict regex (prevents command injection)
+- **Admin Authentication**: All model management endpoints require admin access
+- **Length Limits**: Model names capped at 100 characters
+- **Path Traversal Prevention**: Only alphanumeric, dots, colons, hyphens allowed
+
+#### 🐛 Fixed
+
+- **Settings Persistence**: Fixed updateSettings() to preserve category column
+- Models now correctly save and load from database with proper category
+- Model selection persists across page reloads
+
+#### 📁 New Files
+
+- `app/api/ollama/pull/route.ts` - Model installation endpoint
+- `lib/model-warnings.ts` - Warning system for model sizes
+
+#### 🔄 Modified Files
+
+- `app/settings/page.tsx` - Added model installation UI and warnings
+- `lib/ollama-client.ts` - Added model availability validation
+- `app/api/ollama/models/route.ts` - Enhanced with metadata
+- `lib/settings.ts` - Fixed category preservation on update
+
+---
+
 ## [1.5.0] - 2025-12-04
 
 ### Lazy Location Permission Flow 📍
