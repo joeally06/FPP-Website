@@ -214,6 +214,50 @@ function SantaLetterSettings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Fetch available Ollama models
+  const fetchAvailableModels = async () => {
+    try {
+      setLoadingModels(true);
+      const response = await fetch('/api/ollama/models');
+      const data = await response.json();
+      
+      if (data.models && Array.isArray(data.models)) {
+        setAvailableModels(data.models);
+        // Don't show message on initial load, only on manual refresh
+      } else {
+        // Silently fail on initial load
+        console.log('Could not fetch models from Ollama server');
+      }
+    } catch (error) {
+      console.error('Failed to fetch Ollama models:', error);
+      // Silently fail on initial load
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  // Manual refresh with user feedback
+  const handleRefreshModels = async () => {
+    try {
+      setLoadingModels(true);
+      const response = await fetch('/api/ollama/models');
+      const data = await response.json();
+      
+      if (data.models && Array.isArray(data.models)) {
+        setAvailableModels(data.models);
+        setMessage(`✅ Found ${data.models.length} installed models`);
+      } else {
+        setMessage('⚠️ Could not fetch models from Ollama server');
+      }
+    } catch (error) {
+      console.error('Failed to fetch Ollama models:', error);
+      setMessage('❌ Failed to connect to Ollama server');
+    } finally {
+      setLoadingModels(false);
+      setTimeout(() => setMessage(''), 5000);
+    }
+  };
+
   // Load settings on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -235,29 +279,9 @@ function SantaLetterSettings() {
     };
     
     loadSettings();
+    // Also fetch available models on mount
+    fetchAvailableModels();
   }, []);
-
-  // Fetch available Ollama models
-  const fetchAvailableModels = async () => {
-    try {
-      setLoadingModels(true);
-      const response = await fetch('/api/ollama/models');
-      const data = await response.json();
-      
-      if (data.models && Array.isArray(data.models)) {
-        setAvailableModels(data.models);
-        setMessage(`✅ Found ${data.models.length} installed models`);
-      } else {
-        setMessage('⚠️ Could not fetch models from Ollama server');
-      }
-    } catch (error) {
-      console.error('Failed to fetch Ollama models:', error);
-      setMessage('❌ Failed to connect to Ollama server');
-    } finally {
-      setLoadingModels(false);
-      setTimeout(() => setMessage(''), 5000);
-    }
-  };
 
   const handleSave = async () => {
     try {
@@ -362,7 +386,7 @@ function SantaLetterSettings() {
           <div className="flex items-center justify-between mb-2">
             <AdminLabel>Ollama AI Model</AdminLabel>
             <button
-              onClick={fetchAvailableModels}
+              onClick={handleRefreshModels}
               disabled={loadingModels}
               className="px-3 py-1 text-sm bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded border border-blue-500/30 transition-all disabled:opacity-50"
             >

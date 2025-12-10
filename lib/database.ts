@@ -553,7 +553,7 @@ console.log('✅ All database indexes created successfully');
 // Ensure ollama_model setting exists (for Santa letter AI replies)
 db.exec(`
   INSERT OR IGNORE INTO settings (key, value, description, category) 
-  VALUES ('ollama_model', 'deepseek-r1:latest', 'AI model for Santa letter replies', 'santa');
+  VALUES ('ollama_model', 'llama3.2:latest', 'AI model for Santa letter replies', 'santa');
 `);
 
 // Voting prepared statements

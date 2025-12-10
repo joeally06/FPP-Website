@@ -86,6 +86,8 @@ export function setSetting(key: string, value: string): void {
  */
 export function updateSettings(settings: Record<string, string>): void {
   try {
+    console.log('[Settings] Updating settings:', JSON.stringify(settings, null, 2));
+    
     const stmt = db.prepare(`
       INSERT INTO settings (key, value, updated_at)
       VALUES (?, ?, CURRENT_TIMESTAMP)
@@ -96,11 +98,14 @@ export function updateSettings(settings: Record<string, string>): void {
 
     const transaction = db.transaction((entries: [string, string][]) => {
       for (const [key, value] of entries) {
-        stmt.run(key, value);
+        console.log(`[Settings] Writing: ${key} = ${value}`);
+        const result = stmt.run(key, value);
+        console.log(`[Settings] Changes: ${result.changes}`);
       }
     });
 
     transaction(Object.entries(settings));
+    console.log('[Settings] ✅ Settings updated successfully');
   } catch (error) {
     console.error('Error updating settings:', error);
     throw error;
