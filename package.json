@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@types/luxon": "^3.7.1",
-    "@types/nodemailer": "^7.0.3",
+    "@types/nodemailer": "^7.0.4",
     "better-sqlite3": "^12.4.1",
     "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
@@ -76,7 +76,7 @@
     "concurrently": "^9.2.1",
     "esbuild-register": "^3.6.0",
     "eslint": "^9",
-    "eslint-config-next": "16.0.0",
+    "eslint-config-next": "16.0.10",
     "node-fetch": "^2.7.0",
     "tailwindcss": "^4",
     "typescript": "^5"
